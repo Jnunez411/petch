@@ -1,4 +1,4 @@
-package project.petch.petch_api.Entity;
+package project.petch.petch_api.dto.user;
 
   public enum UserType {
       ADOPTER,  // Regular users looking to adopt pets

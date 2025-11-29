@@ -5,10 +5,13 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import project.petch.petch_api.Entity.User;
-import project.petch.petch_api.dto.AuthenticationRequest;
-import project.petch.petch_api.dto.AuthenticationResponse;
-import project.petch.petch_api.dto.RegisterRequest;
+
+import project.petch.petch_api.dto.auth.AuthenticationRequest;
+import project.petch.petch_api.dto.auth.AuthenticationResponse;
+import project.petch.petch_api.dto.auth.RegisterRequest;
+import project.petch.petch_api.exception.UserAlreadyExistsException;
+import project.petch.petch_api.exception.UserNotFoundException;
+import project.petch.petch_api.models.User;
 import project.petch.petch_api.repositories.UserRepository;
 
 @Service
@@ -27,18 +30,18 @@ public class AuthenticationService {
      */
     public AuthenticationResponse register(RegisterRequest request) {
         // Check if user already exists
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
+        if (userRepository.existsByEmail(request.email())) {
+            throw new UserAlreadyExistsException("Email already registered: " + request.email());
         }
 
         // Create new user
         var user = new User();
-        user.setEmail(request.getEmail());
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setPhoneNumber(request.getPhoneNumber());
-        user.setUserType(request.getUserType());
+        user.setEmail(request.email());
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setFirstName(request.firstName());
+        user.setLastName(request.lastName());
+        user.setPhoneNumber(request.phoneNumber());
+        user.setUserType(request.userType());
 
         // Save user to database
         userRepository.save(user);
@@ -46,14 +49,10 @@ public class AuthenticationService {
         // Generate JWT token
         var jwtToken = jwtService.generateToken(user);
 
+        AuthenticationResponse response = new AuthenticationResponse(jwtToken, user.getEmail(), user.getFirstName(), user.getLastName(), user.getUserType().name());
+        
         // Return response
-        return AuthenticationResponse.builder()
-                .token(jwtToken)
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .userType(user.getUserType().name())
-                .build();
+        return response;
     }
 
     /**
@@ -72,7 +71,7 @@ public class AuthenticationService {
 
         // Fetch user from database
         var user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + request.email()));
 
         // Generate JWT token
         var jwtToken = jwtService.generateToken(user);

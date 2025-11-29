@@ -4,15 +4,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import project.petch.petch_api.dto.AuthenticationRequest;
-import project.petch.petch_api.dto.AuthenticationResponse;
-import project.petch.petch_api.dto.RegisterRequest;
+
+import project.petch.petch_api.dto.auth.AuthenticationRequest;
+import project.petch.petch_api.dto.auth.AuthenticationResponse;
+import project.petch.petch_api.dto.auth.RegisterRequest;
 import project.petch.petch_api.service.AuthenticationService;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*") // Allow requests from React frontend
 public class AuthenticationController {
 
     private final AuthenticationService authenticationService;

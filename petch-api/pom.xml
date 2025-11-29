@@ -94,6 +94,11 @@
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
+			<groupId>io.github.cdimascio</groupId>
+			<artifactId>dotenv-java</artifactId>
+			<version>3.0.0</version>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
@@ -128,6 +133,17 @@
 							<artifactId>lombok</artifactId>
 						</path>
 					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<environmentVariables>
+						<JDBC_POSTGRES_URI>${env.JDBC_POSTGRES_URI}</JDBC_POSTGRES_URI>
+						<JWT_SECRET>${env.JWT_SECRET}</JWT_SECRET>
+						<CORS_ALLOWED_ORIGINS>${env.CORS_ALLOWED_ORIGINS}</CORS_ALLOWED_ORIGINS>
+					</environmentVariables>
 				</configuration>
 			</plugin>
 			<plugin>

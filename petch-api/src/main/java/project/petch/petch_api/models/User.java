@@ -1,4 +1,4 @@
-package project.petch.petch_api.Entity;
+package project.petch.petch_api.models;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -21,6 +21,7 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import project.petch.petch_api.dto.user.UserType;
 
 @Entity
 @Table(name = "users")

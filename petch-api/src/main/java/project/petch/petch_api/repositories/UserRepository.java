@@ -2,7 +2,8 @@ package project.petch.petch_api.repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import project.petch.petch_api.Entity.User;
+
+import project.petch.petch_api.models.User;
 
 import java.util.Optional;
 

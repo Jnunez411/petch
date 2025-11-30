@@ -25,14 +25,14 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="dark bg-background text-foreground">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -51,10 +51,10 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error";
+    message = error.status === 404 ? "404 - Page Not Found" : `Error ${error.status}`;
     details =
       error.status === 404
-        ? "The requested page could not be found."
+        ? "The page you're looking for doesn't exist."
         : error.statusText || details;
   } else if (import.meta.env.DEV && error && error instanceof Error) {
     details = error.message;
@@ -62,14 +62,23 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
-      {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
-          <code>{stack}</code>
-        </pre>
-      )}
+    <main className="min-h-screen flex items-center justify-center">
+      <div className="text-center space-y-4 p-8">
+        <span className="text-6xl">🐾</span>
+        <h1 className="text-4xl font-bold">{message}</h1>
+        <p className="text-muted-foreground max-w-md">{details}</p>
+        <a 
+          href="/" 
+          className="inline-block mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+        >
+          Go Home
+        </a>
+        {stack && (
+          <pre className="mt-8 w-full p-4 overflow-x-auto text-left bg-muted rounded-md text-xs">
+            <code>{stack}</code>
+          </pre>
+        )}
+      </div>
     </main>
   );
 }

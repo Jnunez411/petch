@@ -1,16 +1,14 @@
-import { useLoaderData } from 'react-router';
+import { useLoaderData, Link, Form } from 'react-router';
 import type { Route } from './+types/home';
-import { getUserFromSession } from '../../services/auth';
-import type { User } from '../../types/auth';
-import { Layout } from '../../components/Layout';
-import { Card } from '../../components/ui/Card';
-import { AuthenticatedContent } from '../../components/AuthenticatedContent';
-import { UnauthenticatedContent } from '../../components/UnauthenticatedContent';
+import { getUserFromSession } from '~/services/auth';
+import type { User } from '~/types/auth';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader } from '~/components/ui/card';
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: 'Petch - Home' },
-    { name: 'description', content: 'Welcome to Petch!' },
+    { title: 'Petch - Find Your Perfect Pet' },
+    { name: 'description', content: 'Connect with loving pets waiting for their forever home' },
   ];
 }
 
@@ -23,20 +21,131 @@ export default function Home() {
   const { user } = useLoaderData<typeof loader>();
 
   return (
-    <Layout>
-      <div className="max-w-2xl w-full">
-        <Card>
-          <h1 className="text-3xl font-bold text-center mb-6 text-gray-900 dark:text-white">
-            Welcome to Petch
-          </h1>
+    <div className="min-h-screen">
+      {/* Navigation */}
+      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <span className="text-2xl">🐾</span>
+            <span className="text-xl font-bold">Petch</span>
+          </Link>
+          
+          <div className="flex items-center gap-4">
+            {user ? (
+              <>
+                <span className="text-sm text-muted-foreground">
+                  Welcome, {user.firstName}!
+                </span>
+                <Form method="post" action="/logout">
+                  <Button variant="outline" size="sm" type="submit">
+                    Logout
+                  </Button>
+                </Form>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/login">Login</Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link to="/signup">Sign Up</Link>
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
 
-          {user ? (
-            <AuthenticatedContent user={user as User} />
-          ) : (
-            <UnauthenticatedContent />
-          )}
-        </Card>
-      </div>
-    </Layout>
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-24 text-center">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <h1 className="text-5xl font-bold tracking-tight">
+            Find Your Perfect
+            <span className="text-primary"> Furry Friend</span>
+          </h1>
+          <p className="text-xl text-muted-foreground">
+            Connect with loving pets from trusted breeders and shelters. 
+            Your new best friend is waiting for you.
+          </p>
+          <div className="flex gap-4 justify-center pt-4">
+            {user ? (
+              <Button size="lg">
+                Browse Pets
+              </Button>
+            ) : (
+              <>
+                <Button size="lg" asChild>
+                  <Link to="/signup">Get Started</Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link to="/login">I have an account</Link>
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="grid md:grid-cols-3 gap-8">
+          <Card>
+            <CardHeader className="text-center">
+              <span className="text-4xl mb-4 block">🐕</span>
+              <h3 className="text-lg font-semibold">For Adopters</h3>
+            </CardHeader>
+            <CardContent className="text-center text-muted-foreground">
+              Browse thousands of pets from verified breeders and shelters. 
+              Find your perfect match with our smart filters.
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="text-center">
+              <span className="text-4xl mb-4 block">🏠</span>
+              <h3 className="text-lg font-semibold">For Shelters</h3>
+            </CardHeader>
+            <CardContent className="text-center text-muted-foreground">
+              List your animals and connect with loving families. 
+              Track adoptions and manage your listings easily.
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="text-center">
+              <span className="text-4xl mb-4 block">💝</span>
+              <h3 className="text-lg font-semibold">Safe & Trusted</h3>
+            </CardHeader>
+            <CardContent className="text-center text-muted-foreground">
+              All vendors are verified. Secure messaging and 
+              transparent adoption process for peace of mind.
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* User Info Section (if logged in) */}
+      {user && (
+        <section className="container mx-auto px-4 py-16">
+          <Card className="max-w-md mx-auto">
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Your Account</h3>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p><strong>Name:</strong> {user.firstName} {user.lastName}</p>
+              <p><strong>Email:</strong> {user.email}</p>
+              <p><strong>Account Type:</strong> {user.userType}</p>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* Footer */}
+      <footer className="border-t mt-16">
+        <div className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground">
+          <p>© 2025 Petch. Made with 💕 for pets everywhere.</p>
+        </div>
+      </footer>
+    </div>
   );
 }

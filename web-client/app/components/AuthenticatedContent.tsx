@@ -1,7 +1,5 @@
 import { Form } from 'react-router';
 import type { User } from '../types/auth';
-import { Alert } from './ui/Alert';
-import { Button } from './ui/Button';
 
 interface AuthenticatedContentProps {
   user: User;
@@ -10,7 +8,7 @@ interface AuthenticatedContentProps {
 export function AuthenticatedContent({ user }: AuthenticatedContentProps) {
   return (
     <div className="space-y-4">
-      <Alert variant="success">
+      <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
         <p className="font-semibold">You are logged in!</p>
         <div className="mt-2 text-sm">
           <p>
@@ -23,12 +21,15 @@ export function AuthenticatedContent({ user }: AuthenticatedContentProps) {
             <strong>Account Type:</strong> {user.userType}
           </p>
         </div>
-      </Alert>
+      </div>
 
       <Form method="post" action="/logout">
-        <Button type="submit" variant="danger">
+        <button 
+          type="submit" 
+          className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors"
+        >
           Logout
-        </Button>
+        </button>
       </Form>
     </div>
   );

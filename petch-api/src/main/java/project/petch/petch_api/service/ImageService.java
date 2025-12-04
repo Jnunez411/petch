@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import project.petch.petch_api.dto.ImageDTO;
+import project.petch.petch_api.dto.pet.ImageDTO;
 import project.petch.petch_api.models.Images;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.repositories.ImagesRepository;

@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
 import lombok.*;
 import java.util.List;
-import project.petch.petch_api.dto.ImageDTO;
+import project.petch.petch_api.dto.pet.ImageDTO;
 
 @Getter
 @Setter

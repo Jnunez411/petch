@@ -1,4 +1,4 @@
-package project.petch.petch_api.dto;
+package project.petch.petch_api.dto.pet;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;

@@ -69,9 +69,14 @@ export default function Home() {
           </p>
           <div className="flex gap-4 justify-center pt-4">
             {user ? (
-              <Button size="lg">
-                Browse Pets
-              </Button>
+              <>
+                <Button size="lg" asChild>
+                  <Link to="/pets">Browse Pets</Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link to="/profile">My Profile</Link>
+                </Button>
+              </>
             ) : (
               <>
                 <Button size="lg" asChild>

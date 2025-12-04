@@ -3,6 +3,7 @@ package project.petch.petch_api.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -50,9 +51,13 @@ public class SecurityConfig {
                                 "/api/auth/**",           // All authentication endpoints
                                 "/api/public/**",         // Any public endpoints
                                 "/error",                 // Error endpoint
-                                "/actuator/health"        // Health check endpoint (if using actuator)
+                                "/actuator/health",       // Health check endpoint (if using actuator)
+                                "/uploads/**"             // Allow access to uploaded images
                         ).permitAll()
-
+                        
+                        // Allow GET requests to pet endpoints (viewing only)
+                        .requestMatchers(HttpMethod.GET, "/api/pets/**").permitAll()
+                        
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )

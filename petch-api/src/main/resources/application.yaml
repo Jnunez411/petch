@@ -5,7 +5,7 @@ spring:
     config:
       enabled: false
   datasource:
-    url: jdbc:postgresql://localhost:5432/petchdb?user=postgres&password=Admit#5001
+    url: jdbc:postgresql://localhost:5432/petchdb?user=${SPRING_DATASOURCE_USERNAME:postgres}&password=${SPRING_DATASOURCE_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: update
@@ -21,10 +21,9 @@ spring:
 
 # JWT Configuration
 jwt:
-  # IMPORTANT: JWT_SECRET must be set in .env file
-  # Generate a secure random key with: openssl rand -base64 64
-  secret: r/ryb7TMriZJ+FmCTKrewbc7eHEWMua3OyI5v93VsPAU8j4gtFEGiTJs/PZX10WT
-  expiration: 86400000 # 24 hours in milliseconds (1 day)
+  # Read from environment variables (set via .env file)
+  secret: ${JWT_SECRET:}
+  expiration: ${JWT_EXPIRATION_MS:86400000}
 
 # CORS Configuration
 cors:
@@ -35,4 +34,4 @@ cors:
 # Upload Configuration
 app:
   upload:
-    dir: uploads/images
+    dir: ${APP_UPLOAD_DIR:uploads/images}

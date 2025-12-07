@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 
-interface Image {
+interface Image{
   id: number;
   fileName: string;
   filePath: string;
@@ -12,14 +12,24 @@ interface Image {
   createdAt: string;
 }
 
-interface User {
+interface User{
   id: number;
   firstName: string;
   lastName: string;
   email: string;
 }
 
-interface Pet {
+interface AdoptionDetails{
+  id: number;
+  isDirect: boolean;
+  priceEstimate: number;
+  stepsDescription: string;
+  redirectLink: string;
+  phoneNumber: string;
+  email: string;
+}
+
+interface Pet{
   id: number;
   name: string;
   species: string;
@@ -30,6 +40,7 @@ interface Pet {
   fosterable: boolean;
   images: Image[];
   user: User;
+  adoptionDetails?: AdoptionDetails;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,32 +56,31 @@ export async function clientLoader({ params }: { params: { id: string } }) {
 export default function PetDetail(){
   const pet: Pet = useLoaderData() as Pet;
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showAdoptionDetails, setShowAdoptionDetails] = useState(false);
 
   const mainImage = pet.images?.[selectedImageIndex];
 
-  // Helper to construct full image URL through backend
   const getImageUrl = (filePath: string) => {
-    if (!filePath) return '';
-    // If it's already a full URL, return as is
-    if (filePath.startsWith('http')) return filePath;
-    // Otherwise, route through the backend proxy
+    if(!filePath) return '';
+    if(filePath.startsWith('http')) return filePath;
     return `http://localhost:8080${filePath}`;
   };
 
   return(
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+    <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Back Button */}
         <div className="mb-6">
-          <a href="/pets" className="text-indigo-600 hover:text-indigo-800 font-medium">
+          <a href="/pets" className="text-primary hover:text-primary/80 font-medium">
             ← Back to Pets
           </a>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Image Gallery */}
-          <div className="space-y-4">
-            <Card className="overflow-hidden bg-white shadow-lg">
+          <div>
+            {/* Main Image */}
+            <Card className="overflow-hidden bg-card shadow-lg">
               {mainImage ? (
                 <img
                   src={getImageUrl(mainImage.filePath)}
@@ -78,8 +88,8 @@ export default function PetDetail(){
                   className="w-full h-96 object-cover"
                 />
               ) : (
-                <div className="w-full h-96 bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-500">No image available</span>
+                <div className="w-full h-96 bg-muted flex items-center justify-center">
+                  <span className="text-muted-foreground">No image available</span>
                 </div>
               )}
             </Card>
@@ -93,8 +103,8 @@ export default function PetDetail(){
                     onClick={() => setSelectedImageIndex(idx)}
                     className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
                       idx === selectedImageIndex
-                        ? "border-indigo-600 shadow-md"
-                        : "border-gray-300 hover:border-indigo-400"
+                        ? "border-primary shadow-md"
+                        : "border-muted hover:border-primary/50"
                     }`}
                   >
                     <img
@@ -112,7 +122,7 @@ export default function PetDetail(){
           <div className="space-y-6">
             {/* Header */}
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">{pet.name}</h1>
+              <h1 className="text-4xl font-bold text-foreground mb-2">{pet.name}</h1>
               <div className="flex gap-3 flex-wrap">
                 <span className="inline-block bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full font-semibold">
                   {pet.species}
@@ -121,7 +131,7 @@ export default function PetDetail(){
                   {pet.breed}
                 </span>
                 {pet.atRisk && (
-                  <span className="inline-block bg-red-100 text-red-800 px-4 py-2 rounded-full font-semibold">
+                  <span className="inline-block bg-destructive/10 text-destructive px-4 py-2 rounded-full font-semibold">
                     At Risk
                   </span>
                 )}
@@ -134,59 +144,59 @@ export default function PetDetail(){
             </div>
 
             {/* Big Details Card */}
-            <Card className="bg-white p-6 shadow-md">
+            <Card className="bg-card p-6 shadow-md">
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <p className="text-gray-500 text-sm font-medium">Age</p>
-                  <p className="text-2xl font-bold text-gray-900">{pet.age} years old</p>
+                  <p className="text-muted-foreground text-sm font-medium">Age</p>
+                  <p className="text-2xl font-bold text-foreground">{pet.age} years old</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-sm font-medium">Status</p>
+                  <p className="text-muted-foreground text-sm font-medium">Status</p>
                   <p className="text-2xl font-bold text-green-600">Available</p>
                 </div>
               </div>
             </Card>
 
             {/* Description */}
-            <Card className="bg-white p-6 shadow-md">
-              <h2 className="text-xl font-bold text-gray-900 mb-3">About {pet.name}</h2>
-              <p className="text-gray-700 leading-relaxed text-lg">
+            <Card className="bg-card p-6 shadow-md">
+              <h2 className="text-xl font-bold text-foreground mb-3">About {pet.name}</h2>
+              <p className="text-muted-foreground leading-relaxed text-lg">
                 {pet.description || "No description available for this pet."}
               </p>
             </Card>
 
             {/* Additional Info */}
-            <Card className="bg-white p-6 shadow-md">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Pet Information</h2>
+            <Card className="bg-card p-6 shadow-md">
+              <h2 className="text-xl font-bold text-foreground mb-4">Pet Information</h2>
               <dl className="space-y-4">
-                <div className="flex justify-between items-center border-b pb-3">
-                  <dt className="text-gray-600 font-medium">Species</dt>
-                  <dd className="text-gray-900 font-semibold">{pet.species}</dd>
+                <div className="flex justify-between items-center border-b border-border pb-3">
+                  <dt className="text-muted-foreground font-medium">Species</dt>
+                  <dd className="text-foreground font-semibold">{pet.species}</dd>
                 </div>
-                <div className="flex justify-between items-center border-b pb-3">
-                  <dt className="text-gray-600 font-medium">Breed</dt>
-                  <dd className="text-gray-900 font-semibold">{pet.breed}</dd>
+                <div className="flex justify-between items-center border-b border-border pb-3">
+                  <dt className="text-muted-foreground font-medium">Breed</dt>
+                  <dd className="text-foreground font-semibold">{pet.breed}</dd>
                 </div>
-                <div className="flex justify-between items-center border-b pb-3">
-                  <dt className="text-gray-600 font-medium">Age</dt>
-                  <dd className="text-gray-900 font-semibold">{pet.age} years</dd>
+                <div className="flex justify-between items-center border-b border-border pb-3">
+                  <dt className="text-muted-foreground font-medium">Age</dt>
+                  <dd className="text-foreground font-semibold">{pet.age} years</dd>
                 </div>
-                <div className="flex justify-between items-center border-b pb-3">
-                  <dt className="text-gray-600 font-medium">At Risk</dt>
-                  <dd className="text-gray-900 font-semibold">
+                <div className="flex justify-between items-center border-b border-border pb-3">
+                  <dt className="text-muted-foreground font-medium">At Risk</dt>
+                  <dd className="text-foreground font-semibold">
                     {pet.atRisk ? "Yes" : "No"}
                   </dd>
                 </div>
-                <div className="flex justify-between items-center border-b pb-3">
-                  <dt className="text-gray-600 font-medium">Fosterable</dt>
-                  <dd className="text-gray-900 font-semibold">
+                <div className="flex justify-between items-center border-b border-border pb-3">
+                  <dt className="text-muted-foreground font-medium">Fosterable</dt>
+                  <dd className="text-foreground font-semibold">
                     {pet.fosterable ? "Yes" : "No"}
                   </dd>
                 </div>
                 {pet.user && (
                   <div className="flex justify-between items-center">
-                    <dt className="text-gray-600 font-medium">Uploaded by</dt>
-                    <dd className="text-gray-900 font-semibold">
+                    <dt className="text-muted-foreground font-medium">Uploaded by</dt>
+                    <dd className="text-foreground font-semibold">
                       {pet.user.firstName} {pet.user.lastName}
                     </dd>
                   </div>
@@ -196,10 +206,88 @@ export default function PetDetail(){
 
             {/* Action Buttons */}
             <div className="flex gap-4">
-              <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 text-lg font-semibold">
-                Adopt {pet.name}
+              <Button 
+                onClick={() => setShowAdoptionDetails(!showAdoptionDetails)}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 text-lg font-semibold"
+              >
+                {showAdoptionDetails ? 'Hide Adoption Details' : 'View Adoption Details'}
               </Button>
             </div>
+
+            {/* Adoption Details */}
+            {showAdoptionDetails && pet.adoptionDetails && (
+              <Card className="bg-card p-6 shadow-md border-2 border-orange-500">
+                <h2 className="text-2xl font-bold text-foreground mb-4">Adoption Details</h2>
+                
+                <div className="space-y-4">
+                  {/* Cost */}
+                  <div className="border-b border-border pb-4">
+                    <p className="text-muted-foreground text-sm font-medium">Estimated Adoption Cost</p>
+                    <p className="text-2xl font-bold text-orange-600">${pet.adoptionDetails.priceEstimate?.toFixed(2) || '0.00'}</p>
+                  </div>
+
+                  {/* Steps Description */}
+                  <div className="border-b border-border pb-4">
+                    <p className="text-muted-foreground text-sm font-medium mb-2">Adoption Process</p>
+                    <p className="text-foreground leading-relaxed">
+                      {pet.adoptionDetails.stepsDescription || 'No process description available'}
+                    </p>
+                  </div>
+
+                  {/* Direct vs Redirect */}
+                  {pet.adoptionDetails.isDirect ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-green-900 mb-3">Direct Contact Adoption</h3>
+                      <dl className="space-y-2">
+                        {pet.adoptionDetails.phoneNumber && (
+                          <div className="flex justify-between items-center">
+                            <dt className="text-muted-foreground font-medium">Phone</dt>
+                            <dd className="text-foreground font-semibold">{pet.adoptionDetails.phoneNumber}</dd>
+                          </div>
+                        )}
+                        {pet.adoptionDetails.email && (
+                          <div className="flex justify-between items-center">
+                            <dt className="text-muted-foreground font-medium">Email</dt>
+                            <dd className="text-foreground font-semibold">{pet.adoptionDetails.email}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+                  ) : (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-blue-900 mb-3">Apply on Adoption Website</h3>
+                      <dl className="space-y-2">
+                        {pet.adoptionDetails.redirectLink && (
+                          <div className="mb-3">
+                            <dt className="text-muted-foreground font-medium mb-2">Adoption Page</dt>
+                            <a 
+                              href={pet.adoptionDetails.redirectLink} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 font-semibold underline break-all"
+                            >
+                              {pet.adoptionDetails.redirectLink}
+                            </a>
+                          </div>
+                        )}
+                        {pet.adoptionDetails.phoneNumber && (
+                          <div className="flex justify-between items-center border-t border-blue-200 pt-2">
+                            <dt className="text-muted-foreground font-medium">Phone</dt>
+                            <dd className="text-foreground font-semibold">{pet.adoptionDetails.phoneNumber}</dd>
+                          </div>
+                        )}
+                        {pet.adoptionDetails.email && (
+                          <div className="flex justify-between items-center border-t border-blue-200 pt-2">
+                            <dt className="text-muted-foreground font-medium">Email</dt>
+                            <dd className="text-foreground font-semibold">{pet.adoptionDetails.email}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
           </div>
         </div>
       </div>

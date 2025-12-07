@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLoaderData, redirect } from 'react-router';
 import type { Route } from './+types/createListing';
 import { Button } from '~/components/ui/button';
@@ -16,13 +16,11 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-// Loader to check authentication and get token
 export async function loader({ request }: Route.LoaderArgs) {
   const session = await getSession(request.headers.get('Cookie'));
   const token = session.get('token');
   const user = await getUserFromSession(request);
 
-  // Redirect to login if not authenticated
   if (!token || !user) {
     return redirect('/login?redirectTo=/pets/create');
   }
@@ -35,8 +33,8 @@ export default function CreatePetPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -46,6 +44,17 @@ export default function CreatePetPage() {
     description: '',
     atRisk: false,
     fosterable: false,
+  });
+
+  const [adoptionDetails, setAdoptionDetails] = useState({
+    isDirect: true,
+    priceEstimate: 0,
+    stepsDescription: '',
+    phoneNumber: '',
+    email: user?.email || '',
+    redirectLink: '',
+    redirectPhoneNumber: '',
+    redirectEmail: '',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -68,23 +77,60 @@ export default function CreatePetPage() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-      if (!validTypes.includes(file.type)) {
-        setError('Please upload a JPEG or PNG image');
-        return;
-      }
-      
-      setSelectedFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+  const handleAdoptionDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    if (type === 'number') {
+      setAdoptionDetails((prev) => ({
+        ...prev,
+        [name]: parseFloat(value) || 0,
+      }));
+    } else {
+      setAdoptionDetails((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
     }
+  };
+
+  const handleAdoptionTypeChange = (isDirect: boolean) => {
+    setAdoptionDetails((prev) => ({
+      ...prev,
+      isDirect,
+    }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+      const newFiles: File[] = [];
+      const newPreviews: string[] = [];
+
+      Array.from(files).forEach((file) => {
+        if (!validTypes.includes(file.type)) {
+          setError('Please upload only JPEG or PNG images');
+          return;
+        }
+
+        newFiles.push(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews.push(reader.result as string);
+          if (newPreviews.length === newFiles.length) {
+            setSelectedFiles((prev) => [...prev, ...newFiles]);
+            setPreviewUrls((prev) => [...prev, ...newPreviews]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+
+      e.target.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -93,7 +139,6 @@ export default function CreatePetPage() {
     setError(null);
 
     try {
-      // Get full user data (including ID) from backend
       const userResponse = await fetch('/api/users/me', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -106,54 +151,80 @@ export default function CreatePetPage() {
 
       const fullUser = await userResponse.json();
 
-      // Step 1: Create the pet
+      const petPayload = {
+        name: formData.name,
+        species: formData.species,
+        breed: formData.breed,
+        age: formData.age,
+        description: formData.description,
+        atRisk: formData.atRisk,
+        fosterable: formData.fosterable,
+        userId: fullUser.id,
+      };
+
       const petResponse = await fetch('/api/pets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name: formData.name,
-          species: formData.species,
-          breed: formData.breed,
-          age: formData.age,
-          description: formData.description,
-          atRisk: formData.atRisk,
-          fosterable: formData.fosterable,
-          userId: fullUser.id,
-        }),
+        body: JSON.stringify(petPayload),
       });
 
-      if (!petResponse.ok) {
+      if(!petResponse.ok){
+        const errorText = await petResponse.text();
+        console.error('Pet creation error response:', errorText);
         throw new Error(`Failed to create pet: ${petResponse.status}`);
       }
 
       const pet = await petResponse.json();
 
-      // Step 2: Upload image if selected
-      if (selectedFile) {
-        const imageFormData = new FormData();
-        imageFormData.append('file', selectedFile);
-        imageFormData.append('altText', formData.name); // Use pet name as alt text
+      if(selectedFiles.length > 0){
+        for(const file of selectedFiles){
+          const imageFormData = new FormData();
+          imageFormData.append('file', file);
+          imageFormData.append('altText', formData.name);
 
-        const imageResponse = await fetch(
-          `/api/pets/${pet.id}/upload-image`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            body: imageFormData,
+          const imageResponse = await fetch(
+            `/api/pets/${pet.id}/upload-image`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+              body: imageFormData,
+            }
+          );
+
+          if(!imageResponse.ok){
+            throw new Error(`Failed to upload image: ${imageResponse.status}`);
           }
-        );
-
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to upload image: ${imageResponse.status}`);
         }
       }
 
-      // Redirect back to pets page with cache-busting query param to force reload
+      // Create adoption details
+      const adoptionPayload = {
+        isDirect: adoptionDetails.isDirect,
+        priceEstimate: adoptionDetails.priceEstimate,
+        stepsDescription: adoptionDetails.stepsDescription,
+        phoneNumber: adoptionDetails.isDirect ? adoptionDetails.phoneNumber : adoptionDetails.redirectPhoneNumber,
+        email: adoptionDetails.isDirect ? adoptionDetails.email : adoptionDetails.redirectEmail,
+        redirectLink: adoptionDetails.isDirect ? null : adoptionDetails.redirectLink,
+      };
+
+      const adoptionResponse = await fetch(`/api/pets/${pet.id}/adoption-details`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(adoptionPayload),
+      });
+
+      if(!adoptionResponse.ok){
+        throw new Error(`Failed to create adoption details: ${adoptionResponse.status}`);
+      }
+
       navigate('/pets?refresh=' + Date.now());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -163,7 +234,6 @@ export default function CreatePetPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
@@ -175,7 +245,6 @@ export default function CreatePetPage() {
         </div>
       </div>
 
-      {/* Form */}
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         <Card>
           <CardHeader>
@@ -189,7 +258,6 @@ export default function CreatePetPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Pet Details */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">Pet Details</h3>
 
@@ -294,34 +362,182 @@ export default function CreatePetPage() {
                 </div>
               </div>
 
-              {/* Image Upload */}
-              { <div className="space-y-4 border-t pt-6">
-                <h3 className="font-semibold text-lg">Pet Image</h3>
+              <div className="space-y-4 border-t pt-6">
+                <h3 className="font-semibold text-lg">Adoption Details</h3>
+
                 <div>
-                  <Label htmlFor="file">Upload Image (JPEG or PNG only)</Label>
+                  <Label htmlFor="priceEstimate">Estimated Adoption Cost $ *</Label>
                   <Input
-                    id="file"
-                    name="file"
+                    id="priceEstimate"
+                    name="priceEstimate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={adoptionDetails.priceEstimate}
+                    onChange={handleAdoptionDetailsChange}
+                    required
+                    placeholder="e.g., 150.00"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="stepsDescription">Steps to Adopt *</Label>
+                  <textarea
+                    id="stepsDescription"
+                    name="stepsDescription"
+                    value={adoptionDetails.stepsDescription}
+                    onChange={handleAdoptionDetailsChange}
+                    placeholder="Describe the adoption process (e.g., application, interview, home visit)..."
+                    className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    rows={4}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-4 border rounded-lg p-4 bg-card">
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => handleAdoptionTypeChange(true)}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                        adoptionDetails.isDirect
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      Direct Adoption
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdoptionTypeChange(false)}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                        !adoptionDetails.isDirect
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      Redirect to Website
+                    </button>
+                  </div>
+
+                  {adoptionDetails.isDirect ? (
+                    <div className="space-y-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground">Contact information for direct adoption inquiries:</p>
+                      <div>
+                        <Label htmlFor="phoneNumber">Phone Number *</Label>
+                        <Input
+                          id="phoneNumber"
+                          name="phoneNumber"
+                          type="tel"
+                          value={adoptionDetails.phoneNumber}
+                          onChange={handleAdoptionDetailsChange}
+                          required
+                          placeholder="e.g., (555) 123-4567"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="email">Email *</Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={adoptionDetails.email}
+                          onChange={handleAdoptionDetailsChange}
+                          required
+                          placeholder="e.g., contact@example.com"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground">Redirect users to your company website for adoption:</p>
+                      <div>
+                        <Label htmlFor="redirectLink">Adoption Page Link *</Label>
+                        <Input
+                          id="redirectLink"
+                          name="redirectLink"
+                          type="url"
+                          value={adoptionDetails.redirectLink}
+                          onChange={handleAdoptionDetailsChange}
+                          required
+                          placeholder="e.g., https://mycompany.com/adopt/pet123"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="redirectPhoneNumber">Company Phone Number *</Label>
+                        <Input
+                          id="redirectPhoneNumber"
+                          name="redirectPhoneNumber"
+                          type="tel"
+                          value={adoptionDetails.redirectPhoneNumber}
+                          onChange={handleAdoptionDetailsChange}
+                          required
+                          placeholder="e.g., (555) 123-4567"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="redirectEmail">Company Email *</Label>
+                        <Input
+                          id="redirectEmail"
+                          name="redirectEmail"
+                          type="email"
+                          value={adoptionDetails.redirectEmail}
+                          onChange={handleAdoptionDetailsChange}
+                          required
+                          placeholder="e.g., adoption@mycompany.com"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4 border-t pt-6">
+                <h3 className="font-semibold text-lg">Pet Images</h3>
+                <div>
+                  <Label htmlFor="files">Upload Images (JPEG or PNG only)</Label>
+                  <Input
+                    id="files"
+                    name="files"
                     type="file"
                     accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                     onChange={handleFileChange}
                     className="cursor-pointer"
+                    multiple
                   />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    You can select multiple images at once
+                  </p>
                 </div>
 
-                {previewUrl && (
+                {previewUrls.length > 0 && (
                   <div>
-                    <p className="text-sm font-medium mb-2">Preview:</p>
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="max-w-xs rounded border"
-                    />
+                    <p className="text-sm font-medium mb-3">
+                      Previews ({previewUrls.length} image{previewUrls.length !== 1 ? 's' : ''}):
+                    </p>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                      {previewUrls.map((url, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={url}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-32 object-cover rounded border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold"
+                            title="Remove image"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
-              </div> }
+              </div>
 
-              {/* Buttons */}
               <div className="flex gap-4 border-t pt-6">
                 <Button
                   type="submit"

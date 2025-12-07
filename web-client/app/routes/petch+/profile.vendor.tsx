@@ -149,18 +149,6 @@ export default function VendorProfilePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold">Vendor Profile</h1>
-            <Button asChild variant="outline">
-              <Link to="/pets">← Back to Pets</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="grid md:grid-cols-3 gap-6">

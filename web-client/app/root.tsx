@@ -5,10 +5,13 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { Header } from "./components/Header";
+import { getUserFromSession } from "./services/auth";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -25,14 +28,14 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" >
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
       </head>
-      <body className="dark bg-background text-foreground">
+      <body className="bg-background text-foreground min-h-screen">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -41,8 +44,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+export async function loader({ request }: Route.LoaderArgs) {
+  const user = await getUserFromSession(request);
+  return { user };
+}
+
 export default function App() {
-  return <Outlet />;
+  const { user } = useLoaderData<typeof loader>();
+  return (
+    <>
+      <Header user={user} />
+      <Outlet />
+    </>
+  );
+
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

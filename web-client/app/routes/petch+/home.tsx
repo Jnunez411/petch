@@ -21,43 +21,9 @@ export default function Home() {
   const { user } = useLoaderData<typeof loader>();
 
   return (
-    <div className="min-h-screen">
-      {/* Navigation */}
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-2xl">🐾</span>
-            <span className="text-xl font-bold">Petch</span>
-          </Link>
-          
-          <div className="flex items-center gap-4">
-            {user ? (
-              <>
-                <span className="text-sm text-muted-foreground">
-                  Welcome, {user.firstName}!
-                </span>
-                <Form method="post" action="/logout">
-                  <Button variant="outline" size="sm" type="submit">
-                    Logout
-                  </Button>
-                </Form>
-              </>
-            ) : (
-              <>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to="/login">Login</Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link to="/signup">Sign Up</Link>
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </nav>
-
+    <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-24 text-center">
+      <section className="container mx-auto px-4 py-24 text-center ">
         <div className="max-w-3xl mx-auto space-y-6">
           <h1 className="text-5xl font-bold tracking-tight">
             Find Your Perfect
@@ -70,10 +36,10 @@ export default function Home() {
           <div className="flex gap-4 justify-center pt-4">
             {user ? (
               <>
-                <Button size="lg" asChild>
+                <Button size="lg"  asChild>
                   <Link to="/pets">Browse Pets</Link>
                 </Button>
-                <Button size="lg" variant="outline" asChild>
+                <Button className="bg-secondary text-transition"size="lg" variant="outline" asChild>
                   <Link to="/profile">My Profile</Link>
                 </Button>
               </>

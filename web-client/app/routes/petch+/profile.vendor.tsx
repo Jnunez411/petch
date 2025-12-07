@@ -309,9 +309,14 @@ export default function VendorProfilePage() {
                         id="phoneNumber"
                         name="phoneNumber"
                         type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9()\\-\\s]+$"
                         defaultValue={vendorProfile?.phoneNumber || ''}
                         placeholder="e.g., (555) 123-4567"
                       />
+                      <p className="text-xs text-muted-foreground">
+                         Numbers only. Allowed characters: digits, (), -, and spaces.
+                      </p>
                     </div>
 
                     {/* City */}

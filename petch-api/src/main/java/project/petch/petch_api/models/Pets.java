@@ -20,6 +20,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 import lombok.AllArgsConstructor;
@@ -69,6 +70,11 @@ public class Pets{
     @ManyToOne(fetch = FetchType.EAGER) // quickly loads user to quickly get all their pets
     @JoinColumn(name = "user_id", nullable = true)
     private User user;
+
+    //Adoption Details Relationship (One-to-One)
+    @JsonManagedReference
+    @OneToOne(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private AdoptionDetails adoptionDetails;
 
     //Must add realationship to shelter
     // @ManyToOne(fetch = FetchType.LAZY)

@@ -1,0 +1,27 @@
+# OS files
+.DS_Store
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log
+backend.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+target/
+build/
+dist/
+
+# Dependencies
+node_modules/
+
+# GitHub folder
+.github/

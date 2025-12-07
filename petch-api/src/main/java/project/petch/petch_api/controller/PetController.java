@@ -20,6 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/pets")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "${cors.allowed-origins:http://localhost:3000,http://localhost:5173}")
 public class PetController{
     private final PetService petService;
     private final ImageService imageService;

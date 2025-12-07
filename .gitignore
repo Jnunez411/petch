@@ -8,7 +8,6 @@
 
 # Logs
 *.log
-backend.log
 
 # Environment files
 .env
@@ -20,8 +19,11 @@ target/
 build/
 dist/
 
+# React Router
+.react-router/
+
 # Dependencies
 node_modules/
 
-# GitHub folder
+# GitHub folder 
 .github/

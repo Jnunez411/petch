@@ -309,7 +309,14 @@ export default function VendorProfilePage() {
             {/* Pet Listings */}
             <Card>
               <CardHeader>
-                <CardTitle>Your Pet Listings ({vendorPets.length})</CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Your Pet Listings ({vendorPets.length})</CardTitle>
+                  {vendorPets.length > 0 && (
+                    <Button asChild>
+                      <Link to="/pets/create">Create Listing</Link>
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {vendorPets.length === 0 ? (

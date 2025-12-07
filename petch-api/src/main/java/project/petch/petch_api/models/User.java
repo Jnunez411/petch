@@ -23,11 +23,13 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import project.petch.petch_api.dto.user.UserType;
+import project.petch.petch_api.models.VendorProfile;
 
 @Entity
 @Table(name = "users")
@@ -71,6 +73,22 @@ public class User implements UserDetails {
     @JsonManagedReference
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Pets> pets = new ArrayList<>();
+
+    /**
+     * Optional one-to-one adopter profile for users who are adopters.
+     * This is the inverse side of the relationship; AdopterProfile owns the FK.
+     */
+    @JsonManagedReference("adopter-user")
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = true)
+    private AdopterProfile adopterProfile;
+
+    /**
+     * Optional one-to-one vendor profile for users who are vendors.
+     * This is the inverse side of the relationship; VendorProfile owns the FK.
+     */
+    @JsonManagedReference("vendor-user")
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = true)
+    private VendorProfile vendorProfile;
 
     @Override
     public String getPassword() {

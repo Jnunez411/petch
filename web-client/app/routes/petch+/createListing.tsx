@@ -295,7 +295,7 @@ export default function CreatePetPage() {
               </div>
 
               {/* Image Upload */}
-              {/* <div className="space-y-4 border-t pt-6">
+              { <div className="space-y-4 border-t pt-6">
                 <h3 className="font-semibold text-lg">Pet Image</h3>
                 <div>
                   <Label htmlFor="file">Upload Image (JPEG or PNG only)</Label>
@@ -319,7 +319,7 @@ export default function CreatePetPage() {
                     />
                   </div>
                 )}
-              </div> */}
+              </div> }
 
               {/* Buttons */}
               <div className="flex gap-4 border-t pt-6">

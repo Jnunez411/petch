@@ -21,7 +21,7 @@ export default function Home() {
   const { user } = useLoaderData<typeof loader>();
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -57,7 +57,7 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-24 text-center">
+      <section className="container mx-auto px-4 py-24 text-center ">
         <div className="max-w-3xl mx-auto space-y-6">
           <h1 className="text-5xl font-bold tracking-tight">
             Find Your Perfect
@@ -70,10 +70,10 @@ export default function Home() {
           <div className="flex gap-4 justify-center pt-4">
             {user ? (
               <>
-                <Button size="lg" asChild>
+                <Button size="lg"  asChild>
                   <Link to="/pets">Browse Pets</Link>
                 </Button>
-                <Button size="lg" variant="outline" asChild>
+                <Button className="bg-secondary text-transition"size="lg" variant="outline" asChild>
                   <Link to="/profile">My Profile</Link>
                 </Button>
               </>

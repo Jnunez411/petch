@@ -72,7 +72,7 @@ export default function PetsPage(){
   };
 
   return(
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       {/* Header */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-6">
@@ -132,8 +132,9 @@ export default function PetsPage(){
                       </span>
                     )}
                   </div>
+                  
                   <div className="flex gap-2">
-                    <Button className="flex-1" variant="outline" asChild>
+                    <Button className="flex-1"  asChild>
                       <Link to={`/pets/${pet.id}`}>View Details</Link>
                     </Button>
                     {/* <Button

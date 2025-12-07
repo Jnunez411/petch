@@ -5,11 +5,13 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
 import { Header } from "./components/Header";
+import { getUserFromSession } from "./services/auth";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -42,13 +44,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+export async function loader({ request }: Route.LoaderArgs) {
+  const user = await getUserFromSession(request);
+  return { user };
+}
+
 export default function App() {
+  const { user } = useLoaderData<typeof loader>();
   return (
     <>
-    <Header></Header>
-    <Outlet />;
+      <Header user={user} />
+      <Outlet />
     </>
-
   );
 
 }

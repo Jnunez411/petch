@@ -74,26 +74,6 @@ export default function PetsPage(){
   return(
     <div className="min-h-screen">
       {/* Header */}
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold">Available Pets</h1>
-              <p className="text-muted-foreground mt-2">
-                {pets.length} pets waiting for their forever home
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button asChild variant="default">
-                <Link to="/profile">My Profile</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link to="/">← Back to Home</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Pets Grid */}
       <div className="container mx-auto px-4 py-12">

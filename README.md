@@ -8,7 +8,7 @@ Before running this application, ensure you have the following installed:
 
 - **Java 21** (JDK)
 - **Maven** (for building the API)
-- **Node.js** (version 16 or higher) and **npm**
+- **Bun** (v1.0 or higher) - Install from [bun.sh](https://bun.sh): `curl -fsSL https://bun.sh/install | bash`
 - **PostgreSQL** (version 12 or higher)
 
 ## Running Locally Setup Instructions
@@ -42,9 +42,17 @@ Navigate to the root project directory and follow these steps:
 
    Replace `your_username` and `your_password` with your PostgreSQL credentials.
 
-2. **Build and run the API:**
+2. **Set the JWT secret:**
 
    ```bash
+   export JWT_SECRET="$(openssl rand -base64 64)"
+   ```
+
+3. **Build and run the API:**
+
+   ```bash
+   cd petch-api
+   
    # Clean and install dependencies
    mvn clean install
 
@@ -62,22 +70,22 @@ Navigate to the `web-client` directory and follow these steps:
 
    ```bash
    cd web-client
-   npm install
+   bun install
    ```
 
-2. **Build the project:**
+2. **Set environment variables:**
 
    ```bash
-   npm run build
+   export SESSION_SECRET="your-session-secret-here"
    ```
 
 3. **Start the development server:**
 
    ```bash
-   npm run dev
+   bun run dev
    ```
 
-   The web client will typically start on `http://localhost:3000` or `http://localhost:5173` (depending on your build tool).
+   The web client will start on `http://localhost:3000`.
 
 ## Accessing the Application
 
@@ -89,5 +97,5 @@ Once both the API and web client are running:
 ## Troubleshooting
 
 - **Database connection errors:** Verify that PostgreSQL is running and your credentials in the `JDBC_POSTGRES_URI` are correct
-- **Port conflicts:** If the default ports are in use, you can configure different ports in the application configuration files
-- **Build errors:** Ensure you have the correct versions of Java, Maven, and Node.js installed
+- **Port conflicts:** If the default ports are in use, you can kill existing processes: `fuser -k 3000/tcp`
+- **Build errors:** Ensure you have the correct versions of Java, Maven, and Bun installed

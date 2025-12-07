@@ -1,7 +1,12 @@
-import { useLoaderData } from "react-router";
+import { useLoaderData, redirect, Link } from "react-router";
+import type { Route } from "./+types/pet.$id";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import { getUserFromSession } from "~/services/auth";
+import { getSession } from "~/services/session.server";
+
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8080';
 
 interface Image {
   id: number;
@@ -34,16 +39,44 @@ interface Pet {
   updatedAt: string;
 }
 
-export async function clientLoader({ params }: { params: { id: string } }) {
-  const response = await fetch(`/api/pets/${params.id}`);
-  if(!response.ok){
-    throw new Error("Pet not found");
-  }
-  return response.json();
+export function meta({ data }: Route.MetaArgs) {
+  const pet = data?.pet as Pet | undefined;
+  return [
+    { title: pet ? `${pet.name} - Petch` : 'Pet Details - Petch' },
+    { name: 'description', content: pet?.description || 'View pet details' },
+  ];
 }
 
-export default function PetDetail(){
-  const pet: Pet = useLoaderData() as Pet;
+export async function loader({ request, params }: Route.LoaderArgs) {
+  // Require authentication
+  const user = await getUserFromSession(request);
+  if (!user) {
+    return redirect('/login');
+  }
+
+  const session = await getSession(request.headers.get('Cookie'));
+  const token = session.get('token');
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/pets/${params.id}`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error("Pet not found");
+    }
+    
+    const pet = await response.json();
+    return { pet, apiBaseUrl: API_BASE_URL };
+  } catch (error) {
+    throw new Response("Pet not found", { status: 404 });
+  }
+}
+
+export default function PetDetail() {
+  const { pet, apiBaseUrl } = useLoaderData<typeof loader>();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const mainImage = pet.images?.[selectedImageIndex];
@@ -54,17 +87,17 @@ export default function PetDetail(){
     // If it's already a full URL, return as is
     if (filePath.startsWith('http')) return filePath;
     // Otherwise, route through the backend proxy
-    return `http://localhost:8080${filePath}`;
+    return `${apiBaseUrl}${filePath}`;
   };
 
   return(
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+    <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Back Button */}
         <div className="mb-6">
-          <a href="/pets" className="text-indigo-600 hover:text-indigo-800 font-medium">
+          <Link to="/pets" className="text-primary hover:text-primary/80 font-medium">
             ← Back to Pets
-          </a>
+          </Link>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
@@ -87,7 +120,7 @@ export default function PetDetail(){
             {/* Thumbnail Gallery */}
             {pet.images && pet.images.length > 1 && (
               <div className="flex gap-3 overflow-x-auto pb-2">
-                {pet.images.map((img, idx) => (
+                {pet.images.map((img: Image, idx: number) => (
                   <button
                     key={img.id}
                     onClick={() => setSelectedImageIndex(idx)}

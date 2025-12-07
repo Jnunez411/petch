@@ -1,10 +1,11 @@
 import type { RegisterRequest, LoginRequest, AuthResponse, User } from '../types/auth';
 import { getSession, commitSession, destroySession } from './session.server';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/auth';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const AUTH_URL = `${API_BASE_URL}/api/auth`;
 
 export async function register(data: RegisterRequest): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/register`, {
+  const response = await fetch(`${AUTH_URL}/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -21,7 +22,7 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
 }
 
 export async function login(data: LoginRequest): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/login`, {
+  const response = await fetch(`${AUTH_URL}/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

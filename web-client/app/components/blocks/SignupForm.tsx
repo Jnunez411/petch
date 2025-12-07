@@ -10,6 +10,7 @@ import {
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { PawIcon } from "~/components/ui/paw-icon";
 import {
   Select,
   SelectContent,
@@ -34,7 +35,7 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
       <div className="w-full max-w-md p-4">
         <Card className="border-none shadow-lg">
           <CardHeader className="flex flex-col items-center space-y-1.5 pb-4 pt-6">
-            <span className="text-4xl">🐾</span>
+            <PawIcon className="h-12 w-12" />
             <div className="space-y-0.5 flex flex-col items-center">
               <h2 className="text-2xl font-semibold text-foreground">
                 Join Petch

@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { PawIcon } from "~/components/ui/paw-icon";
 import { Heart, Store, Eye, EyeOff } from "lucide-react";
 import { Link, Form } from "react-router";
 import { useState } from "react";
@@ -24,7 +25,7 @@ import { useState } from "react";
 // Petch Logo - Paw print
 const PetchLogo = () => (
   <div className="flex items-center gap-2">
-    <span className="text-4xl">🐾</span>
+    <PawIcon className="w-10 h-10" />
   </div>
 );
 

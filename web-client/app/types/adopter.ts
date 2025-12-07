@@ -1,15 +1,13 @@
+export type HomeType = 'APARTMENT' | 'HOUSE' | 'CONDO' | 'TOWNHOUSE' | 'OTHER';
+
 export interface AdopterProfile {
   id?: number;
   householdSize?: number;
   hasChildren?: boolean;
   hasOtherPets?: boolean;
-  homeType?: string;
+  homeType?: HomeType | null;
   yard?: boolean;
   fencedYard?: boolean;
-  preferredSpecies?: string;
-  preferredBreeds?: string;
-  minAge?: number;
-  maxAge?: number;
   additionalNotes?: string;
   createdAt?: string | Date;
   updatedAt?: string | Date;

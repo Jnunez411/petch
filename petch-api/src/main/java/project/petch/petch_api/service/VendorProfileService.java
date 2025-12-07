@@ -10,6 +10,7 @@ import project.petch.petch_api.repositories.UserRepository;
 import project.petch.petch_api.repositories.VendorProfileRepository;
 
 import java.util.Optional;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -19,34 +20,45 @@ public class VendorProfileService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public Optional<VendorProfileDTO> getByUserId(Long userId) {
-        return vendorProfileRepository.findByUserId(userId)
+    public Optional<VendorProfileDTO> getProfileByUserId(Long userId) {
+        Long nonNullUserId = Objects.requireNonNull(userId, "userId must not be null");
+        return vendorProfileRepository.findByUserId(nonNullUserId)
                 .map(this::toDTO);
     }
 
     @Transactional
-    public VendorProfileDTO createOrUpdate(Long userId, VendorProfileDTO dto) {
-        User user = userRepository.findById(userId).orElseThrow(() -> {
+    public VendorProfileDTO createProfile(Long userId, VendorProfileDTO dto) {
+        Long nonNullUserId = Objects.requireNonNull(userId, "userId must not be null");
+        User user = userRepository.findById(nonNullUserId).orElseThrow(() -> {
             return new RuntimeException("User not found with id: " + userId);
         });
 
-        VendorProfile profile = vendorProfileRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    VendorProfile newProfile = new VendorProfile();
-                    newProfile.setUser(user);
-                    return newProfile;
-                });
+        VendorProfile profile = new VendorProfile();
+        profile.setUser(user);
+        mapDtoToEntity(dto, profile);
 
-        // Map DTO fields to entity
+        VendorProfile saved = Objects.requireNonNull(vendorProfileRepository.save(profile));
+        return toDTO(saved);
+    }
+
+    @Transactional
+    public Optional<VendorProfileDTO> updateProfile(Long userId, VendorProfileDTO dto) {
+        Long nonNullUserId = Objects.requireNonNull(userId, "userId must not be null");
+        return vendorProfileRepository.findByUserId(nonNullUserId)
+                .flatMap(existing -> {
+                    VendorProfile profile = Objects.requireNonNull(existing);
+                    mapDtoToEntity(dto, profile);
+                    return Optional.ofNullable(toDTO(vendorProfileRepository.save(profile)));
+                });
+    }
+
+    private void mapDtoToEntity(VendorProfileDTO dto, VendorProfile profile) {
         profile.setOrganizationName(dto.getOrganizationName());
         profile.setWebsiteUrl(dto.getWebsiteUrl());
         profile.setPhoneNumber(dto.getPhoneNumber());
         profile.setCity(dto.getCity());
         profile.setState(dto.getState());
         profile.setDescription(dto.getDescription());
-
-        VendorProfile saved = vendorProfileRepository.save(profile);
-        return toDTO(saved);
     }
 
     private VendorProfileDTO toDTO(VendorProfile profile) {

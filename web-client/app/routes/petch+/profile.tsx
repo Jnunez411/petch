@@ -3,8 +3,9 @@ import type { Route } from './+types/profile';
 import { getUserFromSession } from '~/services/auth';
 import { getSession } from '~/services/session.server';
 import { authenticatedFetch } from '~/utils/api';
+import { getAdopterProfile, createAdopterProfile, updateAdopterProfile, getVendorProfile, createVendorProfile, updateVendorProfile } from '~/services/profile.server';
 import type { User } from '~/types/auth';
-import type { AdopterProfile } from '~/types/adopter';
+import type { AdopterProfile, HomeType } from '~/types/adopter';
 import type { VendorProfile } from '~/types/vendor';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
@@ -41,10 +42,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   let adopterProfile: AdopterProfile | null = null;
   if (user.userType === 'ADOPTER') {
     try {
-      const response = await authenticatedFetch(request, '/api/users/me/adopter-profile');
-      if (response.ok) {
-        adopterProfile = await response.json();
-      }
+      adopterProfile = await getAdopterProfile(request);
       // 404 is expected if profile doesn't exist yet
     } catch (error) {
       console.error('Failed to fetch adopter profile:', error);
@@ -57,10 +55,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   let backendUserId: number | null = null;
   if (user.userType === 'VENDOR') {
     try {
-      const profileResponse = await authenticatedFetch(request, '/api/users/me/vendor-profile');
-      if (profileResponse.ok) {
-        vendorProfile = await profileResponse.json();
-      }
+      vendorProfile = await getVendorProfile(request);
       // 404 is expected if profile doesn't exist yet
     } catch (error) {
       console.error('Failed to fetch vendor profile:', error);
@@ -105,23 +100,20 @@ export async function action({ request }: Route.ActionArgs) {
 
     const vendorPayload = {
       organizationName: `${organizationName}`.trim(),
-      websiteUrl: formData.get('websiteUrl') || null,
-      phoneNumber: formData.get('phoneNumber') || null,
-      city: formData.get('city') || null,
-      state: formData.get('state') || null,
-      description: formData.get('description') || null,
+      websiteUrl: formData.get('websiteUrl') || undefined,
+      phoneNumber: formData.get('phoneNumber') || undefined,
+      city: formData.get('city') || undefined,
+      state: formData.get('state') || undefined,
+      description: formData.get('description') || undefined,
     };
 
     try {
-      const response = await authenticatedFetch(request, '/api/users/me/vendor-profile', {
-        method: 'POST',
-        body: JSON.stringify(vendorPayload),
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Failed to save profile' }));
-        return { error: error.message || 'Failed to save vendor profile' };
+      const profileExists = formData.get('profileExists') === 'true';
+      
+      if (profileExists) {
+        await updateVendorProfile(request, vendorPayload);
+      } else {
+        await createVendorProfile(request, vendorPayload);
       }
 
       return redirect('/profile');
@@ -131,30 +123,24 @@ export async function action({ request }: Route.ActionArgs) {
   }
   
   // Build adopter profile payload
+  const homeTypeValue = formData.get('homeType');
   const payload = {
-    householdSize: formData.get('householdSize') ? parseInt(formData.get('householdSize') as string) : null,
+    householdSize: formData.get('householdSize') ? parseInt(formData.get('householdSize') as string) : undefined,
     hasChildren: formData.get('hasChildren') === 'on',
     hasOtherPets: formData.get('hasOtherPets') === 'on',
-    homeType: formData.get('homeType') || null,
+    homeType: homeTypeValue ? (homeTypeValue as HomeType) : undefined,
     yard: formData.get('yard') === 'on',
     fencedYard: formData.get('fencedYard') === 'on',
-    preferredSpecies: formData.get('preferredSpecies') || null,
-    preferredBreeds: formData.get('preferredBreeds') || null,
-    minAge: formData.get('minAge') ? parseInt(formData.get('minAge') as string) : null,
-    maxAge: formData.get('maxAge') ? parseInt(formData.get('maxAge') as string) : null,
-    additionalNotes: formData.get('additionalNotes') || null,
+    additionalNotes: formData.get('additionalNotes') || undefined,
   };
 
   try {
-    const response = await authenticatedFetch(request, '/api/users/me/adopter-profile', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Failed to save profile' }));
-      return { error: error.message || 'Failed to save adopter profile' };
+    const profileExists = formData.get('profileExists') === 'true';
+    
+    if (profileExists) {
+      await updateAdopterProfile(request, payload);
+    } else {
+      await createAdopterProfile(request, payload);
     }
 
     // Success - redirect to reload the page and fetch updated profile
@@ -331,6 +317,7 @@ export default function ProfilePage() {
                     )}
                     <Form method="post" className="space-y-6" id="vendor-profile-form">
                       <input type="hidden" name="_intent" value="vendor" />
+                      <input type="hidden" name="profileExists" value={vendorProfile ? 'true' : 'false'} />
                       
                       <div className="grid md:grid-cols-2 gap-4">
                         {/* Organization Name */}
@@ -479,6 +466,7 @@ export default function ProfilePage() {
                       </div>
                     )}
                     <Form method="post" className="space-y-6">
+                      <input type="hidden" name="profileExists" value={adopterProfile ? 'true' : 'false'} />
                       <div className="grid md:grid-cols-2 gap-4">
                         {/* Household Size */}
                         <div className="space-y-2">
@@ -496,63 +484,19 @@ export default function ProfilePage() {
                         {/* Home Type */}
                         <div className="space-y-2">
                           <Label htmlFor="homeType">Home Type</Label>
-                          <Input
+                          <select
                             id="homeType"
                             name="homeType"
-                            type="text"
-                            defaultValue={adopterProfile?.homeType || ''}
-                            placeholder="e.g., Apartment, House"
-                          />
-                        </div>
-
-                        {/* Min Age */}
-                        <div className="space-y-2">
-                          <Label htmlFor="minAge">Preferred Min Age (years)</Label>
-                          <Input
-                            id="minAge"
-                            name="minAge"
-                            type="number"
-                            min="0"
-                            defaultValue={adopterProfile?.minAge || ''}
-                            placeholder="e.g., 1"
-                          />
-                        </div>
-
-                        {/* Max Age */}
-                        <div className="space-y-2">
-                          <Label htmlFor="maxAge">Preferred Max Age (years)</Label>
-                          <Input
-                            id="maxAge"
-                            name="maxAge"
-                            type="number"
-                            min="0"
-                            defaultValue={adopterProfile?.maxAge || ''}
-                            placeholder="e.g., 10"
-                          />
-                        </div>
-
-                        {/* Preferred Species */}
-                        <div className="space-y-2">
-                          <Label htmlFor="preferredSpecies">Preferred Species</Label>
-                          <Input
-                            id="preferredSpecies"
-                            name="preferredSpecies"
-                            type="text"
-                            defaultValue={adopterProfile?.preferredSpecies || ''}
-                            placeholder="e.g., Dog, Cat, Rabbit"
-                          />
-                        </div>
-
-                        {/* Preferred Breeds */}
-                        <div className="space-y-2">
-                          <Label htmlFor="preferredBreeds">Preferred Breeds</Label>
-                          <Input
-                            id="preferredBreeds"
-                            name="preferredBreeds"
-                            type="text"
-                            defaultValue={adopterProfile?.preferredBreeds || ''}
-                            placeholder="e.g., Golden Retriever, Labrador"
-                          />
+                            defaultValue={adopterProfile?.homeType ?? ''}
+                            className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
+                          >
+                            <option value="">Select home type</option>
+                            <option value="APARTMENT">Apartment</option>
+                            <option value="HOUSE">House</option>
+                            <option value="CONDO">Condo</option>
+                            <option value="TOWNHOUSE">Townhouse</option>
+                            <option value="OTHER">Other</option>
+                          </select>
                         </div>
                       </div>
 

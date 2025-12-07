@@ -3,6 +3,7 @@ package project.petch.petch_api.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -11,10 +12,12 @@ import project.petch.petch_api.models.User;
 import project.petch.petch_api.service.AdopterProfileService;
 
 import java.net.URI;
+import java.util.Objects;
 
 @RestController
-@RequestMapping("/api/users/me/adopter-profile")
+@RequestMapping("/api/v1/adopter/profile")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADOPTER')")
 public class AdopterProfileController {
 
     private final AdopterProfileService adopterProfileService;
@@ -23,45 +26,47 @@ public class AdopterProfileController {
      * GET /api/users/me/adopter-profile
      * Returns the authenticated user's adopter profile if present.
      */
-    @GetMapping
+    @GetMapping("/me")
     public ResponseEntity<AdopterProfileDTO> getMyAdopterProfile() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
 
-        return adopterProfileService.getByUserId(currentUser.getId())
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return adopterProfileService.getProfileByUserId(currentUser.getId())
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
     }
 
     /**
      * POST /api/users/me/adopter-profile
      * Create or upsert the adopter profile for the authenticated user.
      */
-    @PostMapping
-    public ResponseEntity<AdopterProfileDTO> createOrUpsert(@Valid @RequestBody AdopterProfileDTO dto) {
+    @PostMapping("/me")
+    public ResponseEntity<AdopterProfileDTO> createAdopterProfile(@Valid @RequestBody AdopterProfileDTO dto) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
 
-        AdopterProfileDTO created = adopterProfileService.createOrUpdate(currentUser.getId(), dto);
-        String location = "/api/users/me/adopter-profile" + (created.getId() != null ? "/" + created.getId() : "");
-        return ResponseEntity.created(URI.create(location)).body(created);
+        boolean exists = adopterProfileService.getProfileByUserId(currentUser.getId()).isPresent();
+        if (exists) {
+            return ResponseEntity.status(409).build();
+        }
+
+        AdopterProfileDTO created = adopterProfileService.createProfile(currentUser.getId(), dto);
+        String location = "/api/v1/adopter/profile/me";
+        URI uri = URI.create(location);
+        return ResponseEntity.created(Objects.requireNonNull(uri)).body(created);
     }
 
     /**
      * PUT /api/users/me/adopter-profile
      * Update an existing adopter profile for the authenticated user.
      */
-    @PutMapping
-    public ResponseEntity<AdopterProfileDTO> update(@Valid @RequestBody AdopterProfileDTO dto) {
+    @PutMapping("/me")
+    public ResponseEntity<AdopterProfileDTO> updateAdopterProfile(@Valid @RequestBody AdopterProfileDTO dto) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
 
-        // Ensure profile exists
-        if (adopterProfileService.getByUserId(currentUser.getId()).isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        AdopterProfileDTO updated = adopterProfileService.createOrUpdate(currentUser.getId(), dto);
-        return ResponseEntity.ok(updated);
+        return adopterProfileService.updateProfile(currentUser.getId(), dto)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }

@@ -9,6 +9,8 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -47,26 +49,15 @@ public class AdopterProfile {
     @Column(name = "has_other_pets")
     private Boolean hasOtherPets;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "home_type")
-    private String homeType;
+    private HomeType homeType;
 
     @Column(name = "yard")
     private Boolean yard;
 
     @Column(name = "fenced_yard")
     private Boolean fencedYard;
-
-    @Column(name = "preferred_species")
-    private String preferredSpecies;
-
-    @Column(name = "preferred_breeds")
-    private String preferredBreeds;
-
-    @Column(name = "min_age")
-    private Integer minAge;
-
-    @Column(name = "max_age")
-    private Integer maxAge;
 
     @Column(name = "additional_notes", length = 1000)
     private String additionalNotes;

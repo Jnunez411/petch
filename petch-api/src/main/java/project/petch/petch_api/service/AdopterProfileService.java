@@ -9,6 +9,7 @@ import project.petch.petch_api.repositories.AdopterProfileRepository;
 import project.petch.petch_api.repositories.UserRepository;
 
 import java.util.Optional;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -17,35 +18,42 @@ public class AdopterProfileService {
     private final AdopterProfileRepository adopterProfileRepository;
     private final UserRepository userRepository;
 
-    public Optional<AdopterProfileDTO> getByUserId(Long userId) {
-        return adopterProfileRepository.findByUserId(userId).map(this::toDTO);
+    public Optional<AdopterProfileDTO> getProfileByUserId(Long userId) {
+        Long nonNullUserId = Objects.requireNonNull(userId, "userId must not be null");
+        return adopterProfileRepository.findByUserId(nonNullUserId).map(this::toDTO);
     }
 
-    public AdopterProfileDTO createOrUpdate(Long userId, AdopterProfileDTO dto) {
-        User user = userRepository.findById(userId)
+    public AdopterProfileDTO createProfile(Long userId, AdopterProfileDTO dto) {
+        Long nonNullUserId = Objects.requireNonNull(userId, "userId must not be null");
+        User user = userRepository.findById(nonNullUserId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
-        AdopterProfile profile = adopterProfileRepository.findByUserId(userId).orElseGet(() -> {
-            AdopterProfile p = new AdopterProfile();
-            p.setUser(user);
-            return p;
-        });
+        AdopterProfile profile = new AdopterProfile();
+        profile.setUser(user);
+        mapDtoToEntity(dto, profile);
 
-        // Map fields from DTO to entity
+        AdopterProfile saved = Objects.requireNonNull(adopterProfileRepository.save(profile));
+        return toDTO(saved);
+    }
+
+    public Optional<AdopterProfileDTO> updateProfile(Long userId, AdopterProfileDTO dto) {
+        Long nonNullUserId = Objects.requireNonNull(userId, "userId must not be null");
+        return adopterProfileRepository.findByUserId(nonNullUserId)
+                .flatMap(existing -> {
+                    AdopterProfile profile = Objects.requireNonNull(existing);
+                    mapDtoToEntity(dto, profile);
+                    return Optional.ofNullable(toDTO(adopterProfileRepository.save(profile)));
+                });
+    }
+
+    private void mapDtoToEntity(AdopterProfileDTO dto, AdopterProfile profile) {
         profile.setHouseholdSize(dto.getHouseholdSize());
         profile.setHasChildren(dto.getHasChildren());
         profile.setHasOtherPets(dto.getHasOtherPets());
         profile.setHomeType(dto.getHomeType());
         profile.setYard(dto.getYard());
         profile.setFencedYard(dto.getFencedYard());
-        profile.setPreferredSpecies(dto.getPreferredSpecies());
-        profile.setPreferredBreeds(dto.getPreferredBreeds());
-        profile.setMinAge(dto.getMinAge());
-        profile.setMaxAge(dto.getMaxAge());
         profile.setAdditionalNotes(dto.getAdditionalNotes());
-
-        AdopterProfile saved = adopterProfileRepository.save(profile);
-        return toDTO(saved);
     }
 
     private AdopterProfileDTO toDTO(AdopterProfile profile) {
@@ -58,10 +66,6 @@ public class AdopterProfileService {
                 .homeType(profile.getHomeType())
                 .yard(profile.getYard())
                 .fencedYard(profile.getFencedYard())
-                .preferredSpecies(profile.getPreferredSpecies())
-                .preferredBreeds(profile.getPreferredBreeds())
-                .minAge(profile.getMinAge())
-                .maxAge(profile.getMaxAge())
                 .additionalNotes(profile.getAdditionalNotes())
                 .createdAt(profile.getCreatedAt())
                 .updatedAt(profile.getUpdatedAt())

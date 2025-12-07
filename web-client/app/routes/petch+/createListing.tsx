@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { DragEvent } from 'react';
 import { useNavigate, Link, useLoaderData, redirect } from 'react-router';
 import type { Route } from './+types/createListing';
 import { Button } from '~/components/ui/button';
@@ -6,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Checkbox } from '~/components/ui/checkbox';
+import { Progress } from '~/components/ui/progress';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
+import { ImageIcon, X } from 'lucide-react';
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -35,6 +38,9 @@ export default function CreatePetPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -102,28 +108,7 @@ export default function CreatePetPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-      const newFiles: File[] = [];
-      const newPreviews: string[] = [];
-
-      Array.from(files).forEach((file) => {
-        if (!validTypes.includes(file.type)) {
-          setError('Please upload only JPEG or PNG images');
-          return;
-        }
-
-        newFiles.push(file);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          newPreviews.push(reader.result as string);
-          if (newPreviews.length === newFiles.length) {
-            setSelectedFiles((prev) => [...prev, ...newFiles]);
-            setPreviewUrls((prev) => [...prev, ...newPreviews]);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
-
+      processFiles(files);
       e.target.value = '';
     }
   };
@@ -131,6 +116,53 @@ export default function CreatePetPage() {
   const removeImage = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const processFiles = (files: FileList | File[]) => {
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const newFiles: File[] = [];
+    const newPreviews: string[] = [];
+
+    Array.from(files).forEach((file) => {
+      if (!validTypes.includes(file.type)) {
+        setError('Please upload only JPEG or PNG images');
+        return;
+      }
+
+      newFiles.push(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        newPreviews.push(reader.result as string);
+        if (newPreviews.length === newFiles.length) {
+          setSelectedFiles((prev) => [...prev, ...newFiles]);
+          setPreviewUrls((prev) => [...prev, ...newPreviews]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processFiles(files);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -494,43 +526,96 @@ export default function CreatePetPage() {
 
               <div className="space-y-4 border-t pt-6">
                 <h3 className="font-semibold text-lg">Pet Images</h3>
-                <div>
-                  <Label htmlFor="files">Upload Images (JPEG or PNG only)</Label>
-                  <Input
+                
+                {/* Drag and Drop Zone */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`
+                    relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
+                    transition-all duration-200 ease-in-out
+                    ${isDragging 
+                      ? 'border-primary bg-primary/5 scale-[1.02]' 
+                      : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'
+                    }
+                  `}
+                >
+                  <input
+                    ref={fileInputRef}
                     id="files"
                     name="files"
                     type="file"
                     accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                     onChange={handleFileChange}
-                    className="cursor-pointer"
+                    className="hidden"
                     multiple
                   />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    You can select multiple images at once
-                  </p>
+                  
+                  <div className="flex flex-col items-center gap-3">
+                    <div className={`
+                      p-4 rounded-full transition-colors
+                      ${isDragging ? 'bg-primary/10' : 'bg-muted'}
+                    `}>
+                      <ImageIcon className={`
+                        h-8 w-8 transition-colors
+                        ${isDragging ? 'text-primary' : 'text-muted-foreground'}
+                      `} />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <p className="font-medium">
+                        {isDragging ? 'Drop your images here' : 'Drag and drop images here'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        or click to browse • JPEG, PNG only
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
+                {/* Upload Progress */}
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Uploading...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <Progress value={uploadProgress} className="h-2" />
+                  </div>
+                )}
+
+                {/* Image Previews */}
                 {previewUrls.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-3">
-                      Previews ({previewUrls.length} image{previewUrls.length !== 1 ? 's' : ''}):
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">
+                      {previewUrls.length} image{previewUrls.length !== 1 ? 's' : ''} selected
                     </p>
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                       {previewUrls.map((url, index) => (
-                        <div key={index} className="relative group">
+                        <div key={index} className="relative group aspect-square">
                           <img
                             src={url}
                             alt={`Preview ${index + 1}`}
-                            className="w-full h-32 object-cover rounded border"
+                            className="w-full h-full object-cover rounded-lg border shadow-sm"
                           />
                           <button
                             type="button"
-                            onClick={() => removeImage(index)}
-                            className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeImage(index);
+                            }}
+                            className="absolute -top-2 -right-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
                             title="Remove image"
                           >
-                            ×
+                            <X className="h-4 w-4" />
                           </button>
+                          {index === 0 && (
+                            <span className="absolute bottom-1 left-1 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">
+                              Main
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>

@@ -191,73 +191,6 @@ export default function VendorProfilePage() {
 
           {/* Main Content */}
           <div className="md:col-span-2 space-y-6">
-            {/* Vendor Profile Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Vendor Profile Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {vendorProfileLoading ? (
-                  <div className="space-y-3 animate-pulse">
-                    <div className="h-4 w-2/3 rounded bg-muted" />
-                    <div className="h-4 w-1/2 rounded bg-muted" />
-                    <div className="h-4 w-1/3 rounded bg-muted" />
-                    <div className="h-16 w-full rounded bg-muted" />
-                  </div>
-                ) : vendorProfile ? (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Organization</p>
-                      <p className="text-lg font-semibold">{vendorProfile.organizationName}</p>
-                    </div>
-                    {vendorProfile.websiteUrl && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Website</p>
-                        <a
-                          href={vendorProfile.websiteUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-primary underline"
-                        >
-                          {vendorProfile.websiteUrl}
-                        </a>
-                      </div>
-                    )}
-                    {vendorProfile.phoneNumber && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Phone</p>
-                        <p className="text-base">{vendorProfile.phoneNumber}</p>
-                      </div>
-                    )}
-                    {(vendorProfile.city || vendorProfile.state) && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Location</p>
-                        <p className="text-base">{[vendorProfile.city, vendorProfile.state].filter(Boolean).join(', ')}</p>
-                      </div>
-                    )}
-                    {vendorProfile.description && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Description</p>
-                        <p className="text-base text-muted-foreground">{vendorProfile.description}</p>
-                      </div>
-                    )}
-                    <div className="pt-2">
-                      <Button asChild variant="outline">
-                        <Link to="/profile/vendor#vendor-profile-form">Edit Vendor Profile</Link>
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-muted-foreground">No vendor profile found.</p>
-                    <Button asChild>
-                      <Link to="/profile/vendor#vendor-profile-form">Create Vendor Profile</Link>
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {/* Vendor Profile Form */}
             <Card>
               <CardHeader>
@@ -310,12 +243,15 @@ export default function VendorProfilePage() {
                         name="phoneNumber"
                         type="tel"
                         inputMode="numeric"
-                        pattern="[0-9()\\-\\s]+$"
+                        pattern="^\d*$"
                         defaultValue={vendorProfile?.phoneNumber || ''}
-                        placeholder="e.g., (555) 123-4567"
+                        placeholder="e.g., 5551234567"
+                        onInput={(e) => {
+                          e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, '');
+                        }}
                       />
                       <p className="text-xs text-muted-foreground">
-                         Numbers only. Allowed characters: digits, (), -, and spaces.
+                         Digits only. No letters, symbols, or spaces allowed.
                       </p>
                     </div>
 

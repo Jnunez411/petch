@@ -1,6 +1,7 @@
 package project.petch.petch_api.dto.user;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,6 +22,7 @@ public class VendorProfileDTO {
 
     private String websiteUrl;
 
+    @Pattern(regexp = "^[0-9]*$", message = "Phone number must contain digits only")
     private String phoneNumber;
 
     private String city;

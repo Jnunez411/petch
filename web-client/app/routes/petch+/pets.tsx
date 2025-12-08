@@ -1,12 +1,16 @@
-import { useLoaderData, Link, useRevalidator } from 'react-router';
+import { useLoaderData, Link, useRevalidator, useFetcher } from 'react-router';
 import type { Route } from './+types/pets';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select';
 import { Checkbox } from '~/components/ui/checkbox';
 import { Label } from '~/components/ui/label';
+import { PawIcon } from '~/components/ui/paw-icon';
 import { useState } from 'react';
 import { getSession } from '~/services/session.server';
+import { getUserFromSession } from '~/services/auth';
+
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8080';
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -16,34 +20,72 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs){
+  const user = await getUserFromSession(request);
+  
   try{
     const session = await getSession(request.headers.get('Cookie'));
     const token = session.get('token');
 
-    const response = await fetch('http://localhost:8080/api/pets',{
+    const response = await fetch(`${API_BASE_URL}/api/pets`,{
       headers:{
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
+        'Authorization': token ? `Bearer ${token}` : '',
       },
       cache: 'no-store',
     });
     
     if(!response.ok){
       console.error(`Backend returned ${response.status}`);
-      return { pets: [], token };
+      return { pets: [], user };
     }
     
     const pets = await response.json();
-    return{ pets, token };
+    return{ pets, user };
   }catch (error){
     console.error('Failed to fetch pets:', error);
-    return { pets: [], token: null };
+    return { pets: [], user };
+  }
+}
+
+// Server action for deleting pets (keeps token secure on server)
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData();
+  const petId = formData.get('petId');
+  
+  if (!petId) {
+    return { error: 'Pet ID is required' };
+  }
+
+  const session = await getSession(request.headers.get('Cookie'));
+  const token = session.get('token');
+
+  if (!token) {
+    return { error: 'Not authenticated' };
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/pets/${petId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return { error: `Failed to delete pet: ${response.status}` };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { error: 'Failed to delete pet' };
   }
 }
 
 export default function PetsPage(){
-  const { pets, token } = useLoaderData<typeof loader>();
-  const revalidator = useRevalidator();
+  const { pets, user } = useLoaderData<typeof loader>();
+  const fetcher = useFetcher();
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Filter state (UI only - backend integration pending)
@@ -52,33 +94,21 @@ export default function PetsPage(){
   const [filterFosterable, setFilterFosterable] = useState<boolean>(false);
   const [filterAtRisk, setFilterAtRisk] = useState<boolean>(false);
 
-  const handleDelete = async (petId: number) => {
+  const handleDelete = (petId: number) => {
     if(!confirm('Are you sure you want to delete this pet?')){
       return;
     }
-
-    try{
-      setDeletingId(petId);
-      const response = await fetch(`http://localhost:8080/api/pets/${petId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if(!response.ok){
-        throw new Error(`Failed to delete pet: ${response.status}`);
-      }
-
-      // Revalidate to refresh the pet list
-      revalidator.revalidate();
-    }catch (error){
-      alert('Failed to delete pet: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }finally{
-      setDeletingId(null);
-    }
+    setDeletingId(petId);
+    fetcher.submit(
+      { petId: petId.toString() },
+      { method: 'POST' }
+    );
   };
+
+  // Reset deletingId when fetcher completes
+  if (fetcher.state === 'idle' && deletingId !== null) {
+    setDeletingId(null);
+  }
 
   return(
     <div className="min-h-screen bg-background">
@@ -201,7 +231,7 @@ export default function PetsPage(){
                   </div>
                 ) : (
                   <div className="w-full h-64 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                    <span className="text-4xl">🐾</span>
+                    <PawIcon className="w-16 h-16" />
                   </div>
                 )}
 

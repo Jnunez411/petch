@@ -1,4 +1,4 @@
-import { useLoaderData, Link, redirect, useRevalidator, Form, useActionData, useNavigation } from 'react-router';
+import { useLoaderData, Link, redirect, Form, useActionData, useNavigation, useFetcher } from 'react-router';
 import type { Route } from './+types/profile.vendor';
 import { getUserFromSession } from '~/services/auth';
 import { getSession } from '~/services/session.server';
@@ -9,7 +9,6 @@ import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
-import { useState } from 'react';
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -67,15 +66,40 @@ export async function loader({ request }: Route.LoaderArgs) {
     console.error('Failed to fetch vendor pets:', error);
   }
 
-  return { user, token, vendorProfile, vendorPets, backendUserId };
+  return { user, vendorProfile, vendorPets, backendUserId };
 }
 
 export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData();
+  const intent = formData.get('intent');
+
+  // Handle delete pet action
+  if (intent === 'delete-pet') {
+    const petId = formData.get('petId');
+    if (!petId) {
+      return { error: 'Pet ID is required' };
+    }
+
+    try {
+      const response = await authenticatedFetch(request, `/api/pets/${petId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete pet: ${response.status}`);
+      }
+
+      return { success: true, message: 'Pet deleted successfully' };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to delete pet' };
+    }
+  }
+
+  // Handle update/create vendor profile action
   if (request.method !== 'POST') {
     return { error: 'Method not allowed' };
   }
 
-  const formData = await request.formData();
   const organizationName = formData.get('organizationName');
 
   if (!organizationName || `${organizationName}`.trim() === '') {
@@ -85,13 +109,19 @@ export async function action({ request }: Route.ActionArgs) {
     };
   }
 
+  const websiteUrl = formData.get('websiteUrl');
+  const phoneNumber = formData.get('phoneNumber');
+  const city = formData.get('city');
+  const state = formData.get('state');
+  const description = formData.get('description');
+
   const vendorPayload = {
     organizationName: `${organizationName}`.trim(),
-    websiteUrl: formData.get('websiteUrl') || undefined,
-    phoneNumber: formData.get('phoneNumber') || undefined,
-    city: formData.get('city') || undefined,
-    state: formData.get('state') || undefined,
-    description: formData.get('description') || undefined,
+    websiteUrl: websiteUrl ? String(websiteUrl) : undefined,
+    phoneNumber: phoneNumber ? String(phoneNumber) : undefined,
+    city: city ? String(city) : undefined,
+    state: state ? String(state) : undefined,
+    description: description ? String(description) : undefined,
   };
 
   try {
@@ -110,41 +140,29 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function VendorProfilePage() {
-  const { user, token, vendorProfile, vendorPets } = useLoaderData<typeof loader>();
+  const { user, vendorProfile, vendorPets } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
-  const revalidator = useRevalidator();
+  const fetcher = useFetcher();
   const navigation = useNavigation();
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  const vendorProfileLoading = revalidator.state === 'loading' || navigation.state === 'loading';
   const isSubmitting = navigation.state === 'submitting';
 
-  const handleDelete = async (petId: number) => {
+  const handleDelete = (petId: number) => {
     if (!confirm('Are you sure you want to delete this pet?')) {
       return;
     }
 
-    try {
-      setDeletingId(petId);
-      const response = await fetch(`http://localhost:8080/api/pets/${petId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+    fetcher.submit(
+      { intent: 'delete-pet', petId: petId.toString() },
+      { method: 'POST' }
+    );
+  };
 
-      if (!response.ok) {
-        throw new Error(`Failed to delete pet: ${response.status}`);
-      }
-
-      // Revalidate to reload data from loader
-      revalidator.revalidate();
-    } catch (error) {
-      alert('Failed to delete pet: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setDeletingId(null);
-    }
+  const isDeletingPet = (petId: number) => {
+    return (
+      fetcher.state !== 'idle' &&
+      fetcher.formData?.get('intent') === 'delete-pet' &&
+      fetcher.formData?.get('petId') === petId.toString()
+    );
   };
 
   return (
@@ -171,7 +189,7 @@ export default function VendorProfilePage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Account Type</p>
-                  <p className="text-lg font-medium">🏠 Vendor</p>
+                  <p className="text-lg font-medium">Breeder / Shelter</p>
                 </div>
               </CardContent>
             </Card>
@@ -327,9 +345,9 @@ export default function VendorProfilePage() {
                               variant="destructive"
                               size="sm"
                               onClick={() => handleDelete(pet.id)}
-                              disabled={deletingId === pet.id}
+                              disabled={isDeletingPet(pet.id)}
                             >
-                              {deletingId === pet.id ? 'Deleting...' : 'Delete'}
+                              {isDeletingPet(pet.id) ? 'Deleting...' : 'Delete'}
                             </Button>
                           </div>
                         </div>

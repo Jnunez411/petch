@@ -1,0 +1,29 @@
+# OS files
+.DS_Store
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+target/
+build/
+dist/
+
+# React Router
+.react-router/
+
+# Dependencies
+node_modules/
+
+# GitHub folder 
+.github/

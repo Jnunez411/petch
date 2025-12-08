@@ -49,6 +49,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   const formData = await request.formData();
   const homeTypeValue = formData.get('homeType');
+  const additionalNotesValue = formData.get('additionalNotes');
 
   const payload = {
     householdSize: formData.get('householdSize') ? parseInt(formData.get('householdSize') as string) : undefined,
@@ -57,7 +58,7 @@ export async function action({ request }: Route.ActionArgs) {
     homeType: homeTypeValue ? (homeTypeValue as HomeType) : undefined,
     yard: formData.get('yard') === 'on',
     fencedYard: formData.get('fencedYard') === 'on',
-    additionalNotes: formData.get('additionalNotes') || undefined,
+    additionalNotes: additionalNotesValue ? String(additionalNotesValue) : undefined,
   };
 
   try {
@@ -106,7 +107,7 @@ export default function AdopterProfilePage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Account Type</p>
-                  <p className="text-lg font-medium">=d Adopter</p>
+                  <p className="text-lg font-medium">Adopter</p>
                 </div>
               </CardContent>
             </Card>

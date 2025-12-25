@@ -3,6 +3,7 @@ package project.petch.petch_api.repositories;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import project.petch.petch_api.dto.user.UserType;
 import project.petch.petch_api.models.User;
 
 import java.util.Optional;
@@ -12,6 +13,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Find user by email address
+     * 
      * @param email the user's email
      * @return Optional containing user if found
      */
@@ -19,8 +21,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Check if user exists with given email
+     * 
      * @param email the user's email
      * @return true if user exists, false otherwise
      */
     boolean existsByEmail(String email);
+
+    /**
+     * Count users by their type (ADOPTER, VENDOR, ADMIN)
+     * More efficient than loading all users and filtering in memory
+     * 
+     * @param userType the type of user to count
+     * @return count of users with the given type
+     */
+    long countByUserType(UserType userType);
 }

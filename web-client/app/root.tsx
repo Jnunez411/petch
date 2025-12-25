@@ -6,6 +6,7 @@ import {
   Scripts,
   ScrollRestoration,
   useLoaderData,
+  useLocation,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -53,9 +54,14 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export default function App() {
   const { user } = useLoaderData<typeof loader>();
+  const location = useLocation();
+
+  // Hide main header on admin routes (admin has its own header)
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
   return (
     <>
-      <Header user={user} />
+      {!isAdminRoute && <Header user={user} />}
       <Outlet />
     </>
   );
@@ -84,8 +90,8 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
         <PawIcon className="w-16 h-16 mx-auto" />
         <h1 className="text-4xl font-bold">{message}</h1>
         <p className="text-muted-foreground max-w-md">{details}</p>
-        <a 
-          href="/" 
+        <a
+          href="/"
           className="inline-block mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
         >
           Go Home

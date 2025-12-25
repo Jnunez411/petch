@@ -17,7 +17,9 @@ import project.petch.petch_api.models.User;
 import project.petch.petch_api.repositories.UserRepository;
 import project.petch.petch_api.service.ImageService;
 import project.petch.petch_api.service.PetService;
+import project.petch.petch_api.service.SecurityEventLogger;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
@@ -30,6 +32,8 @@ public class PetController {
     private final PetService petService;
     private final ImageService imageService;
     private final UserRepository userRepository;
+    private final SecurityEventLogger securityEventLogger;
+    private final HttpServletRequest httpServletRequest;
 
     // GET /api/pets/discover
     @GetMapping("/discover")
@@ -139,8 +143,26 @@ public class PetController {
     // delete pet
     // DELETE /api/pets/{id}
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePet(@PathVariable Long id) throws IOException {
+    public ResponseEntity<Void> deletePet(@PathVariable Long id, @AuthenticationPrincipal User user)
+            throws IOException {
         try {
+            // SECURITY: Verify ownership before allowing delete
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
+            Pets pet = petService.getPetById(id).orElse(null);
+            if (pet == null) {
+                return ResponseEntity.notFound().build();
+            }
+            // Allow admins to delete any pet, otherwise check ownership
+            boolean isAdmin = user.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!isAdmin && (pet.getUser() == null || !pet.getUser().getId().equals(user.getId()))) {
+                // SECURITY: Log IDOR attempt
+                securityEventLogger.logIdorAttempt(
+                        getClientIP(), user.getId().toString(), "pet-delete", id);
+                return ResponseEntity.status(403).build();
+            }
             imageService.deleteImagesByPet(id);
             petService.deletePet(id);
             return ResponseEntity.noContent().build();
@@ -154,8 +176,26 @@ public class PetController {
     // update pet
     // PUT /api/pets/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Pets> updatePet(@PathVariable Long id, @Valid @RequestBody PetDTO dto) {
+    public ResponseEntity<Pets> updatePet(@PathVariable Long id, @Valid @RequestBody PetDTO dto,
+            @AuthenticationPrincipal User user) {
         try {
+            // SECURITY: Verify ownership before allowing update
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
+            Pets existingPet = petService.getPetById(id).orElse(null);
+            if (existingPet == null) {
+                return ResponseEntity.notFound().build();
+            }
+            // Allow admins to update any pet, otherwise check ownership
+            boolean isAdmin = user.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!isAdmin && (existingPet.getUser() == null || !existingPet.getUser().getId().equals(user.getId()))) {
+                // SECURITY: Log IDOR attempt
+                securityEventLogger.logIdorAttempt(
+                        getClientIP(), user.getId().toString(), "pet-update", id);
+                return ResponseEntity.status(403).build();
+            }
             Pets updatedPet = petService.updatePet(id, dto);
             return ResponseEntity.ok(updatedPet);
         } catch (RuntimeException e) {
@@ -292,5 +332,16 @@ public class PetController {
     public ResponseEntity<Long> getPetCountBySpecies(@PathVariable String species) {
         long count = petService.countPetsBySpecies(species);
         return ResponseEntity.ok(count);
+    }
+
+    /**
+     * Extract client IP address, handling proxies.
+     */
+    private String getClientIP() {
+        String xForwardedFor = httpServletRequest.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return httpServletRequest.getRemoteAddr();
     }
 }

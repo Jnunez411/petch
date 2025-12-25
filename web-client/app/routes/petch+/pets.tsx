@@ -30,10 +30,15 @@ export async function loader({ request }: Route.LoaderArgs) {
   const ageRange = url.searchParams.get('ageRange');
   const fosterable = url.searchParams.get('fosterable') === 'true';
   const atRisk = url.searchParams.get('atRisk') === 'true';
+  const search = url.searchParams.get('search') || '';
   const page = parseInt(url.searchParams.get('page') || '1', 10) - 1; // Backend is 0-indexed
 
   // Build backend query string
   const queryParams = new URLSearchParams();
+
+  if (search) {
+    queryParams.set('search', search);
+  }
 
   if (species && species !== 'all') {
     queryParams.set('species', species);
@@ -93,7 +98,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         totalPages: 0,
         currentPage: 1,
         user,
-        filters: { species, ageRange, fosterable, atRisk }
+        filters: { species, ageRange, fosterable, atRisk, search }
       };
     }
 
@@ -106,7 +111,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       totalPages: data.totalPages || 0,
       currentPage: (data.number || 0) + 1, // Convert to 1-indexed for UI
       user,
-      filters: { species, ageRange, fosterable, atRisk }
+      filters: { species, ageRange, fosterable, atRisk, search }
     };
   } catch (error) {
     console.error('Failed to fetch pets:', error);
@@ -171,6 +176,7 @@ export default function PetsPage() {
   const [selectedAgeRange, setSelectedAgeRange] = useState<string>(filters.ageRange || 'all');
   const [filterFosterable, setFilterFosterable] = useState<boolean>(filters.fosterable);
   const [filterAtRisk, setFilterAtRisk] = useState<boolean>(filters.atRisk);
+  const [searchQuery, setSearchQuery] = useState<string>(filters.search || '');
 
   // Update URL when filters change
   const applyFilters = (newFilters: {
@@ -178,6 +184,7 @@ export default function PetsPage() {
     ageRange?: string;
     fosterable?: boolean;
     atRisk?: boolean;
+    search?: string;
     page?: number;
   }) => {
     setIsFiltering(true);
@@ -187,8 +194,10 @@ export default function PetsPage() {
     const ageRange = newFilters.ageRange ?? selectedAgeRange;
     const fosterable = newFilters.fosterable ?? filterFosterable;
     const atRisk = newFilters.atRisk ?? filterAtRisk;
+    const search = newFilters.search ?? searchQuery;
     const page = newFilters.page ?? 1;
 
+    if (search) params.set('search', search);
     if (species && species !== 'all') params.set('species', species);
     if (ageRange && ageRange !== 'all') params.set('ageRange', ageRange);
     if (fosterable) params.set('fosterable', 'true');
@@ -225,6 +234,7 @@ export default function PetsPage() {
     setSelectedAgeRange('all');
     setFilterFosterable(false);
     setFilterAtRisk(false);
+    setSearchQuery('');
     setSearchParams({});
   };
 
@@ -313,6 +323,28 @@ export default function PetsPage() {
       <div className="container mx-auto px-4 py-6">
         <div className="w-full bg-white rounded-lg border shadow-sm p-4">
           <div className="flex flex-wrap items-center gap-6">
+            {/* Search Input */}
+            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+              <input
+                type="text"
+                placeholder="Search by name, breed..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    applyFilters({ search: searchQuery, page: 1 });
+                  }
+                }}
+                className="px-4 py-2 border rounded-lg bg-background text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <Button
+                size="sm"
+                onClick={() => applyFilters({ search: searchQuery, page: 1 })}
+              >
+                Search
+              </Button>
+            </div>
+
             {/* Species Filter */}
             <div className="flex items-center gap-2">
               <Label htmlFor="species-filter" className="text-sm font-medium whitespace-nowrap">

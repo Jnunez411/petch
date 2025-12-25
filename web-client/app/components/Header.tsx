@@ -25,12 +25,17 @@ export function Header(props: HeaderProps) {
               <Link to="/pets" className="text-foreground hover:text-primary transition-colors">
                 Pet Listings
               </Link>
-              <Link to="/ai-match" className="text-foreground hover:text-primary transition-colors">
-                AI Match
+              <Link to="/discover" className="text-foreground hover:text-primary transition-colors">
+                Discover
               </Link>
               <Link to="/profile" className="text-foreground hover:text-primary transition-colors">
-                Profile Preferences
+                Profile
               </Link>
+              {props.user.userType === 'VENDOR' && (
+                <Link to="/pets/create" className="text-foreground hover:text-primary transition-colors font-medium">
+                  Edit Pet Listing
+                </Link>
+              )}
             </nav>
           )}
         </div>

@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: 'Vendor Profile - Petch' },
     { name: 'description', content: 'Manage your vendor profile and pet listings' },
@@ -189,7 +189,7 @@ export default function VendorProfilePage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Account Type</p>
-                  <p className="text-lg font-medium">Breeder / Shelter</p>
+                  <p className="text-lg font-medium">Vendor</p>
                 </div>
               </CardContent>
             </Card>
@@ -200,7 +200,7 @@ export default function VendorProfilePage() {
             {/* Vendor Profile Form */}
             <Card>
               <CardHeader>
-                <CardTitle>My Shelter/Vendor Information</CardTitle>
+                <CardTitle>My Vendor Information</CardTitle>
               </CardHeader>
               <CardContent>
                 {actionData?.error && (
@@ -257,7 +257,7 @@ export default function VendorProfilePage() {
                         }}
                       />
                       <p className="text-xs text-muted-foreground">
-                         Digits only. No letters, symbols, or spaces allowed.
+                        Digits only. No letters, symbols, or spaces allowed.
                       </p>
                     </div>
 

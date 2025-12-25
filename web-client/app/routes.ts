@@ -11,5 +11,5 @@ export default [
   route("pets", "routes/petch+/pets.tsx"),
   route("pets/create", "routes/petch+/createListing.tsx"),
   route("pets/:id", "routes/petch+/pet.$id.tsx"),
-  route("ai-match", "routes/petch+/ai-match.tsx"),
+  route("discover", "routes/petch+/discover.tsx"),
 ] satisfies RouteConfig;

@@ -1,4 +1,4 @@
-import { useLoaderData, Link, useFetcher, useSearchParams } from 'react-router';
+import { useLoaderData, Link, useFetcher, useSearchParams, useNavigate } from 'react-router';
 import type { Route } from './+types/pets';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
@@ -6,13 +6,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~
 import { Checkbox } from '~/components/ui/checkbox';
 import { Label } from '~/components/ui/label';
 import { PawIcon } from '~/components/ui/paw-icon';
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
-import { FAKE_PETS, PETS_PER_PAGE, type FakePet } from '~/data/fake-pets';
-import { ChevronLeft, ChevronRight, AlertTriangle, Heart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2 } from 'lucide-react';
 
 const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8080';
+const PETS_PER_PAGE = 12;
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -23,12 +23,60 @@ export function meta({ }: Route.MetaArgs) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await getUserFromSession(request);
+  const url = new URL(request.url);
+
+  // Extract filter params from URL
+  const species = url.searchParams.get('species');
+  const ageRange = url.searchParams.get('ageRange');
+  const fosterable = url.searchParams.get('fosterable') === 'true';
+  const atRisk = url.searchParams.get('atRisk') === 'true';
+  const page = parseInt(url.searchParams.get('page') || '1', 10) - 1; // Backend is 0-indexed
+
+  // Build backend query string
+  const queryParams = new URLSearchParams();
+
+  if (species && species !== 'all') {
+    queryParams.set('species', species);
+  }
+
+  // Convert age range to min/max
+  if (ageRange && ageRange !== 'all') {
+    switch (ageRange) {
+      case '0-2':
+        queryParams.set('ageMin', '0');
+        queryParams.set('ageMax', '2');
+        break;
+      case '3-5':
+        queryParams.set('ageMin', '3');
+        queryParams.set('ageMax', '5');
+        break;
+      case '6-10':
+        queryParams.set('ageMin', '6');
+        queryParams.set('ageMax', '10');
+        break;
+      case '10+':
+        queryParams.set('ageMin', '10');
+        break;
+    }
+  }
+
+  if (fosterable) {
+    queryParams.set('fosterable', 'true');
+  }
+
+  if (atRisk) {
+    queryParams.set('atRisk', 'true');
+  }
+
+  queryParams.set('page', page.toString());
+  queryParams.set('size', PETS_PER_PAGE.toString());
 
   try {
     const session = await getSession(request.headers.get('Cookie'));
     const token = session.get('token');
 
-    const response = await fetch(`${API_BASE_URL}/api/pets`, {
+    const apiUrl = `${API_BASE_URL}/api/pets?${queryParams.toString()}`;
+    const response = await fetch(apiUrl, {
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
@@ -39,14 +87,37 @@ export async function loader({ request }: Route.LoaderArgs) {
 
     if (!response.ok) {
       console.error(`Backend returned ${response.status}`);
-      return { pets: [], user };
+      return {
+        pets: [],
+        totalPets: 0,
+        totalPages: 0,
+        currentPage: 1,
+        user,
+        filters: { species, ageRange, fosterable, atRisk }
+      };
     }
 
-    const pets = await response.json();
-    return { pets, user };
+    const data = await response.json();
+
+    // Backend returns Spring Page object
+    return {
+      pets: data.content || [],
+      totalPets: data.totalElements || 0,
+      totalPages: data.totalPages || 0,
+      currentPage: (data.number || 0) + 1, // Convert to 1-indexed for UI
+      user,
+      filters: { species, ageRange, fosterable, atRisk }
+    };
   } catch (error) {
     console.error('Failed to fetch pets:', error);
-    return { pets: [], user };
+    return {
+      pets: [],
+      totalPets: 0,
+      totalPages: 0,
+      currentPage: 1,
+      user,
+      filters: { species, ageRange, fosterable, atRisk }
+    };
   }
 }
 
@@ -86,107 +157,51 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function PetsPage() {
-  const { pets: apiPets, user } = useLoaderData<typeof loader>();
+  const { pets, totalPets, totalPages, currentPage, user, filters } = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const fetcher = useFetcher();
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [showPageInput, setShowPageInput] = useState(false);
+  const [pageInputValue, setPageInputValue] = useState('');
 
-  // Filter state
-  const [selectedSpecies, setSelectedSpecies] = useState<string>('all');
-  const [selectedAgeRange, setSelectedAgeRange] = useState<string>('all');
-  const [filterFosterable, setFilterFosterable] = useState<boolean>(false);
-  const [filterAtRisk, setFilterAtRisk] = useState<boolean>(false);
+  // Filter state - initialize from URL params
+  const [selectedSpecies, setSelectedSpecies] = useState<string>(filters.species || 'all');
+  const [selectedAgeRange, setSelectedAgeRange] = useState<string>(filters.ageRange || 'all');
+  const [filterFosterable, setFilterFosterable] = useState<boolean>(filters.fosterable);
+  const [filterAtRisk, setFilterAtRisk] = useState<boolean>(filters.atRisk);
 
-  // Pagination state
-  const currentPage = parseInt(searchParams.get('page') || '1', 10);
+  // Update URL when filters change
+  const applyFilters = (newFilters: {
+    species?: string;
+    ageRange?: string;
+    fosterable?: boolean;
+    atRisk?: boolean;
+    page?: number;
+  }) => {
+    setIsFiltering(true);
+    const params = new URLSearchParams();
 
-  // Combine API pets with fake pets for demo
-  // In production, this would just be apiPets
-  const allPets = useMemo(() => {
-    // Convert fake pets to match API pet format
-    const fakePetsFormatted = FAKE_PETS.map(pet => ({
-      id: pet.id,
-      name: pet.name,
-      species: pet.species,
-      breed: pet.breed,
-      age: pet.age,
-      description: pet.description,
-      atRisk: pet.atRisk,
-      fosterable: pet.fosterable,
-      images: [{ filePath: pet.imageUrl, altText: pet.name, isExternal: true }],
-      adoptionDetails: {
-        priceEstimate: pet.priceEstimate,
-        stepsDescription: pet.stepsDescription,
-      },
-    }));
+    const species = newFilters.species ?? selectedSpecies;
+    const ageRange = newFilters.ageRange ?? selectedAgeRange;
+    const fosterable = newFilters.fosterable ?? filterFosterable;
+    const atRisk = newFilters.atRisk ?? filterAtRisk;
+    const page = newFilters.page ?? 1;
 
-    // Combine: API pets first (real data), then fake pets
-    return [...apiPets, ...fakePetsFormatted];
-  }, [apiPets]);
+    if (species && species !== 'all') params.set('species', species);
+    if (ageRange && ageRange !== 'all') params.set('ageRange', ageRange);
+    if (fosterable) params.set('fosterable', 'true');
+    if (atRisk) params.set('atRisk', 'true');
+    if (page > 1) params.set('page', page.toString());
 
-  // Apply filters
-  const filteredPets = useMemo(() => {
-    return allPets.filter((pet: any) => {
-      // Species filter
-      if (selectedSpecies !== 'all') {
-        const petSpecies = pet.species?.toLowerCase() || '';
-        const filterSpecies = selectedSpecies.toLowerCase();
-
-        // Handle "other" category
-        if (filterSpecies === 'other') {
-          const mainSpecies = ['dog', 'cat', 'bird', 'rabbit'];
-          if (mainSpecies.includes(petSpecies)) return false;
-        } else if (petSpecies !== filterSpecies) {
-          return false;
-        }
-      }
-
-      // Age range filter
-      if (selectedAgeRange !== 'all') {
-        const age = pet.age || 0;
-        switch (selectedAgeRange) {
-          case '0-2':
-            if (age < 0 || age > 2) return false;
-            break;
-          case '3-5':
-            if (age < 3 || age > 5) return false;
-            break;
-          case '6-10':
-            if (age < 6 || age > 10) return false;
-            break;
-          case '10+':
-            if (age < 10) return false;
-            break;
-        }
-      }
-
-      // Fosterable filter
-      if (filterFosterable && !pet.fosterable) return false;
-
-      // At Risk filter
-      if (filterAtRisk && !pet.atRisk) return false;
-
-      return true;
-    });
-  }, [allPets, selectedSpecies, selectedAgeRange, filterFosterable, filterAtRisk]);
-
-  // Pagination calculations
-  const totalPets = filteredPets.length;
-  const totalPages = Math.ceil(totalPets / PETS_PER_PAGE);
-  const startIndex = (currentPage - 1) * PETS_PER_PAGE;
-  const endIndex = startIndex + PETS_PER_PAGE;
-  const paginatedPets = filteredPets.slice(startIndex, endIndex);
-
-  // Ensure current page is valid
-  const validPage = Math.max(1, Math.min(currentPage, totalPages || 1));
-  if (currentPage !== validPage && totalPages > 0) {
-    setSearchParams({ page: validPage.toString() });
-  }
-
-  const goToPage = (page: number) => {
-    setSearchParams({ page: page.toString() });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setSearchParams(params);
   };
+
+  // Reset filtering state when data loads
+  useEffect(() => {
+    setIsFiltering(false);
+  }, [pets]);
 
   const handleDelete = (petId: number) => {
     if (!confirm('Are you sure you want to delete this pet?')) {
@@ -210,7 +225,12 @@ export default function PetsPage() {
     setSelectedAgeRange('all');
     setFilterFosterable(false);
     setFilterAtRisk(false);
-    setSearchParams({ page: '1' });
+    setSearchParams({});
+  };
+
+  const goToPage = (page: number) => {
+    applyFilters({ page });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Generate page numbers to display
@@ -251,6 +271,32 @@ export default function PetsPage() {
     return pages;
   };
 
+  // Helper to get image URL
+  const getPetImageUrl = (pet: any) => {
+    if (pet.images && pet.images.length > 0) {
+      const filePath = pet.images[0].filePath;
+      if (filePath) {
+        // Check if it's an external URL (starts with http)
+        if (filePath.startsWith('http')) {
+          return filePath;
+        }
+        return `http://localhost:8080${filePath}`;
+      }
+    }
+    // Fallback to species-based placeholder
+    const placeholders: Record<string, string> = {
+      'Dog': 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop',
+      'Cat': 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&h=600&fit=crop',
+      'Bird': 'https://images.unsplash.com/photo-1522926193341-e9ffd6a399b6?w=600&h=600&fit=crop',
+      'Rabbit': 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=600&h=600&fit=crop',
+      'default': 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&h=600&fit=crop'
+    };
+    return placeholders[pet.species] || placeholders['default'];
+  };
+
+  const startIndex = (currentPage - 1) * PETS_PER_PAGE;
+  const endIndex = Math.min(startIndex + PETS_PER_PAGE, totalPets);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -274,18 +320,17 @@ export default function PetsPage() {
               </Label>
               <Select value={selectedSpecies} onValueChange={(value) => {
                 setSelectedSpecies(value);
-                setSearchParams({ page: '1' });
+                applyFilters({ species: value, page: 1 });
               }}>
                 <SelectTrigger id="species-filter" className="w-[140px]">
                   <SelectValue placeholder="All Species" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Species</SelectItem>
-                  <SelectItem value="dog">Dog</SelectItem>
-                  <SelectItem value="cat">Cat</SelectItem>
-                  <SelectItem value="bird">Bird</SelectItem>
-                  <SelectItem value="rabbit">Rabbit</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="Dog">Dog</SelectItem>
+                  <SelectItem value="Cat">Cat</SelectItem>
+                  <SelectItem value="Bird">Bird</SelectItem>
+                  <SelectItem value="Rabbit">Rabbit</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -297,7 +342,7 @@ export default function PetsPage() {
               </Label>
               <Select value={selectedAgeRange} onValueChange={(value) => {
                 setSelectedAgeRange(value);
-                setSearchParams({ page: '1' });
+                applyFilters({ ageRange: value, page: 1 });
               }}>
                 <SelectTrigger id="age-filter" className="w-[140px]">
                   <SelectValue placeholder="All Ages" />
@@ -319,7 +364,7 @@ export default function PetsPage() {
                 checked={filterFosterable}
                 onCheckedChange={(checked) => {
                   setFilterFosterable(checked as boolean);
-                  setSearchParams({ page: '1' });
+                  applyFilters({ fosterable: checked as boolean, page: 1 });
                 }}
               />
               <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
@@ -335,7 +380,7 @@ export default function PetsPage() {
                 checked={filterAtRisk}
                 onCheckedChange={(checked) => {
                   setFilterAtRisk(checked as boolean);
-                  setSearchParams({ page: '1' });
+                  applyFilters({ atRisk: checked as boolean, page: 1 });
                 }}
               />
               <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
@@ -368,9 +413,19 @@ export default function PetsPage() {
         </div>
       </div>
 
+      {/* Loading Overlay */}
+      {isFiltering && (
+        <div className="fixed inset-0 bg-background/50 z-50 flex items-center justify-center">
+          <div className="flex items-center gap-2 bg-white p-4 rounded-lg shadow-lg">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span>Filtering...</span>
+          </div>
+        </div>
+      )}
+
       {/* Pets Grid */}
       <div className="container mx-auto px-4 py-6">
-        {paginatedPets.length === 0 ? (
+        {pets.length === 0 ? (
           <div className="text-center py-12">
             <PawIcon className="w-16 h-16 mx-auto mb-4 opacity-30" />
             <p className="text-lg text-muted-foreground mb-2">
@@ -386,7 +441,7 @@ export default function PetsPage() {
         ) : (
           <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {paginatedPets.map((pet: any) => (
+              {pets.map((pet: any) => (
                 <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow relative">
                   {/* At Risk Badge */}
                   {pet.atRisk && (
@@ -397,22 +452,14 @@ export default function PetsPage() {
                   )}
 
                   {/* Pet Image */}
-                  {pet.images && pet.images.length > 0 ? (
-                    <div className="w-full aspect-[4/3] overflow-hidden bg-gray-100 group cursor-pointer relative">
-                      <img
-                        src={pet.images[0].isExternal
-                          ? pet.images[0].filePath
-                          : `http://localhost:8080${pet.images[0].filePath}`}
-                        alt={pet.images[0].altText || pet.name}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                        loading="lazy"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full h-64 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                      <PawIcon className="w-16 h-16" />
-                    </div>
-                  )}
+                  <Link to={`/pets/${pet.id}`} className="block w-full aspect-[4/3] overflow-hidden bg-gray-100 group cursor-pointer relative">
+                    <img
+                      src={getPetImageUrl(pet)}
+                      alt={pet.name}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  </Link>
 
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center justify-between">
@@ -487,9 +534,43 @@ export default function PetsPage() {
                         {page}
                       </Button>
                     ) : (
-                      <span key={index} className="px-2 text-muted-foreground">
-                        {page}
-                      </span>
+                      <div key={index} className="relative">
+                        {showPageInput ? (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const pageNum = parseInt(pageInputValue, 10);
+                              if (pageNum >= 1 && pageNum <= totalPages) {
+                                goToPage(pageNum);
+                              }
+                              setShowPageInput(false);
+                              setPageInputValue('');
+                            }}
+                            className="flex items-center gap-1"
+                          >
+                            <input
+                              type="number"
+                              min={1}
+                              max={totalPages}
+                              value={pageInputValue}
+                              onChange={(e) => setPageInputValue(e.target.value)}
+                              className="w-16 h-10 text-center border rounded-md text-sm"
+                              autoFocus
+                              placeholder={`1-${totalPages}`}
+                            />
+                            <Button type="submit" size="sm" variant="outline" className="h-10">
+                              Go
+                            </Button>
+                          </form>
+                        ) : (
+                          <button
+                            onClick={() => setShowPageInput(true)}
+                            className="px-2 text-muted-foreground hover:text-primary cursor-pointer"
+                          >
+                            ...
+                          </button>
+                        )}
+                      </div>
                     )
                   ))}
                 </div>
@@ -510,7 +591,7 @@ export default function PetsPage() {
 
             {/* Page Info */}
             <div className="text-center text-sm text-muted-foreground pb-8">
-              Showing {startIndex + 1}-{Math.min(endIndex, totalPets)} of {totalPets} pets
+              Showing {startIndex + 1}-{endIndex} of {totalPets} pets
               {totalPages > 1 && ` • Page ${currentPage} of ${totalPages}`}
             </div>
           </>

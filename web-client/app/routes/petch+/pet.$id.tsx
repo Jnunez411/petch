@@ -5,10 +5,11 @@ import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { getUserFromSession } from "~/services/auth";
 import { getSession } from "~/services/session.server";
+import { FAKE_PETS, type FakePet } from '~/data/fake-pets';
 
 const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8080';
 
-interface Image{
+interface Image {
   id: number;
   fileName: string;
   filePath: string;
@@ -17,14 +18,14 @@ interface Image{
   createdAt: string;
 }
 
-interface User{
+interface User {
   id: number;
   firstName: string;
   lastName: string;
   email: string;
 }
 
-interface AdoptionDetails{
+interface AdoptionDetails {
   id: number;
   isDirect: boolean;
   priceEstimate: number;
@@ -34,7 +35,7 @@ interface AdoptionDetails{
   email: string;
 }
 
-interface Pet{
+interface Pet {
   id: number;
   name: string;
   species: string;
@@ -65,6 +66,52 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     return redirect('/login');
   }
 
+  // Check if it's a fake pet first
+  const petId = parseInt(params.id);
+  const fakePet = FAKE_PETS.find(p => p.id === petId);
+
+  if (fakePet) {
+    // Map FakePet to the Pet interface expected by the component
+    const mappedPet: Pet = {
+      id: fakePet.id,
+      name: fakePet.name,
+      species: fakePet.species,
+      breed: fakePet.breed,
+      age: fakePet.age,
+      description: fakePet.description,
+      atRisk: fakePet.atRisk,
+      fosterable: fakePet.fosterable,
+      images: [
+        {
+          id: -1,
+          fileName: 'fake-image',
+          filePath: fakePet.imageUrl,
+          altText: fakePet.name,
+          fileSize: 0,
+          createdAt: new Date().toISOString()
+        }
+      ],
+      user: {
+        id: -1,
+        firstName: 'System',
+        lastName: 'Demo',
+        email: 'demo@petch.com'
+      },
+      adoptionDetails: {
+        id: -1,
+        isDirect: true,
+        priceEstimate: fakePet.priceEstimate,
+        stepsDescription: fakePet.stepsDescription,
+        redirectLink: '',
+        phoneNumber: '(555) 123-4567',
+        email: 'adopt@petch.com'
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    return { pet: mappedPet, apiBaseUrl: '' };
+  }
+
   const session = await getSession(request.headers.get('Cookie'));
   const token = session.get('token');
 
@@ -74,11 +121,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         'Authorization': token ? `Bearer ${token}` : '',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error("Pet not found");
     }
-    
+
     const pet = await response.json();
     return { pet, apiBaseUrl: API_BASE_URL };
   } catch (error) {
@@ -86,7 +133,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
 }
 
-export default function PetDetail(){
+export default function PetDetail() {
   const { pet, apiBaseUrl } = useLoaderData<typeof loader>();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAdoptionDetails, setShowAdoptionDetails] = useState(false);
@@ -94,12 +141,12 @@ export default function PetDetail(){
   const mainImage = pet.images?.[selectedImageIndex];
 
   const getImageUrl = (filePath: string) => {
-    if(!filePath) return '';
-    if(filePath.startsWith('http')) return filePath;
+    if (!filePath) return '';
+    if (filePath.startsWith('http')) return filePath;
     return `${apiBaseUrl}${filePath}`;
   };
 
-  return(
+  return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Back Button */}
@@ -134,11 +181,10 @@ export default function PetDetail(){
                   <button
                     key={img.id}
                     onClick={() => setSelectedImageIndex(idx)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                      idx === selectedImageIndex
+                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${idx === selectedImageIndex
                         ? "border-primary shadow-md"
                         : "border-muted hover:border-primary/50"
-                    }`}
+                      }`}
                   >
                     <img
                       src={getImageUrl(img.filePath)}
@@ -239,7 +285,7 @@ export default function PetDetail(){
 
             {/* Action Buttons */}
             <div className="flex gap-4">
-              <Button 
+              <Button
                 onClick={() => setShowAdoptionDetails(!showAdoptionDetails)}
                 className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 text-lg font-semibold"
               >
@@ -251,7 +297,7 @@ export default function PetDetail(){
             {showAdoptionDetails && pet.adoptionDetails && (
               <Card className="bg-card p-6 shadow-md border-2 border-orange-500">
                 <h2 className="text-2xl font-bold text-foreground mb-4">Adoption Details</h2>
-                
+
                 <div className="space-y-4">
                   {/* Cost */}
                   <div className="border-b border-border pb-4">
@@ -293,9 +339,9 @@ export default function PetDetail(){
                         {pet.adoptionDetails.redirectLink && (
                           <div className="mb-3">
                             <dt className="text-muted-foreground font-medium mb-2">Adoption Page</dt>
-                            <a 
-                              href={pet.adoptionDetails.redirectLink} 
-                              target="_blank" 
+                            <a
+                              href={pet.adoptionDetails.redirectLink}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:text-blue-800 font-semibold underline break-all"
                             >

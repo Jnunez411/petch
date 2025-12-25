@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import type { DragEvent } from 'react';
 import { useNavigate, Link, useLoaderData, redirect } from 'react-router';
 import type { Route } from './+types/createListing';
@@ -10,9 +10,12 @@ import { Checkbox } from '~/components/ui/checkbox';
 import { Progress } from '~/components/ui/progress';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
-import { ImageIcon, X } from 'lucide-react';
+import {
+  ImageIcon, X, AlertCircle, CheckCircle, PawPrint,
+  DollarSign, Phone, Mail, Link as LinkIcon, FileText
+} from 'lucide-react';
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: 'Create Pet Listing - Petch' },
     { name: 'description', content: 'Create a new pet listing' },
@@ -62,6 +65,105 @@ export default function CreatePetPage() {
     redirectPhoneNumber: '',
     redirectEmail: '',
   });
+
+  // Touched state for validation
+  const [touched, setTouched] = useState({
+    name: false,
+    species: false,
+    breed: false,
+    age: false,
+    priceEstimate: false,
+    stepsDescription: false,
+    phoneNumber: false,
+    email: false,
+    redirectLink: false,
+    redirectPhoneNumber: false,
+    redirectEmail: false,
+  });
+
+  // Human-friendly validation functions
+  const validateName = (name: string) => {
+    if (!name) return "What's this pet's name?";
+    if (name.length < 2) return "Name should be at least 2 characters";
+    if (name.length > 100) return "Name is too long (max 100 characters)";
+    return null;
+  };
+
+  const validateSpecies = (species: string) => {
+    if (!species) return "What type of animal is this? (e.g., Dog, Cat, Bird)";
+    if (species.length < 2) return "Please enter a valid species name";
+    return null;
+  };
+
+  const validateBreed = (breed: string) => {
+    if (!breed) return "What breed is this pet? (e.g., Labrador, Siamese)";
+    if (breed.length < 2) return "Please enter a valid breed name";
+    return null;
+  };
+
+  const validateAge = (age: number) => {
+    if (age < 0) return "Age can't be negative";
+    if (age > 30) return "That seems like an unusually high age. Please double-check.";
+    return null;
+  };
+
+  const validatePrice = (price: number) => {
+    if (price < 0) return "Adoption fee can't be negative";
+    if (price > 10000) return "That's quite a high fee. Please verify this is correct.";
+    return null;
+  };
+
+  const validateSteps = (steps: string) => {
+    if (!steps) return "Please describe the adoption process so potential adopters know what to expect";
+    if (steps.length < 20) return "Please provide more detail about the adoption steps";
+    return null;
+  };
+
+  const validatePhone = (phone: string) => {
+    if (!phone) return "Please provide a contact phone number";
+    const digitsOnly = phone.replace(/\D/g, "");
+    if (digitsOnly.length < 10) return "Phone number should have at least 10 digits";
+    return null;
+  };
+
+  const validateEmail = (email: string) => {
+    if (!email) return "Please provide an email for inquiries";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return "That doesn't look like a valid email address";
+    return null;
+  };
+
+  const validateUrl = (url: string) => {
+    if (!url) return "Please provide the adoption page link";
+    try {
+      new URL(url);
+      return null;
+    } catch {
+      return "Please enter a valid URL (e.g., https://example.com/adopt)";
+    }
+  };
+
+  // Get validation errors
+  const nameError = touched.name ? validateName(formData.name) : null;
+  const speciesError = touched.species ? validateSpecies(formData.species) : null;
+  const breedError = touched.breed ? validateBreed(formData.breed) : null;
+  const ageError = touched.age ? validateAge(formData.age) : null;
+  const priceError = touched.priceEstimate ? validatePrice(adoptionDetails.priceEstimate) : null;
+  const stepsError = touched.stepsDescription ? validateSteps(adoptionDetails.stepsDescription) : null;
+  const phoneError = touched.phoneNumber && adoptionDetails.isDirect
+    ? validatePhone(adoptionDetails.phoneNumber) : null;
+  const emailError = touched.email && adoptionDetails.isDirect
+    ? validateEmail(adoptionDetails.email) : null;
+  const redirectLinkError = touched.redirectLink && !adoptionDetails.isDirect
+    ? validateUrl(adoptionDetails.redirectLink) : null;
+  const redirectPhoneError = touched.redirectPhoneNumber && !adoptionDetails.isDirect
+    ? validatePhone(adoptionDetails.redirectPhoneNumber) : null;
+  const redirectEmailError = touched.redirectEmail && !adoptionDetails.isDirect
+    ? validateEmail(adoptionDetails.redirectEmail) : null;
+
+  const handleBlur = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -125,7 +227,12 @@ export default function CreatePetPage() {
 
     Array.from(files).forEach((file) => {
       if (!validTypes.includes(file.type)) {
-        setError('Please upload only JPEG or PNG images');
+        setError('Oops! Please upload only JPEG or PNG images. Other formats are not supported.');
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setError('That image is too large! Please keep images under 5MB.');
         return;
       }
 
@@ -167,6 +274,30 @@ export default function CreatePetPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Mark all fields as touched to show any validation errors
+    setTouched({
+      name: true,
+      species: true,
+      breed: true,
+      age: true,
+      priceEstimate: true,
+      stepsDescription: true,
+      phoneNumber: true,
+      email: true,
+      redirectLink: true,
+      redirectPhoneNumber: true,
+      redirectEmail: true,
+    });
+
+    // Check for validation errors
+    if (validateName(formData.name) || validateSpecies(formData.species) ||
+      validateBreed(formData.breed) || validateAge(formData.age) ||
+      validateSteps(adoptionDetails.stepsDescription)) {
+      setError("Please fix the errors above before submitting.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -178,7 +309,7 @@ export default function CreatePetPage() {
       });
 
       if (!userResponse.ok) {
-        throw new Error('Failed to get user data');
+        throw new Error('Unable to verify your account. Please try logging in again.');
       }
 
       const fullUser = await userResponse.json();
@@ -203,16 +334,18 @@ export default function CreatePetPage() {
         body: JSON.stringify(petPayload),
       });
 
-      if(!petResponse.ok){
+      if (!petResponse.ok) {
         const errorText = await petResponse.text();
         console.error('Pet creation error response:', errorText);
-        throw new Error(`Failed to create pet: ${petResponse.status}`);
+        throw new Error('Unable to create the pet listing. Please check your information and try again.');
       }
 
       const pet = await petResponse.json();
 
-      if(selectedFiles.length > 0){
-        for(const file of selectedFiles){
+      if (selectedFiles.length > 0) {
+        setUploadProgress(10);
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
           const imageFormData = new FormData();
           imageFormData.append('file', file);
           imageFormData.append('altText', formData.name);
@@ -228,11 +361,14 @@ export default function CreatePetPage() {
             }
           );
 
-          if(!imageResponse.ok){
-            throw new Error(`Failed to upload image: ${imageResponse.status}`);
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to upload image ${i + 1}. The pet was created but some images may be missing.`);
           }
+          setUploadProgress(10 + ((i + 1) / selectedFiles.length) * 40);
         }
       }
+
+      setUploadProgress(60);
 
       // Create adoption details
       const adoptionPayload = {
@@ -253,15 +389,36 @@ export default function CreatePetPage() {
         body: JSON.stringify(adoptionPayload),
       });
 
-      if(!adoptionResponse.ok){
-        throw new Error(`Failed to create adoption details: ${adoptionResponse.status}`);
+      if (!adoptionResponse.ok) {
+        throw new Error('Pet created but unable to save adoption details. Please edit the listing to add them.');
       }
 
+      setUploadProgress(100);
       navigate('/pets?refresh=' + Date.now());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setLoading(false);
+      setUploadProgress(0);
     }
+  };
+
+  // Helper component for field errors
+  const FieldError = ({ error }: { error: string | null }) => {
+    if (!error) return null;
+    return (
+      <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+        <AlertCircle className="w-3 h-3" />
+        {error}
+      </p>
+    );
+  };
+
+  // Helper component for valid field indicator
+  const FieldSuccess = ({ show }: { show: boolean }) => {
+    if (!show) return null;
+    return (
+      <CheckCircle className="w-4 h-4 text-green-500 absolute right-3 top-1/2 -translate-y-1/2" />
+    );
   };
 
   return (
@@ -269,7 +426,10 @@ export default function CreatePetPage() {
       <div className="border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold">Create Pet Listing</h1>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <PawPrint className="w-8 h-8 text-primary" />
+              Create Pet Listing
+            </h1>
             <Button asChild variant="outline">
               <Link to="/profile/vendor">← Back to Profile</Link>
             </Button>
@@ -281,54 +441,82 @@ export default function CreatePetPage() {
         <Card>
           <CardHeader>
             <CardTitle>Add a New Pet</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Fill in the details below to create a listing. Fields marked with * are required.
+            </p>
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded text-red-800">
-                {error}
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-red-800">Something went wrong</p>
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Pet Details</h3>
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <PawPrint className="w-5 h-5" />
+                  Pet Details
+                </h3>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Name *</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="e.g., Max"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        onBlur={() => handleBlur('name')}
+                        required
+                        placeholder="e.g., Max"
+                        className={nameError ? "border-destructive" : ""}
+                      />
+                      <FieldSuccess show={touched.name && !nameError && !!formData.name} />
+                    </div>
+                    <FieldError error={nameError} />
                   </div>
                   <div>
                     <Label htmlFor="species">Species *</Label>
-                    <Input
-                      id="species"
-                      name="species"
-                      value={formData.species}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="e.g., Dog"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="species"
+                        name="species"
+                        value={formData.species}
+                        onChange={handleInputChange}
+                        onBlur={() => handleBlur('species')}
+                        required
+                        placeholder="e.g., Dog"
+                        className={speciesError ? "border-destructive" : ""}
+                      />
+                      <FieldSuccess show={touched.species && !speciesError && !!formData.species} />
+                    </div>
+                    <FieldError error={speciesError} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="breed">Breed *</Label>
-                    <Input
-                      id="breed"
-                      name="breed"
-                      value={formData.breed}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="e.g., Labrador"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="breed"
+                        name="breed"
+                        value={formData.breed}
+                        onChange={handleInputChange}
+                        onBlur={() => handleBlur('breed')}
+                        required
+                        placeholder="e.g., Labrador"
+                        className={breedError ? "border-destructive" : ""}
+                      />
+                      <FieldSuccess show={touched.breed && !breedError && !!formData.breed} />
+                    </div>
+                    <FieldError error={breedError} />
                   </div>
                   <div>
                     <Label htmlFor="age">Age (years) *</Label>
@@ -338,10 +526,13 @@ export default function CreatePetPage() {
                       type="number"
                       value={formData.age}
                       onChange={handleInputChange}
+                      onBlur={() => handleBlur('age')}
                       required
                       min="0"
                       max="30"
+                      className={ageError ? "border-destructive" : ""}
                     />
+                    <FieldError error={ageError} />
                   </div>
                 </div>
 
@@ -352,13 +543,16 @@ export default function CreatePetPage() {
                     name="description"
                     value={formData.description}
                     onChange={handleInputChange}
-                    placeholder="Tell us about this pet..."
+                    placeholder="Tell potential adopters about this pet's personality, habits, and what makes them special..."
                     className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                     rows={4}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    A good description helps pets find their forever homes faster!
+                  </p>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex gap-6 p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="atRisk"
@@ -371,9 +565,14 @@ export default function CreatePetPage() {
                         }))
                       }
                     />
-                    <Label htmlFor="atRisk" className="cursor-pointer">
-                      At Risk
-                    </Label>
+                    <div>
+                      <Label htmlFor="atRisk" className="cursor-pointer font-medium">
+                        At Risk
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        This pet needs urgent placement
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox
@@ -387,43 +586,66 @@ export default function CreatePetPage() {
                         }))
                       }
                     />
-                    <Label htmlFor="fosterable" className="cursor-pointer">
-                      Available for Foster
-                    </Label>
+                    <div>
+                      <Label htmlFor="fosterable" className="cursor-pointer font-medium">
+                        Available for Foster
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Open to temporary foster homes
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-4 border-t pt-6">
-                <h3 className="font-semibold text-lg">Adoption Details</h3>
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  Adoption Details
+                </h3>
 
                 <div>
-                  <Label htmlFor="priceEstimate">Estimated Adoption Cost $ *</Label>
-                  <Input
-                    id="priceEstimate"
-                    name="priceEstimate"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={adoptionDetails.priceEstimate}
-                    onChange={handleAdoptionDetailsChange}
-                    required
-                    placeholder="e.g., 150.00"
-                  />
+                  <Label htmlFor="priceEstimate">Estimated Adoption Fee *</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <Input
+                      id="priceEstimate"
+                      name="priceEstimate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={adoptionDetails.priceEstimate}
+                      onChange={handleAdoptionDetailsChange}
+                      onBlur={() => handleBlur('priceEstimate')}
+                      required
+                      placeholder="150.00"
+                      className={`pl-7 ${priceError ? "border-destructive" : ""}`}
+                    />
+                  </div>
+                  <FieldError error={priceError} />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This helps cover vaccinations, spay/neuter, and care costs
+                  </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="stepsDescription">Steps to Adopt *</Label>
+                  <Label htmlFor="stepsDescription" className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Steps to Adopt *
+                  </Label>
                   <textarea
                     id="stepsDescription"
                     name="stepsDescription"
                     value={adoptionDetails.stepsDescription}
                     onChange={handleAdoptionDetailsChange}
-                    placeholder="Describe the adoption process (e.g., application, interview, home visit)..."
-                    className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                    rows={4}
+                    onBlur={() => handleBlur('stepsDescription')}
+                    placeholder="Example:&#10;1. Fill out our adoption application&#10;2. Meet and greet with the pet&#10;3. Home visit (virtual or in-person)&#10;4. Sign adoption contract&#10;5. Take your new friend home!"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring ${stepsError ? "border-destructive" : "border-input"
+                      }`}
+                    rows={5}
                     required
                   />
+                  <FieldError error={stepsError} />
                 </div>
 
                 <div className="space-y-4 border rounded-lg p-4 bg-card">
@@ -431,22 +653,20 @@ export default function CreatePetPage() {
                     <button
                       type="button"
                       onClick={() => handleAdoptionTypeChange(true)}
-                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                        adoptionDetails.isDirect
-                          ? 'bg-orange-500 text-white'
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${adoptionDetails.isDirect
+                          ? 'bg-primary text-white'
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
+                        }`}
                     >
                       Direct Adoption
                     </button>
                     <button
                       type="button"
                       onClick={() => handleAdoptionTypeChange(false)}
-                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                        !adoptionDetails.isDirect
-                          ? 'bg-orange-500 text-white'
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${!adoptionDetails.isDirect
+                          ? 'bg-primary text-white'
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
+                        }`}
                     >
                       Redirect to Website
                     </button>
@@ -454,70 +674,104 @@ export default function CreatePetPage() {
 
                   {adoptionDetails.isDirect ? (
                     <div className="space-y-4 pt-4 border-t">
-                      <p className="text-sm text-muted-foreground">Contact information for direct adoption inquiries:</p>
+                      <p className="text-sm text-muted-foreground">
+                        Adopters will contact you directly at these details:
+                      </p>
                       <div>
-                        <Label htmlFor="phoneNumber">Phone Number *</Label>
+                        <Label htmlFor="phoneNumber" className="flex items-center gap-2">
+                          <Phone className="w-4 h-4" />
+                          Phone Number *
+                        </Label>
                         <Input
                           id="phoneNumber"
                           name="phoneNumber"
                           type="tel"
                           value={adoptionDetails.phoneNumber}
                           onChange={handleAdoptionDetailsChange}
+                          onBlur={() => handleBlur('phoneNumber')}
                           required
-                          placeholder="e.g., (555) 123-4567"
+                          placeholder="(555) 123-4567"
+                          className={phoneError ? "border-destructive" : ""}
                         />
+                        <FieldError error={phoneError} />
                       </div>
                       <div>
-                        <Label htmlFor="email">Email *</Label>
+                        <Label htmlFor="email" className="flex items-center gap-2">
+                          <Mail className="w-4 h-4" />
+                          Email *
+                        </Label>
                         <Input
                           id="email"
                           name="email"
                           type="email"
                           value={adoptionDetails.email}
                           onChange={handleAdoptionDetailsChange}
+                          onBlur={() => handleBlur('email')}
                           required
-                          placeholder="e.g., contact@example.com"
+                          placeholder="contact@example.com"
+                          className={emailError ? "border-destructive" : ""}
                         />
+                        <FieldError error={emailError} />
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-4 pt-4 border-t">
-                      <p className="text-sm text-muted-foreground">Redirect users to your company website for adoption:</p>
+                      <p className="text-sm text-muted-foreground">
+                        Adopters will be redirected to your organization's website:
+                      </p>
                       <div>
-                        <Label htmlFor="redirectLink">Adoption Page Link *</Label>
+                        <Label htmlFor="redirectLink" className="flex items-center gap-2">
+                          <LinkIcon className="w-4 h-4" />
+                          Adoption Page Link *
+                        </Label>
                         <Input
                           id="redirectLink"
                           name="redirectLink"
                           type="url"
                           value={adoptionDetails.redirectLink}
                           onChange={handleAdoptionDetailsChange}
+                          onBlur={() => handleBlur('redirectLink')}
                           required
-                          placeholder="e.g., https://mycompany.com/adopt/pet123"
+                          placeholder="https://myorganization.com/adopt/pet123"
+                          className={redirectLinkError ? "border-destructive" : ""}
                         />
+                        <FieldError error={redirectLinkError} />
                       </div>
                       <div>
-                        <Label htmlFor="redirectPhoneNumber">Company Phone Number *</Label>
+                        <Label htmlFor="redirectPhoneNumber" className="flex items-center gap-2">
+                          <Phone className="w-4 h-4" />
+                          Organization Phone *
+                        </Label>
                         <Input
                           id="redirectPhoneNumber"
                           name="redirectPhoneNumber"
                           type="tel"
                           value={adoptionDetails.redirectPhoneNumber}
                           onChange={handleAdoptionDetailsChange}
+                          onBlur={() => handleBlur('redirectPhoneNumber')}
                           required
-                          placeholder="e.g., (555) 123-4567"
+                          placeholder="(555) 123-4567"
+                          className={redirectPhoneError ? "border-destructive" : ""}
                         />
+                        <FieldError error={redirectPhoneError} />
                       </div>
                       <div>
-                        <Label htmlFor="redirectEmail">Company Email *</Label>
+                        <Label htmlFor="redirectEmail" className="flex items-center gap-2">
+                          <Mail className="w-4 h-4" />
+                          Organization Email *
+                        </Label>
                         <Input
                           id="redirectEmail"
                           name="redirectEmail"
                           type="email"
                           value={adoptionDetails.redirectEmail}
                           onChange={handleAdoptionDetailsChange}
+                          onBlur={() => handleBlur('redirectEmail')}
                           required
-                          placeholder="e.g., adoption@mycompany.com"
+                          placeholder="adoption@myorganization.com"
+                          className={redirectEmailError ? "border-destructive" : ""}
                         />
+                        <FieldError error={redirectEmailError} />
                       </div>
                     </div>
                   )}
@@ -525,8 +779,11 @@ export default function CreatePetPage() {
               </div>
 
               <div className="space-y-4 border-t pt-6">
-                <h3 className="font-semibold text-lg">Pet Images</h3>
-                
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5" />
+                  Pet Images
+                </h3>
+
                 {/* Drag and Drop Zone */}
                 <div
                   onDragOver={handleDragOver}
@@ -536,8 +793,8 @@ export default function CreatePetPage() {
                   className={`
                     relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
                     transition-all duration-200 ease-in-out
-                    ${isDragging 
-                      ? 'border-primary bg-primary/5 scale-[1.02]' 
+                    ${isDragging
+                      ? 'border-primary bg-primary/5 scale-[1.02]'
                       : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'
                     }
                   `}
@@ -552,7 +809,7 @@ export default function CreatePetPage() {
                     className="hidden"
                     multiple
                   />
-                  
+
                   <div className="flex flex-col items-center gap-3">
                     <div className={`
                       p-4 rounded-full transition-colors
@@ -563,13 +820,13 @@ export default function CreatePetPage() {
                         ${isDragging ? 'text-primary' : 'text-muted-foreground'}
                       `} />
                     </div>
-                    
+
                     <div className="space-y-1">
                       <p className="font-medium">
                         {isDragging ? 'Drop your images here' : 'Drag and drop images here'}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        or click to browse • JPEG, PNG only
+                        or click to browse • JPEG, PNG only • Max 5MB each
                       </p>
                     </div>
                   </div>
@@ -580,7 +837,7 @@ export default function CreatePetPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Uploading...</span>
-                      <span>{uploadProgress}%</span>
+                      <span>{Math.round(uploadProgress)}%</span>
                     </div>
                     <Progress value={uploadProgress} className="h-2" />
                   </div>
@@ -589,7 +846,8 @@ export default function CreatePetPage() {
                 {/* Image Previews */}
                 {previewUrls.length > 0 && (
                   <div className="space-y-3">
-                    <p className="text-sm font-medium">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
                       {previewUrls.length} image{previewUrls.length !== 1 ? 's' : ''} selected
                     </p>
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
@@ -629,7 +887,7 @@ export default function CreatePetPage() {
                   disabled={loading}
                   className="flex-1"
                 >
-                  {loading ? 'Creating...' : 'Create Pet Listing'}
+                  {loading ? 'Creating listing...' : 'Create Pet Listing'}
                 </Button>
                 <Button
                   type="button"

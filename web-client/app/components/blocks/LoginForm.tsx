@@ -10,7 +10,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { PawIcon } from "~/components/ui/paw-icon";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { Link, Form } from "react-router";
 import { useState } from "react";
 
@@ -21,6 +21,28 @@ interface LoginFormProps {
 
 export function LoginForm({ error, isSubmitting }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [touched, setTouched] = useState({ email: false, password: false });
+
+  // Validation helpers
+  const validateEmail = (email: string) => {
+    if (!email) return "Please enter your email address";
+    if (!email.includes("@")) return "That doesn't look like a valid email. Did you forget the @?";
+    if (!email.includes(".")) return "Please include a domain (like .com or .org)";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return "Please enter a valid email address";
+    return null;
+  };
+
+  const validatePassword = (password: string) => {
+    if (!password) return "Please enter your password";
+    if (password.length < 8) return "Password must be at least 8 characters";
+    return null;
+  };
+
+  const emailError = touched.email ? validateEmail(email) : null;
+  const passwordError = touched.password ? validatePassword(password) : null;
 
   return (
     <div className="flex items-center justify-center min-h-screen">
@@ -39,36 +61,59 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
           </CardHeader>
           <CardContent className="space-y-5 px-8">
             {error && (
-              <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded">
-                {error}
+              <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Oops! Something went wrong</p>
+                  <p className="text-sm">{error}</p>
+                </div>
               </div>
             )}
 
             <Form method="post">
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email address</Label>
-                  <Input 
-                    id="email" 
-                    name="email" 
-                    type="email" 
-                    required 
-                    placeholder="you@example.com" 
+                  <Label htmlFor="email" className="flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    Email address
+                  </Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
+                    className={emailError ? "border-destructive focus-visible:ring-destructive" : ""}
                   />
+                  {emailError && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {emailError}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Password
+                    </Label>
                   </div>
                   <div className="relative">
                     <Input
                       id="password"
                       name="password"
                       type={showPassword ? "text" : "password"}
-                      className="pr-10"
+                      className={`pr-10 ${passwordError ? "border-destructive focus-visible:ring-destructive" : ""}`}
                       required
                       placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onBlur={() => setTouched(prev => ({ ...prev, password: true }))}
                     />
                     <Button
                       type="button"
@@ -84,12 +129,18 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
                       )}
                     </Button>
                   </div>
+                  {passwordError && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {passwordError}
+                    </p>
+                  )}
                 </div>
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !!emailError || !!passwordError}
                 >
                   {isSubmitting ? "Signing in..." : "Sign in"}
                 </Button>

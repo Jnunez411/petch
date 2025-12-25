@@ -200,7 +200,7 @@ export default function VendorProfilePage() {
             {/* Vendor Profile Form */}
             <Card>
               <CardHeader>
-                <CardTitle>My Vendor Information</CardTitle>
+                <CardTitle>My Profile</CardTitle>
               </CardHeader>
               <CardContent>
                 {actionData?.error && (

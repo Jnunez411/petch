@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: 'Adopter Profile - Petch' },
     { name: 'description', content: 'Manage your adopter profile and preferences' },
@@ -117,7 +117,7 @@ export default function AdopterProfilePage() {
           <div className="md:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>My Adopter Profile</CardTitle>
+                <CardTitle>My Profile</CardTitle>
               </CardHeader>
               <CardContent>
                 {actionData?.error && (

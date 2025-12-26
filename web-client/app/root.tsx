@@ -13,10 +13,10 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { Header } from "./components/Header";
 import { getUserFromSession } from "./services/auth";
-import { PawIcon } from "./components/ui/paw-icon";
+import { Dog } from "lucide-react";
 
 export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%23f97316' d='M226.5 92.9c14.3 42.9-.3 86.2-32.6 96.8s-70.1-15.6-84.4-58.5s.3-86.2 32.6-96.8s70.1 15.6 84.4 58.5zM100.4 198.6c18.9 32.4 14.3 70.1-10.2 84.1s-59.7-.9-78.5-33.3S-2.7 179.3 21.8 165.3s59.7 .9 78.5 33.3zM69.2 401.2C121.6 259.9 214.7 224 256 224s134.4 35.9 186.8 177.2c3.6 9.7 5.2 20.1 5.2 30.5v1.6c0 25.8-20.9 46.7-46.7 46.7c-11.5 0-22.9-1.4-34-4.2l-88-22c-15.3-3.8-31.3-3.8-46.6 0l-88 22c-11.1 2.8-22.5 4.2-34 4.2C84.9 480 64 459.1 64 433.3v-1.6c0-10.4 1.6-20.8 5.2-30.5zM490.2 165.3c24.5 14.1 29.1 51.7 10.2 84.1s-54 47.3-78.5 33.3s-29.1-51.7-10.2-84.1s54-47.3 78.5-33.3zM317.9 34.4c32.3 10.6 46.9 53.9 32.6 96.8s-52.1 69.1-84.4 58.5s-46.9-53.9-32.6-96.8s52.1-69.1 84.4-58.5z'/></svg>" },
+  { rel: "icon", href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FF6B6B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1.722 3.656 1 1.261-.472 1.96-1.45 2.344-2.5'/><path d='M14.267 5.172c0-1.39 1.577-2.493 3.5-2.172 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5'/><path d='M8 14v.5'/><path d='M16 14v.5'/><path d='M11.25 16.25h1.5L12 17l-.75-.75Z'/><path d='M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309m-9.243-6.082A8.801 8.801 0 0 1 12 5c.78 0 1.5.108 2.161.306'/></svg>" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -85,14 +85,16 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center">
+    <main className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
       <div className="text-center space-y-4 p-8">
-        <PawIcon className="w-16 h-16 mx-auto" />
+        <div className="size-16 rounded-xl bg-coral flex items-center justify-center mx-auto">
+          <Dog className="w-10 h-10 text-white" />
+        </div>
         <h1 className="text-4xl font-bold">{message}</h1>
         <p className="text-muted-foreground max-w-md">{details}</p>
         <a
           href="/"
-          className="inline-block mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+          className="inline-block mt-4 px-6 py-2 bg-coral text-white rounded-full hover:bg-coral-dark transition-colors"
         >
           Go Home
         </a>

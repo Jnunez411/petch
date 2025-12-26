@@ -21,7 +21,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "pet_interactions")
+@Table(name = "pet_interactions", indexes = {
+        @jakarta.persistence.Index(name = "idx_pet_interactions_user_id", columnList = "user_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

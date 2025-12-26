@@ -75,4 +75,20 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         @Param("ageMax") Integer ageMax,
                         @Param("fosterable") Boolean fosterable,
                         @Param("atRisk") Boolean atRisk);
+
+        // Find trending pets (ordered by view count, handles NULL, excludes test data)
+        @Query("SELECT p FROM Pets p WHERE " +
+                        "p.name NOT LIKE '%SQL%' AND p.name NOT LIKE '%script%' AND p.name NOT LIKE '%DROP%' AND " +
+                        "p.species NOT LIKE '%script%' AND p.species NOT LIKE '%img%' AND p.species NOT LIKE '%onerror%' "
+                        +
+                        "ORDER BY COALESCE(p.viewCount, 0) DESC, p.createdAt DESC")
+        List<Pets> findTrendingPets(Pageable pageable);
+
+        // PERFORMANCE: Database-level exclusion for discovery - avoids loading all pets
+        // into memory
+        @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.id NOT IN :excludedIds")
+        List<Pets> findPetsNotIn(@Param("excludedIds") List<Long> excludedIds);
+
+        // PERFORMANCE: Proper count query instead of loading all records
+        long countByBreedIgnoreCase(String breed);
 }

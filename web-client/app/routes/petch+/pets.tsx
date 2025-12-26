@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select';
 import { Checkbox } from '~/components/ui/checkbox';
 import { Label } from '~/components/ui/label';
-import { PawIcon } from '~/components/ui/paw-icon';
 import { useState, useEffect } from 'react';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
-import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2, Dog } from 'lucide-react';
+import { API_BASE_URL, getImageUrl } from '~/config/api-config';
+import { PLACEHOLDER_IMAGES } from '~/config/constants';
+import type { Pet } from '~/types/pet';
 
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8080';
 const PETS_PER_PAGE = 12;
 
 export function meta({ }: Route.MetaArgs) {
@@ -282,26 +283,12 @@ export default function PetsPage() {
   };
 
   // Helper to get image URL
-  const getPetImageUrl = (pet: any) => {
+  const getPetImageUrl = (pet: Pet) => {
     if (pet.images && pet.images.length > 0) {
-      const filePath = pet.images[0].filePath;
-      if (filePath) {
-        // Check if it's an external URL (starts with http)
-        if (filePath.startsWith('http')) {
-          return filePath;
-        }
-        return `http://localhost:8080${filePath}`;
-      }
+      const imageUrl = getImageUrl(pet.images[0].filePath);
+      if (imageUrl) return imageUrl;
     }
-    // Fallback to species-based placeholder
-    const placeholders: Record<string, string> = {
-      'Dog': 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop',
-      'Cat': 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&h=600&fit=crop',
-      'Bird': 'https://images.unsplash.com/photo-1522926193341-e9ffd6a399b6?w=600&h=600&fit=crop',
-      'Rabbit': 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=600&h=600&fit=crop',
-      'default': 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&h=600&fit=crop'
-    };
-    return placeholders[pet.species] || placeholders['default'];
+    return PLACEHOLDER_IMAGES[pet.species] || PLACEHOLDER_IMAGES.default;
   };
 
   const startIndex = (currentPage - 1) * PETS_PER_PAGE;
@@ -312,7 +299,7 @@ export default function PetsPage() {
       {/* Header */}
       <div className="pt-8 pb-6 text-center border-b sticky top-16 bg-background z-40 shadow-sm">
         <h1 className="text-5xl font-bold primary-text tracking-tight center-text mb-2">
-          <span className="text-primary"> Pet Listings </span>
+          <span className="text-coral"> Pet Listings </span>
         </h1>
         <p className="text-xl text-muted-foreground ">
           Find your perfect companion • {totalPets} pets available
@@ -416,7 +403,7 @@ export default function PetsPage() {
                 }}
               />
               <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
-                <AlertTriangle className="w-4 h-4 text-orange-600" />
+                <AlertTriangle className="w-4 h-4 text-red-600" />
                 At Risk Only
               </Label>
             </div>
@@ -449,7 +436,7 @@ export default function PetsPage() {
       {isFiltering && (
         <div className="fixed inset-0 bg-background/50 z-50 flex items-center justify-center">
           <div className="flex items-center gap-2 bg-white p-4 rounded-lg shadow-lg">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <Loader2 className="w-6 h-6 animate-spin text-coral" />
             <span>Filtering...</span>
           </div>
         </div>
@@ -459,7 +446,9 @@ export default function PetsPage() {
       <div className="container mx-auto px-4 py-6">
         {pets.length === 0 ? (
           <div className="text-center py-12">
-            <PawIcon className="w-16 h-16 mx-auto mb-4 opacity-30" />
+            <div className="size-16 rounded-xl bg-coral/10 flex items-center justify-center mx-auto mb-4">
+              <Dog className="w-8 h-8 text-coral" />
+            </div>
             <p className="text-lg text-muted-foreground mb-2">
               No pets found matching your filters.
             </p>
@@ -473,63 +462,91 @@ export default function PetsPage() {
         ) : (
           <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pets.map((pet: any) => (
-                <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow relative">
-                  {/* At Risk Badge */}
+              {pets.map((pet: Pet) => (
+                <Card key={pet.id} className="relative group overflow-hidden border-border/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-card/50 hover:bg-card">
+                  {/* At Risk Badge - Kept as high priority signal */}
                   {pet.atRisk && (
-                    <div className="absolute top-3 left-3 z-10 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
+                    <div className="absolute top-3 left-3 z-10 bg-red-500/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 shadow-sm">
+                      <AlertTriangle className="w-3.5 h-3.5" />
                       Needs Home Urgently
                     </div>
                   )}
 
                   {/* Pet Image */}
-                  <Link to={`/pets/${pet.id}`} className="block w-full aspect-[4/3] overflow-hidden bg-gray-100 group cursor-pointer relative">
-                    <img
-                      src={getPetImageUrl(pet)}
-                      alt={pet.name}
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      loading="lazy"
-                    />
-                  </Link>
+                  <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                    <Link to={`/pets/${pet.id}`}>
+                      <img
+                        src={getPetImageUrl(pet)}
+                        alt={pet.name}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      {/* Gradient overlay for text readability if we wanted, but clean is nice for now */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </Link>
+                  </div>
 
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center justify-between">
-                      <span>{pet.name}</span>
-                      {pet.adoptionDetails?.priceEstimate && (
-                        <span className="text-lg font-normal text-primary">
-                          ${pet.adoptionDetails.priceEstimate}
-                        </span>
-                      )}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {pet.breed} • {pet.age} {pet.age === 1 ? 'year' : 'years'} old
-                    </p>
+                  <CardHeader className="pb-2 pt-4">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <CardTitle className="text-xl font-bold tracking-tight mb-1">
+                          <Link to={`/pets/${pet.id}`} className="hover:text-coral transition-colors">
+                            {pet.name}
+                          </Link>
+                        </CardTitle>
+                        <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          {pet.breed}
+                          <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+                          {pet.age} {pet.age === 1 ? 'year' : 'years'} old
+                        </p>
+                      </div>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm line-clamp-2">{pet.description}</p>
+
+                  <CardContent className="space-y-4">
+                    {/* Tags Row */}
                     <div className="flex gap-2 flex-wrap">
                       {pet.species && (
-                        <span className="px-2 py-1 bg-primary/10 rounded text-xs">
+                        <span className="px-2.5 py-0.5 bg-secondary text-secondary-foreground rounded-md text-xs font-medium border border-border/50">
                           {pet.species}
                         </span>
                       )}
                       {pet.fosterable && (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs flex items-center gap-1">
-                          <Heart className="w-3 h-3" />
+                        <span className="px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-100 rounded-md text-xs font-medium flex items-center gap-1">
+                          <Heart className="w-3 h-3 fill-green-700/20" />
                           Fosterable
-                        </span>
-                      )}
-                      {pet.atRisk && (
-                        <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">
-                          At Risk
                         </span>
                       )}
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button className="flex-1" asChild>
-                        <Link to={`/pets/${pet.id}`}>View Details</Link>
+                    <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                      {pet.description}
+                    </p>
+
+                    <div className="pt-2 flex items-center justify-between gap-4 border-t border-border/40 mt-auto">
+                      {/* Price moved to bottom, neutral styling */}
+                      {pet.adoptionDetails?.priceEstimate ? (
+                        <div className="text-xs font-medium text-muted-foreground/80 flex flex-col">
+                          Adoption Fee
+                          <span className="text-sm text-foreground font-semibold">
+                            ${pet.adoptionDetails.priceEstimate}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-xs font-medium text-muted-foreground/80">
+                          Inquire for Fee
+                        </div>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        className="group/btn border-coral/20 text-coral hover:bg-coral hover:text-white hover:border-coral transition-all duration-300"
+                        asChild
+                      >
+                        <Link to={`/pets/${pet.id}`} className="flex items-center gap-2">
+                          Meet {pet.name}
+                          <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-0.5" />
+                        </Link>
                       </Button>
                     </div>
                   </CardContent>
@@ -597,7 +614,7 @@ export default function PetsPage() {
                         ) : (
                           <button
                             onClick={() => setShowPageInput(true)}
-                            className="px-2 text-muted-foreground hover:text-primary cursor-pointer"
+                            className="px-2 text-muted-foreground hover:text-coral cursor-pointer"
                           >
                             ...
                           </button>

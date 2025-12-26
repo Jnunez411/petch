@@ -1,6 +1,8 @@
 package project.petch.petch_api.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import project.petch.petch_api.dto.admin.AdminStatsDto;
@@ -18,9 +20,13 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getStats());
     }
 
+    // PERFORMANCE: Added pagination to avoid loading all users at once
     @GetMapping("/users")
-    public ResponseEntity<?> getAllUsers() {
-        return ResponseEntity.ok(adminService.getAllUsers());
+    public ResponseEntity<?> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(adminService.getAllUsers(pageable));
     }
 
     @DeleteMapping("/users/{id}")
@@ -37,9 +43,13 @@ public class AdminController {
         }
     }
 
+    // PERFORMANCE: Added pagination to avoid loading all pets at once
     @GetMapping("/pets")
-    public ResponseEntity<?> getAllPets() {
-        return ResponseEntity.ok(adminService.getAllPets());
+    public ResponseEntity<?> getAllPets(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(adminService.getAllPets(pageable));
     }
 
     @DeleteMapping("/pets/{id}")

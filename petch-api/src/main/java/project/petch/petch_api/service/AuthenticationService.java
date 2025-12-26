@@ -14,7 +14,6 @@ import project.petch.petch_api.dto.auth.AuthenticationRequest;
 import project.petch.petch_api.dto.auth.AuthenticationResponse;
 import project.petch.petch_api.dto.auth.RegisterRequest;
 import project.petch.petch_api.exception.UserAlreadyExistsException;
-import project.petch.petch_api.exception.UserNotFoundException;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.repositories.UserRepository;
 
@@ -69,6 +68,18 @@ public class AuthenticationService {
      * @return authentication response with JWT token
      */
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
+        // First check if account exists and if it's locked
+        var userOptional = userRepository.findByEmail(request.email());
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if (!user.isAccountNonLocked()) {
+                securityEventLogger.logEvent(
+                        SecurityEventLogger.SecurityEventType.UNAUTHORIZED_ACCESS,
+                        getClientIP(), request.email(), "Account is locked");
+                throw new BadCredentialsException("Account is temporarily locked. Please try again later.");
+            }
+        }
+
         try {
             // Authenticate user credentials
             authenticationManager.authenticate(
@@ -76,14 +87,42 @@ public class AuthenticationService {
                             request.email(),
                             request.password()));
         } catch (BadCredentialsException e) {
-            // Log failed authentication attempt
+            // Log failed authentication attempt and increment failed attempts
             securityEventLogger.logFailedLogin(getClientIP(), request.email());
+
+            // Increment failed login attempts
+            userOptional.ifPresent(user -> {
+                int attempts = (user.getFailedLoginAttempts() == null ? 0 : user.getFailedLoginAttempts()) + 1;
+                user.setFailedLoginAttempts(attempts);
+
+                // Lock account after 5 failed attempts for 15 minutes
+                if (attempts >= 5) {
+                    user.setAccountLockedUntil(java.time.LocalDateTime.now().plusMinutes(15));
+                    securityEventLogger.logEvent(
+                            SecurityEventLogger.SecurityEventType.UNAUTHORIZED_ACCESS,
+                            getClientIP(), request.email(),
+                            "Account locked after " + attempts + " failed attempts");
+                }
+                userRepository.save(user);
+            });
+
             throw e;
         }
 
         // Fetch user from database
+        // SECURITY: Use generic error message to prevent username enumeration
         var user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + request.email()));
+                .orElseThrow(() -> {
+                    securityEventLogger.logFailedLogin(getClientIP(), request.email());
+                    return new BadCredentialsException("Invalid credentials");
+                });
+
+        // Reset failed login attempts on successful login
+        if (user.getFailedLoginAttempts() != null && user.getFailedLoginAttempts() > 0) {
+            user.setFailedLoginAttempts(0);
+            user.setAccountLockedUntil(null);
+            userRepository.save(user);
+        }
 
         // Generate JWT token
         var jwtToken = jwtService.generateToken(user);

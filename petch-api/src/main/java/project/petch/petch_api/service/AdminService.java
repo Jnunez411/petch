@@ -16,6 +16,9 @@ import project.petch.petch_api.repositories.UserRepository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -42,8 +45,9 @@ public class AdminService {
                 .build();
     }
 
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    // PERFORMANCE: Added pagination to avoid loading all users at once
+    public Page<User> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable);
     }
 
     /**
@@ -74,8 +78,9 @@ public class AdminService {
         userRepository.deleteById(id);
     }
 
-    public List<Pets> getAllPets() {
-        return petsRepository.findAll();
+    // PERFORMANCE: Added pagination to avoid loading all pets at once
+    public Page<Pets> getAllPets(Pageable pageable) {
+        return petsRepository.findAll(pageable);
     }
 
     /**

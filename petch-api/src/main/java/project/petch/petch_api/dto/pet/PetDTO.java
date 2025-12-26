@@ -50,4 +50,8 @@ public class PetDTO {
     private Long userId;
 
     private List<ImageDTO> images;
+
+    private Long viewCount;
+
+    private AdoptionDetailsDTO adoptionDetails;
 }

@@ -6,9 +6,12 @@ import org.springframework.transaction.annotation.Transactional;
 import project.petch.petch_api.models.Images;
 import java.util.List;
 
-public interface ImagesRepository extends JpaRepository<Images, Long>{
+public interface ImagesRepository extends JpaRepository<Images, Long> {
     List<Images> findByPetId(Long petId);
-    
+
+    // PERFORMANCE: Efficient count query instead of loading all records
+    long countByPetId(Long petId);
+
     @Transactional
     @Modifying
     void deleteByPetId(Long petId);

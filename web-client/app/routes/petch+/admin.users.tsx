@@ -4,8 +4,8 @@ import type { Route } from './+types/admin.users';
 import { getAuthToken } from '~/services/auth';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
-
-const API_BASE = 'http://localhost:8080';
+import { API_BASE_URL } from '~/config/api-config';
+import type { AdminUser } from '~/types/auth';
 
 export function meta({ }: Route.MetaArgs) {
     return [
@@ -22,7 +22,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/admin/users`, {
+        // Fetch with large page size to support client-side filtering
+        const response = await fetch(`${API_BASE_URL}/api/admin/users?page=0&size=1000`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -33,7 +34,9 @@ export async function loader({ request }: Route.LoaderArgs) {
             return { users: [], error: 'Failed to fetch users' };
         }
 
-        const users = await response.json();
+        const data = await response.json();
+        // Backend returns a Page object, extract content
+        const users = data.content || [];
         return { users, error: null };
     } catch (error) {
         return { users: [], error: 'API connection failed' };
@@ -52,7 +55,7 @@ export async function action({ request }: Route.ActionArgs) {
 
     if (actionType === 'delete') {
         try {
-            const response = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+            const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -90,7 +93,7 @@ export default function AdminUsers() {
     }
 
     // Filter users based on search query
-    const filteredUsers = users.filter((user: any) => {
+    const filteredUsers = users.filter((user: AdminUser) => {
         const query = searchQuery.toLowerCase();
         return (
             user.firstName?.toLowerCase().includes(query) ||
@@ -105,11 +108,11 @@ export default function AdminUsers() {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginatedUsers = filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-    const adopters = users.filter((u: any) => u.userType === 'ADOPTER');
-    const vendors = users.filter((u: any) => u.userType === 'VENDOR');
-    const admins = users.filter((u: any) => u.userType === 'ADMIN');
+    const adopters = users.filter((u: AdminUser) => u.userType === 'ADOPTER');
+    const vendors = users.filter((u: AdminUser) => u.userType === 'VENDOR');
+    const admins = users.filter((u: AdminUser) => u.userType === 'ADMIN');
 
-    const handleDeleteClick = (user: any) => {
+    const handleDeleteClick = (user: AdminUser) => {
         setDeleteConfirm({ id: user.id, name: `${user.firstName} ${user.lastName}` });
     };
 
@@ -225,7 +228,7 @@ export default function AdminUsers() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    paginatedUsers.map((user: any) => (
+                                    paginatedUsers.map((user: AdminUser) => (
                                         <tr key={user.id} className="border-b hover:bg-muted/30 transition-colors">
                                             <td className="py-3 px-4 text-muted-foreground">#{user.id}</td>
                                             <td className="py-3 px-4">

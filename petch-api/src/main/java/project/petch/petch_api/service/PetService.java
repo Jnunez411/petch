@@ -1,8 +1,10 @@
 package project.petch.petch_api.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import project.petch.petch_api.dto.pet.PetDTO;
 import project.petch.petch_api.models.PetInteraction;
@@ -34,20 +36,17 @@ public class PetService {
                 .map(i -> i.getPet().getId())
                 .collect(Collectors.toList());
 
-        // Get all pets from repository
-        List<Pets> allPets = petsRepository.findAll();
+        // PERFORMANCE: Use database-level exclusion instead of loading all pets
+        List<Pets> availablePets = interactedPetIds.isEmpty()
+                ? petsRepository.findAllWithDetails()
+                : petsRepository.findPetsNotIn(interactedPetIds);
 
-        // Filter out pets user has already interacted with
-        List<Pets> availablePets = allPets.stream()
-                .filter(p -> !interactedPetIds.contains(p.getId()))
-                .collect(Collectors.toList());
-
-        // Sort by match score (return all available pets)
+        // PERFORMANCE: Sort by match score and limit to top 50
         return availablePets.stream()
                 .sorted((p1, p2) -> Double.compare(
                         calculateMatchScore(p2, prefs),
                         calculateMatchScore(p1, prefs)))
-                // .limit(20) // Removed limit to show all pets
+                .limit(50)
                 .collect(Collectors.toList());
     }
 
@@ -258,10 +257,86 @@ public class PetService {
     }
 
     public long countPetsByBreed(String breed) {
-        return petsRepository.findByBreedIgnoreCase(breed).size();
+        // PERFORMANCE: Use proper count query instead of loading all records
+        return petsRepository.countByBreedIgnoreCase(breed);
     }
 
+    @Cacheable(value = "petCounts", key = "'all'")
     public long countAllPets() {
         return petsRepository.count();
+    }
+
+    /**
+     * Increment view count for a pet (used for trending logic).
+     * PERFORMANCE: Made async to avoid blocking request threads.
+     */
+    @Async("asyncExecutor")
+    public void incrementViewCount(Long petId) {
+        petsRepository.findById(petId).ifPresent(pet -> {
+            Long currentCount = pet.getViewCount() != null ? pet.getViewCount() : 0L;
+            pet.setViewCount(currentCount + 1);
+            petsRepository.save(pet);
+        });
+    }
+
+    /**
+     * Get trending pets (most viewed).
+     * PERFORMANCE: Cached for 5 minutes to reduce database load.
+     */
+    @Cacheable(value = "trendingPets", key = "#count")
+    public List<Pets> getTrendingPets(int count) {
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(0, count);
+        return petsRepository.findTrendingPets(pageable);
+    }
+
+    /**
+     * Delete an interaction (Undo) and reverse learned preferences.
+     */
+    public void deleteInteraction(User user, Long petId) {
+        PetInteraction interaction = petInteractionRepository.findByUserAndPet_Id(user, petId)
+                .orElseThrow(() -> new RuntimeException("Interaction not found"));
+
+        Pets pet = interaction.getPet();
+        PetInteraction.InteractionType type = interaction.getInteractionType();
+
+        petInteractionRepository.delete(interaction);
+
+        // Reverse preference learning and decrement total swipes
+        userPreferenceRepository.findByUser(user).ifPresent(prefs -> {
+            // Reverse the learning rate that was applied
+            double reverseLearningRate = type == PetInteraction.InteractionType.LIKE ? -0.5 : 0.2;
+            String species = pet.getSpecies().toLowerCase();
+            String breed = pet.getBreed().toLowerCase();
+
+            // Reverse species and breed weights
+            prefs.getSpeciesWeights().put(species,
+                    prefs.getSpeciesWeights().getOrDefault(species, 0.0) + reverseLearningRate);
+            prefs.getBreedWeights().put(breed,
+                    prefs.getBreedWeights().getOrDefault(breed, 0.0) + reverseLearningRate * 0.5);
+
+            // Reverse age category weights
+            int age = pet.getAge();
+            if (age <= 2)
+                prefs.setWeightYoung(prefs.getWeightYoung() + reverseLearningRate * 0.3);
+            else if (age <= 5)
+                prefs.setWeightAdult(prefs.getWeightAdult() + reverseLearningRate * 0.3);
+            else if (age <= 10)
+                prefs.setWeightMature(prefs.getWeightMature() + reverseLearningRate * 0.3);
+            else
+                prefs.setWeightSenior(prefs.getWeightSenior() + reverseLearningRate * 0.3);
+
+            // Reverse fosterable/atRisk weights
+            if (pet.getFosterable())
+                prefs.setFosterableWeight(prefs.getFosterableWeight() + reverseLearningRate * 0.2);
+            if (pet.getAtRisk())
+                prefs.setAtRiskWeight(prefs.getAtRiskWeight() + reverseLearningRate * 0.2);
+
+            // Decrement total swipes
+            if (prefs.getTotalSwipes() > 0) {
+                prefs.setTotalSwipes(prefs.getTotalSwipes() - 1);
+            }
+
+            userPreferenceRepository.save(prefs);
+        });
     }
 }

@@ -53,7 +53,15 @@ public class SecurityConfig {
                         }) // X-Content-Type-Options: nosniff
                         .frameOptions(frame -> frame.deny()) // X-Frame-Options: DENY
                         .xssProtection(xss -> xss.disable()) // Disable deprecated X-XSS-Protection, use CSP instead
-                )
+                        // Content Security Policy - prevents XSS and other injection attacks
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'self'; " +
+                                        "script-src 'self'; " +
+                                        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                                        "font-src 'self' https://fonts.gstatic.com; " +
+                                        "img-src 'self' data: https: blob:; " +
+                                        "connect-src 'self' http://localhost:* https://localhost:*; " +
+                                        "frame-ancestors 'none';")))
 
                 // Configure CORS (Cross-Origin Resource Sharing)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))

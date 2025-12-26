@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select';
 import { Checkbox } from '~/components/ui/checkbox';
 import { Label } from '~/components/ui/label';
-import { PawIcon } from '~/components/ui/paw-icon';
 import { useState, useEffect } from 'react';
 import { getSession } from '~/services/session.server';
-import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2, Dog } from 'lucide-react';
+import { API_BASE_URL, getImageUrl } from '~/config/api-config';
+import { PLACEHOLDER_IMAGES } from '~/config/constants';
+import type { Pet } from '~/types/pet';
 
-const API_BASE_URL = 'http://localhost:8080';
 const PETS_PER_PAGE = 12;
 
 export function meta({ }: Route.MetaArgs) {
@@ -165,22 +166,12 @@ export default function AdminListings() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const getPetImageUrl = (pet: any) => {
+    const getPetImageUrl = (pet: Pet) => {
         if (pet.images && pet.images.length > 0) {
-            const filePath = pet.images[0].filePath;
-            if (filePath) {
-                if (filePath.startsWith('http')) return filePath;
-                return `http://localhost:8080${filePath}`;
-            }
+            const imageUrl = getImageUrl(pet.images[0].filePath);
+            if (imageUrl) return imageUrl;
         }
-        const placeholders: Record<string, string> = {
-            'Dog': 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop',
-            'Cat': 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&h=600&fit=crop',
-            'Bird': 'https://images.unsplash.com/photo-1522926193341-e9ffd6a399b6?w=600&h=600&fit=crop',
-            'Rabbit': 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=600&h=600&fit=crop',
-            'default': 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&h=600&fit=crop'
-        };
-        return placeholders[pet.species] || placeholders['default'];
+        return PLACEHOLDER_IMAGES[pet.species] || PLACEHOLDER_IMAGES.default;
     };
 
     const startIndex = (currentPage - 1) * PETS_PER_PAGE;
@@ -292,7 +283,7 @@ export default function AdminListings() {
                                 }}
                             />
                             <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
-                                <AlertTriangle className="w-4 h-4 text-orange-600" />
+                                <AlertTriangle className="w-4 h-4 text-red-600" />
                                 At Risk
                             </Label>
                         </div>
@@ -308,7 +299,7 @@ export default function AdminListings() {
             {isFiltering && (
                 <div className="fixed inset-0 bg-background/50 z-50 flex items-center justify-center">
                     <div className="flex items-center gap-2 bg-white p-4 rounded-lg shadow-lg">
-                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                        <Loader2 className="w-6 h-6 animate-spin text-coral" />
                         <span>Filtering...</span>
                     </div>
                 </div>
@@ -317,7 +308,9 @@ export default function AdminListings() {
             {/* Pets Grid */}
             {pets.length === 0 ? (
                 <div className="text-center py-12">
-                    <PawIcon className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                    <div className="size-16 rounded-xl bg-coral/10 flex items-center justify-center mx-auto mb-4">
+                        <Dog className="w-8 h-8 text-coral" />
+                    </div>
                     <p className="text-lg text-muted-foreground mb-2">
                         No pets found matching your filters.
                     </p>
@@ -328,10 +321,10 @@ export default function AdminListings() {
             ) : (
                 <>
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {pets.map((pet: any) => (
+                        {pets.map((pet: Pet) => (
                             <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow relative">
                                 {pet.atRisk && (
-                                    <div className="absolute top-3 left-3 z-10 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                                    <div className="absolute top-3 left-3 z-10 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
                                         <AlertTriangle className="w-3 h-3" />
                                         Needs Home Urgently
                                     </div>
@@ -350,7 +343,7 @@ export default function AdminListings() {
                                     <CardTitle className="flex items-center justify-between">
                                         <span>{pet.name}</span>
                                         {pet.adoptionDetails?.priceEstimate && (
-                                            <span className="text-lg font-normal text-primary">
+                                            <span className="text-lg font-normal text-coral">
                                                 ${pet.adoptionDetails.priceEstimate}
                                             </span>
                                         )}
@@ -363,7 +356,7 @@ export default function AdminListings() {
                                     <p className="text-sm line-clamp-2">{pet.description}</p>
                                     <div className="flex gap-2 flex-wrap">
                                         {pet.species && (
-                                            <span className="px-2 py-1 bg-primary/10 rounded text-xs">
+                                            <span className="px-2 py-1 bg-coral/10 rounded text-xs">
                                                 {pet.species}
                                             </span>
                                         )}

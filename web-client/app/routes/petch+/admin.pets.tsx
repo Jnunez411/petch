@@ -4,8 +4,8 @@ import type { Route } from './+types/admin.pets';
 import { getAuthToken } from '~/services/auth';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
-
-const API_BASE = 'http://localhost:8080';
+import { API_BASE_URL } from '~/config/api-config';
+import type { Pet } from '~/types/pet';
 
 export function meta({ }: Route.MetaArgs) {
     return [
@@ -22,7 +22,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/admin/pets`, {
+        // Fetch with large page size to support client-side filtering
+        const response = await fetch(`${API_BASE_URL}/api/admin/pets?page=0&size=1000`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -33,7 +34,9 @@ export async function loader({ request }: Route.LoaderArgs) {
             return { pets: [], error: 'Failed to fetch pets' };
         }
 
-        const pets = await response.json();
+        const data = await response.json();
+        // Backend returns a Page object, extract content
+        const pets = data.content || [];
         return { pets, error: null };
     } catch (error) {
         return { pets: [], error: 'API connection failed' };
@@ -52,7 +55,7 @@ export async function action({ request }: Route.ActionArgs) {
 
     if (actionType === 'delete') {
         try {
-            const response = await fetch(`${API_BASE}/api/admin/pets/${petId}`, {
+            const response = await fetch(`${API_BASE_URL}/api/admin/pets/${petId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -90,7 +93,7 @@ export default function AdminPets() {
     }
 
     // Filter pets based on search query
-    const filteredPets = pets.filter((pet: any) => {
+    const filteredPets = pets.filter((pet: Pet) => {
         const query = searchQuery.toLowerCase();
         return (
             pet.name?.toLowerCase().includes(query) ||
@@ -104,12 +107,12 @@ export default function AdminPets() {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginatedPets = filteredPets.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-    const speciesCounts = pets.reduce((acc: any, pet: any) => {
+    const speciesCounts = pets.reduce((acc: Record<string, number>, pet: Pet) => {
         acc[pet.species] = (acc[pet.species] || 0) + 1;
         return acc;
     }, {});
 
-    const handleDeleteClick = (pet: any) => {
+    const handleDeleteClick = (pet: Pet) => {
         setDeleteConfirm({ id: pet.id, name: `${pet.name} (${pet.species})` });
     };
 
@@ -217,7 +220,7 @@ export default function AdminPets() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    paginatedPets.map((pet: any) => (
+                                    paginatedPets.map((pet: Pet) => (
                                         <tr key={pet.id} className="border-b hover:bg-muted/30 transition-colors">
                                             <td className="py-3 px-4 text-muted-foreground">#{pet.id}</td>
                                             <td className="py-3 px-4 font-medium">{pet.name}</td>
@@ -246,7 +249,7 @@ export default function AdminPets() {
                                             <td className="py-3 px-4">
                                                 <div className="flex gap-2">
                                                     <Button variant="outline" size="sm" asChild>
-                                                        <Link to={`/pets/${pet.id}`} target="_blank">
+                                                        <Link to={`/pets/${pet.id}?origin=admin`}>
                                                             View
                                                         </Link>
                                                     </Button>

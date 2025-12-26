@@ -2,8 +2,7 @@ import { useLoaderData, Link } from 'react-router';
 import type { Route } from './+types/admin._index';
 import { getUserFromSession, getAuthToken } from '~/services/auth';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
-
-const API_BASE = 'http://localhost:8080';
+import { API_BASE_URL } from '~/config/api-config';
 
 export function meta({ }: Route.MetaArgs) {
     return [
@@ -21,7 +20,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/admin/stats`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -47,15 +46,6 @@ export default function AdminDashboard() {
 
     return (
         <div className="space-y-8">
-            {/* Welcome Section */}
-            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-8">
-                <h1 className="text-3xl font-bold text-foreground mb-2">
-                    {greeting}, {user?.firstName || 'Admin'}!
-                </h1>
-                <p className="text-muted-foreground text-lg">
-                    Welcome to the Petch Admin Dashboard. Monitor platform activity, manage users, and oversee pet listings.
-                </p>
-            </div>
 
             {/* Error State */}
             {error && (

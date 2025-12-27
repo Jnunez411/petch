@@ -5,26 +5,21 @@ import { getSession } from '~/services/session.server';
 import { authenticatedFetch } from '~/utils/api';
 import { getVendorProfile, createVendorProfile, updateVendorProfile } from '~/services/profile.server';
 import type { VendorProfile } from '~/types/vendor';
+
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
   Building2,
-  Mail,
-  Phone,
-  Globe,
-  MapPin,
   Plus,
   Edit3,
   Trash2,
   ExternalLink,
-  Dog,
-  Heart,
-  Eye,
   CheckCircle,
-  XCircle
+  User,
+  Camera
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES } from '~/config/constants';
 
@@ -152,6 +147,45 @@ export default function VendorProfilePage() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
   const [isEditing, setIsEditing] = useState(!vendorProfile);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Optimistic preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // Upload to backend
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/api/v1/vendor/profile/me/image', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+
+        // Revalidate by reloading the page to get fresh data
+        // Alternatively we can just trust the optimistic UI, but better to sync.
+        // For now, we just let the optimistic UI hold.
+      } catch (error) {
+        console.error('Failed to upload image', error);
+        alert('Failed to upload profile image.');
+      }
+
+      // We should probably revalidate.
+
+    }
+  };
 
   const handleDelete = (petId: number) => {
     if (!confirm('Are you sure you want to delete this pet? This action cannot be undone.')) {
@@ -186,11 +220,31 @@ export default function VendorProfilePage() {
         <div className="container mx-auto px-4 py-10">
           <div className="flex flex-col md:flex-row items-center gap-6">
             {/* Avatar */}
-            <div className="relative">
-              <div className="size-24 md:size-28 rounded-2xl bg-coral flex items-center justify-center shadow-lg">
-                <Building2 className="size-14 md:size-16 text-white" />
+            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+              <div className="size-24 md:size-28 rounded-2xl bg-coral flex items-center justify-center shadow-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 hover:opacity-90 transition-opacity">
+                {profileImage || (vendorProfile as any)?.profileImageUrl ? (
+                  <img
+                    src={profileImage || getImageUrl((vendorProfile as any).profileImageUrl)}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="size-12 md:size-14 text-white" />
+                )}
+
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="size-8 text-white" />
+                </div>
               </div>
-              <div className="absolute -bottom-2 -right-2 size-8 rounded-full bg-teal flex items-center justify-center shadow-lg">
+              <div className="absolute -bottom-2 -right-2 size-8 rounded-full bg-teal flex items-center justify-center shadow-lg z-10">
                 <CheckCircle className="size-5 text-white" />
               </div>
             </div>
@@ -210,20 +264,13 @@ export default function VendorProfilePage() {
               {vendorProfile && (
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-4 text-sm text-muted-foreground">
                   {vendorProfile.city && vendorProfile.state && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="size-4" />
-                      {vendorProfile.city}, {vendorProfile.state}
-                    </span>
+                    <span>{vendorProfile.city}, {vendorProfile.state}</span>
                   )}
                   {vendorProfile.phoneNumber && (
-                    <span className="flex items-center gap-1">
-                      <Phone className="size-4" />
-                      {vendorProfile.phoneNumber}
-                    </span>
+                    <span>{vendorProfile.phoneNumber}</span>
                   )}
                   {vendorProfile.websiteUrl && (
-                    <a href={vendorProfile.websiteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-coral transition-colors">
-                      <Globe className="size-4" />
+                    <a href={vendorProfile.websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:text-coral transition-colors underline">
                       Website
                     </a>
                   )}
@@ -253,51 +300,23 @@ export default function VendorProfilePage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="container mx-auto px-4 -mt-4">
+      <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
-            <div className="flex items-center gap-3">
-              <div className="size-12 rounded-xl bg-coral/10 flex items-center justify-center">
-                <Dog className="size-6 text-coral" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{vendorPets.length}</p>
-                <p className="text-sm text-muted-foreground">Total Listings</p>
-              </div>
-            </div>
+            <p className="text-3xl font-bold text-foreground">{vendorPets.length}</p>
+            <p className="text-sm text-muted-foreground mt-1">Total Listings</p>
           </div>
           <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
-            <div className="flex items-center gap-3">
-              <div className="size-12 rounded-xl bg-teal/10 flex items-center justify-center">
-                <Heart className="size-6 text-teal" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{vendorPets.filter(p => p.fosterable).length}</p>
-                <p className="text-sm text-muted-foreground">Fosterable</p>
-              </div>
-            </div>
+            <p className="text-3xl font-bold text-foreground">{vendorPets.filter(p => p.fosterable).length}</p>
+            <p className="text-sm text-muted-foreground mt-1">Fosterable</p>
           </div>
           <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
-            <div className="flex items-center gap-3">
-              <div className="size-12 rounded-xl bg-red-500/10 flex items-center justify-center">
-                <XCircle className="size-6 text-red-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{vendorPets.filter(p => p.atRisk).length}</p>
-                <p className="text-sm text-muted-foreground">At Risk</p>
-              </div>
-            </div>
+            <p className="text-3xl font-bold text-foreground">{vendorPets.filter(p => p.atRisk).length}</p>
+            <p className="text-sm text-muted-foreground mt-1">At Risk</p>
           </div>
           <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
-            <div className="flex items-center gap-3">
-              <div className="size-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                <Eye className="size-6 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{vendorPets.reduce((sum, p) => sum + (p.viewCount || 0), 0)}</p>
-                <p className="text-sm text-muted-foreground">Total Views</p>
-              </div>
-            </div>
+            <p className="text-3xl font-bold text-foreground">{vendorPets.reduce((sum, p) => sum + (p.viewCount || 0), 0)}</p>
+            <p className="text-sm text-muted-foreground mt-1">Total Views</p>
           </div>
         </div>
       </div>
@@ -305,11 +324,10 @@ export default function VendorProfilePage() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Profile Form */}
-          <div className={`lg:col-span-1 ${isEditing ? 'block' : 'hidden lg:block'}`}>
+          <div className={`lg:col-span-1 ${isEditing ? 'block' : 'hidden'}`}>
             <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
               <div className="p-6 border-b border-zinc-200 dark:border-zinc-700">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Building2 className="size-5 text-coral" />
+                <h2 className="text-xl font-bold">
                   Organization Details
                 </h2>
               </div>
@@ -366,32 +384,26 @@ export default function VendorProfilePage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="phoneNumber" className="text-sm font-medium">Phone Number</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                      <Input
-                        id="phoneNumber"
-                        name="phoneNumber"
-                        type="tel"
-                        defaultValue={vendorProfile?.phoneNumber || ''}
-                        placeholder="555-123-4567"
-                        className="pl-10 rounded-xl"
-                      />
-                    </div>
+                    <Input
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      type="tel"
+                      defaultValue={vendorProfile?.phoneNumber || ''}
+                      placeholder="555-123-4567"
+                      className="rounded-xl"
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="websiteUrl" className="text-sm font-medium">Website</Label>
-                    <div className="relative">
-                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                      <Input
-                        id="websiteUrl"
-                        name="websiteUrl"
-                        type="url"
-                        defaultValue={vendorProfile?.websiteUrl || ''}
-                        placeholder="https://happypaws.org"
-                        className="pl-10 rounded-xl"
-                      />
-                    </div>
+                    <Input
+                      id="websiteUrl"
+                      name="websiteUrl"
+                      type="url"
+                      defaultValue={vendorProfile?.websiteUrl || ''}
+                      placeholder="https://happypaws.org"
+                      className="rounded-xl"
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -419,7 +431,7 @@ export default function VendorProfilePage() {
           </div>
 
           {/* Pet Listings */}
-          <div className="lg:col-span-2">
+          <div className={`${isEditing ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">Your Listings</h2>
               {vendorPets.length > 0 && (
@@ -434,9 +446,6 @@ export default function VendorProfilePage() {
 
             {vendorPets.length === 0 ? (
               <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700 p-12 text-center">
-                <div className="size-20 rounded-2xl bg-coral/10 flex items-center justify-center mx-auto mb-4">
-                  <Dog className="size-10 text-coral" />
-                </div>
                 <h3 className="text-xl font-bold mb-2">No Listings Yet</h3>
                 <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                   Start helping pets find their forever homes by creating your first listing.
@@ -449,7 +458,7 @@ export default function VendorProfilePage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className={`grid sm:grid-cols-2 gap-4 ${!isEditing ? 'lg:grid-cols-3 xl:grid-cols-4' : ''}`}>
                 {vendorPets.map((pet) => (
                   <div
                     key={pet.id}
@@ -517,6 +526,6 @@ export default function VendorProfilePage() {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }

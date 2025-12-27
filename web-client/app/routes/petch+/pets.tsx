@@ -386,8 +386,7 @@ export default function PetsPage() {
                   applyFilters({ fosterable: checked as boolean, page: 1 });
                 }}
               />
-              <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
-                <Heart className="w-4 h-4 text-green-600" />
+              <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer">
                 Fosterable Only
               </Label>
             </div>
@@ -402,8 +401,7 @@ export default function PetsPage() {
                   applyFilters({ atRisk: checked as boolean, page: 1 });
                 }}
               />
-              <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
-                <AlertTriangle className="w-4 h-4 text-red-600" />
+              <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer">
                 At Risk Only
               </Label>
             </div>
@@ -466,8 +464,7 @@ export default function PetsPage() {
                 <Card key={pet.id} className="relative group overflow-hidden border-border/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-card/50 hover:bg-card">
                   {/* At Risk Badge - Kept as high priority signal */}
                   {pet.atRisk && (
-                    <div className="absolute top-3 left-3 z-10 bg-red-500/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 shadow-sm">
-                      <AlertTriangle className="w-3.5 h-3.5" />
+                    <div className="absolute top-3 left-3 z-10 bg-red-500/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-medium shadow-sm">
                       Needs Home Urgently
                     </div>
                   )}

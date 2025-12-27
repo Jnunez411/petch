@@ -521,8 +521,7 @@ export default function DiscoverPage() {
                         {/* Badges */}
                         <div className="absolute top-4 left-4 flex gap-2">
                             {currentPet.atRisk && (
-                                <span className="bg-red-500 text-white px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 shadow-lg">
-                                    <AlertTriangle className="w-4 h-4" />
+                                <span className="bg-red-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-lg">
                                     Needs Home Urgently
                                 </span>
                             )}

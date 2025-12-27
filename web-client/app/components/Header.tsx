@@ -12,6 +12,25 @@ export function Header(props: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
+  // Helper for active route logic
+  const isRouteActive = (currentPath: string, linkPath: string, allLinks: { to: string }[]) => {
+    // Check if this exact path is active, or if it's a parent path
+    // But exclude parent if a more specific route is in navLinks and matches
+    const isExactMatch = currentPath === linkPath;
+    const isParentMatch = currentPath.startsWith(`${linkPath}/`);
+
+    // Check if there's another nav link that's a more specific match
+    const hasMoreSpecificMatch = allLinks.some(otherLink =>
+      otherLink.to !== linkPath &&
+      otherLink.to.startsWith(`${linkPath}/`) &&
+      (currentPath === otherLink.to || currentPath.startsWith(`${otherLink.to}/`))
+    );
+
+    return linkPath === '/'
+      ? currentPath === '/'
+      : isExactMatch || (isParentMatch && !hasMoreSpecificMatch);
+  };
+
   // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -58,14 +77,14 @@ export function Header(props: HeaderProps) {
           {props.user && (
             <nav className="hidden md:flex items-center gap-6">
               {navLinks.map((link) => {
-                const isActive = link.to === '/'
-                  ? location.pathname === '/'
-                  : (location.pathname === link.to || location.pathname.startsWith(`${link.to}/`));
+                // Check if this exact path is active, or if it's a parent path
+                // But exclude parent if a more specific route is in navLinks and matches
+                const isActive = isRouteActive(location.pathname, link.to, navLinks);
                 return (
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`text-foreground hover:text-coral transition-colors ${isActive ? 'text-coral font-semibold' : ''
+                    className={`transition-colors hover:text-coral ${isActive ? 'text-coral font-semibold' : 'text-foreground'
                       }`}
                   >
                     {link.label}
@@ -128,9 +147,9 @@ export function Header(props: HeaderProps) {
             <div className="flex flex-col gap-1">
               {navLinks.map((link) => {
                 const Icon = link.icon;
-                const isActive = link.to === '/'
-                  ? location.pathname === '/'
-                  : (location.pathname === link.to || location.pathname.startsWith(`${link.to}/`));
+                // Check if this exact path is active, or if it's a parent path
+                // But exclude parent if a more specific route is in navLinks and matches
+                const isActive = isRouteActive(location.pathname, link.to, navLinks);
                 return (
                   <Link
                     key={link.to}

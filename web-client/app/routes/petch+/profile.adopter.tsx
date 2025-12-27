@@ -8,16 +8,6 @@ import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
-  User,
-  Mail,
-  BadgeCheck,
-  Home,
-  Users,
-  Baby,
-  PawPrint,
-  TreePine,
-  Fence,
-  FileText,
   Save,
   Loader2,
   ChevronDown
@@ -95,14 +85,12 @@ function ToggleCheckbox({
   id,
   name,
   checked,
-  icon: Icon,
   label,
   accentColor = 'coral'
 }: {
   id: string;
   name: string;
   checked: boolean;
-  icon: React.ElementType;
   label: string;
   accentColor?: 'coral' | 'teal';
 }) {
@@ -126,12 +114,7 @@ function ToggleCheckbox({
       <div className={`relative flex items-center justify-center w-12 h-7 rounded-full bg-zinc-200 dark:bg-zinc-700 border-2 border-zinc-300 dark:border-zinc-600 transition-all duration-300 ${colorClasses[accentColor]} peer-checked:[&_div]:translate-x-5`}>
         <div className="absolute left-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300" />
       </div>
-      <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-lg bg-zinc-100 dark:bg-zinc-700/50 group-hover:bg-${accentColor}/10 transition-colors`}>
-          <Icon className={`size-5 text-zinc-500 dark:text-zinc-400 group-hover:text-${accentColor} transition-colors`} />
-        </div>
-        <span className="font-medium text-zinc-700 dark:text-zinc-200">{label}</span>
-      </div>
+      <span className="font-medium text-zinc-700 dark:text-zinc-200">{label}</span>
     </label>
   );
 }
@@ -148,14 +131,9 @@ export default function AdopterProfilePage() {
       {/* Page Header */}
       <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         <div className="container mx-auto px-4 py-8 max-w-5xl">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-coral/10">
-              <User className="size-8 text-coral" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">My Profile</h1>
-              <p className="text-zinc-500 dark:text-zinc-400">Manage your adopter preferences</p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">My Profile</h1>
+            <p className="text-zinc-500 dark:text-zinc-400">Manage your adopter preferences</p>
           </div>
         </div>
       </div>
@@ -169,49 +147,32 @@ export default function AdopterProfilePage() {
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden">
               {/* Card Header with Accent */}
               <div className="bg-coral/5 dark:bg-coral/10 px-6 py-5 border-b border-coral/10">
-                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-                  <BadgeCheck className="size-5 text-coral" />
+                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
                   Account Info
                 </h2>
               </div>
 
               <div className="p-6 space-y-5">
                 {/* Name */}
-                <div className="flex items-start gap-4">
-                  <div className="p-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800">
-                    <User className="size-5 text-zinc-500 dark:text-zinc-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Name</p>
-                    <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                      {user.firstName} {user.lastName}
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Name</p>
+                  <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                    {user.firstName} {user.lastName}
+                  </p>
                 </div>
 
                 {/* Email */}
-                <div className="flex items-start gap-4">
-                  <div className="p-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800">
-                    <Mail className="size-5 text-zinc-500 dark:text-zinc-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Email</p>
-                    <p className="text-base text-zinc-700 dark:text-zinc-300">{user.email}</p>
-                  </div>
+                <div>
+                  <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Email</p>
+                  <p className="text-base text-zinc-700 dark:text-zinc-300">{user.email}</p>
                 </div>
 
                 {/* Account Type */}
-                <div className="flex items-start gap-4">
-                  <div className="p-2.5 rounded-xl bg-teal/10">
-                    <BadgeCheck className="size-5 text-teal" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Account Type</p>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 mt-1 rounded-full text-sm font-medium bg-teal/10 text-teal">
-                      <PawPrint className="size-3.5" />
-                      Adopter
-                    </span>
-                  </div>
+                <div>
+                  <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Account Type</p>
+                  <span className="inline-flex items-center px-3 py-1 mt-1 rounded-full text-sm font-medium bg-teal/10 text-teal">
+                    Adopter
+                  </span>
                 </div>
               </div>
             </div>
@@ -222,8 +183,7 @@ export default function AdopterProfilePage() {
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden">
               {/* Card Header */}
               <div className="bg-zinc-50 dark:bg-zinc-800/50 px-6 py-5 border-b border-zinc-200 dark:border-zinc-700">
-                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-                  <Home className="size-5 text-coral" />
+                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
                   Household Information
                 </h2>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Help us match you with the perfect pet</p>
@@ -246,8 +206,7 @@ export default function AdopterProfilePage() {
                   <div className="grid md:grid-cols-2 gap-6">
                     {/* Household Size */}
                     <div className="space-y-2">
-                      <Label htmlFor="householdSize" className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                        <Users className="size-4 text-zinc-400" />
+                      <Label htmlFor="householdSize" className="text-zinc-700 dark:text-zinc-300">
                         Household Size
                       </Label>
                       <Input
@@ -263,8 +222,7 @@ export default function AdopterProfilePage() {
 
                     {/* Home Type */}
                     <div className="space-y-2">
-                      <Label htmlFor="homeType" className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                        <Home className="size-4 text-zinc-400" />
+                      <Label htmlFor="homeType" className="text-zinc-700 dark:text-zinc-300">
                         Home Type
                       </Label>
                       <div className="relative">
@@ -299,7 +257,6 @@ export default function AdopterProfilePage() {
                         id="hasChildren"
                         name="hasChildren"
                         checked={adopterProfile?.hasChildren || false}
-                        icon={Baby}
                         label="I have children"
                         accentColor="coral"
                       />
@@ -307,7 +264,6 @@ export default function AdopterProfilePage() {
                         id="hasOtherPets"
                         name="hasOtherPets"
                         checked={adopterProfile?.hasOtherPets || false}
-                        icon={PawPrint}
                         label="I have other pets"
                         accentColor="coral"
                       />
@@ -315,7 +271,6 @@ export default function AdopterProfilePage() {
                         id="yard"
                         name="yard"
                         checked={adopterProfile?.yard || false}
-                        icon={TreePine}
                         label="I have a yard"
                         accentColor="coral"
                       />
@@ -323,7 +278,6 @@ export default function AdopterProfilePage() {
                         id="fencedYard"
                         name="fencedYard"
                         checked={adopterProfile?.fencedYard || false}
-                        icon={Fence}
                         label="My yard is fenced"
                         accentColor="coral"
                       />
@@ -332,8 +286,7 @@ export default function AdopterProfilePage() {
 
                   {/* Additional Notes */}
                   <div className="space-y-3">
-                    <Label htmlFor="additionalNotes" className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                      <FileText className="size-4 text-zinc-400" />
+                    <Label htmlFor="additionalNotes" className="text-zinc-700 dark:text-zinc-300">
                       Additional Notes
                     </Label>
                     <textarea

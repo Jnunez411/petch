@@ -267,8 +267,7 @@ export default function AdminListings() {
                                     applyFilters({ fosterable: checked as boolean, page: 1 });
                                 }}
                             />
-                            <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
-                                <Heart className="w-4 h-4 text-green-600" />
+                            <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer">
                                 Fosterable
                             </Label>
                         </div>
@@ -282,8 +281,7 @@ export default function AdminListings() {
                                     applyFilters({ atRisk: checked as boolean, page: 1 });
                                 }}
                             />
-                            <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
-                                <AlertTriangle className="w-4 h-4 text-red-600" />
+                            <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer">
                                 At Risk
                             </Label>
                         </div>
@@ -324,8 +322,7 @@ export default function AdminListings() {
                         {pets.map((pet: Pet) => (
                             <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow relative">
                                 {pet.atRisk && (
-                                    <div className="absolute top-3 left-3 z-10 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                                        <AlertTriangle className="w-3 h-3" />
+                                    <div className="absolute top-3 left-3 z-10 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
                                         Needs Home Urgently
                                     </div>
                                 )}
@@ -361,8 +358,7 @@ export default function AdminListings() {
                                             </span>
                                         )}
                                         {pet.fosterable && (
-                                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs flex items-center gap-1">
-                                                <Heart className="w-3 h-3" />
+                                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
                                                 Fosterable
                                             </span>
                                         )}

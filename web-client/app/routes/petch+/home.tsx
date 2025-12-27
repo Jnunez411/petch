@@ -5,7 +5,7 @@ import { getSession } from '~/services/session.server';
 import { Button } from '~/components/ui/button';
 import { SpotlightCard } from '~/components/ui/spotlight-card';
 import { Marquee } from '~/components/ui/marquee';
-import { Heart, ShieldCheck, Zap, ArrowRight, Dog, Check } from 'lucide-react';
+import { Heart, ArrowRight, Dog, Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES } from '~/config/constants';
@@ -123,13 +123,9 @@ export default function Home() {
               </div>
 
               {/* Trust Indicators */}
-              <div className="pt-8 flex items-center justify-center lg:justify-start gap-8 text-zinc-500 dark:text-zinc-500 text-sm font-medium">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="size-5 text-teal" /> Verified Vendors
-                </div>
-                <div className="flex items-center gap-2">
-                  <Zap className="size-5 text-coral" /> Instant Matches
-                </div>
+              <div className="pt-8 flex items-center justify-center lg:justify-start gap-3 text-sm">
+                <span className="px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium">Verified Vendors</span>
+                <span className="px-3 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-medium">Instant Matches</span>
               </div>
             </div>
 

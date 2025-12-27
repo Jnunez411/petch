@@ -179,6 +179,19 @@ export default function PetsPage() {
   const [filterAtRisk, setFilterAtRisk] = useState<boolean>(filters.atRisk);
   const [searchQuery, setSearchQuery] = useState<string>(filters.search || '');
 
+  // Build return URL from current filter state (preserves filters when navigating to pet details)
+  const buildReturnUrl = () => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('search', searchQuery);
+    if (selectedSpecies && selectedSpecies !== 'all') params.set('species', selectedSpecies);
+    if (selectedAgeRange && selectedAgeRange !== 'all') params.set('ageRange', selectedAgeRange);
+    if (filterFosterable) params.set('fosterable', 'true');
+    if (filterAtRisk) params.set('atRisk', 'true');
+    if (currentPage > 1) params.set('page', currentPage.toString());
+    const queryString = params.toString();
+    return '/pets' + (queryString ? '?' + queryString : '');
+  };
+
   // Update URL when filters change
   const applyFilters = (newFilters: {
     species?: string;
@@ -509,8 +522,7 @@ export default function PetsPage() {
                         </span>
                       )}
                       {pet.fosterable && (
-                        <span className="px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-100 rounded-md text-xs font-medium flex items-center gap-1">
-                          <Heart className="w-3 h-3 fill-green-700/20" />
+                        <span className="px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-100 rounded-md text-xs font-medium">
                           Fosterable
                         </span>
                       )}
@@ -540,7 +552,7 @@ export default function PetsPage() {
                         className="group/btn border-coral/20 text-coral hover:bg-coral hover:text-white hover:border-coral transition-all duration-300"
                         asChild
                       >
-                        <Link to={`/pets/${pet.id}`} className="flex items-center gap-2">
+                        <Link to={`/pets/${pet.id}?returnTo=${encodeURIComponent(buildReturnUrl())}`} className="flex items-center gap-2">
                           Meet {pet.name}
                           <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-0.5" />
                         </Link>

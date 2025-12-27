@@ -146,16 +146,20 @@ export default function PetDetail() {
 
   const [searchParams] = useSearchParams();
   const origin = searchParams.get('origin');
+  const returnTo = searchParams.get('returnTo');
 
-  let backLink = '/pets';
+  // Use returnTo if available (preserves filter state), otherwise fall back to origin-based logic
+  let backLink = returnTo ? decodeURIComponent(returnTo) : '/pets';
   let backText = '← Back to Pets';
 
-  if (origin === 'discover') {
-    backLink = '/discover';
-    backText = '← Back to Discovery';
-  } else if (origin === 'admin') {
-    backLink = '/admin/pets';
-    backText = '← Back to Admin Listings';
+  if (!returnTo) {
+    if (origin === 'discover') {
+      backLink = '/discover';
+      backText = '← Back to Discovery';
+    } else if (origin === 'admin') {
+      backLink = '/admin/pets';
+      backText = '← Back to Admin Listings';
+    }
   }
 
   return (

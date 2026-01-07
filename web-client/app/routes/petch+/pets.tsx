@@ -12,6 +12,9 @@ import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2, Dog } from 'l
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES } from '~/config/constants';
 import type { Pet } from '~/types/pet';
+import { createLogger } from '~/utils/logger';
+
+const logger = createLogger('PetsPage');
 
 const PETS_PER_PAGE = 12;
 
@@ -92,7 +95,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     });
 
     if (!response.ok) {
-      console.error(`Backend returned ${response.status}`);
+      logger.error('Backend returned error when fetching pets', { status: response.status });
       return {
         pets: [],
         totalPets: 0,
@@ -115,7 +118,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       filters: { species, ageRange, fosterable, atRisk, search }
     };
   } catch (error) {
-    console.error('Failed to fetch pets:', error);
+    logger.error('Failed to fetch pets', { error: error instanceof Error ? error.message : 'Unknown error' });
     return {
       pets: [],
       totalPets: 0,

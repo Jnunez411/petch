@@ -22,6 +22,9 @@ import {
 import { useState, useRef } from 'react';
 import { getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES } from '~/config/constants';
+import { createLogger } from '~/utils/logger';
+
+const logger = createLogger('VendorProfile');
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -59,7 +62,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   try {
     vendorProfile = await getVendorProfile(request);
   } catch (error) {
-    console.error('Failed to fetch vendor profile:', error);
+    logger.error('Failed to fetch vendor profile', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
   let vendorPets: Pet[] = [];
@@ -76,7 +79,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       }
     }
   } catch (error) {
-    console.error('Failed to fetch vendor pets:', error);
+    logger.error('Failed to fetch vendor pets', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
   return { user, vendorProfile, vendorPets, backendUserId };
@@ -178,7 +181,7 @@ export default function VendorProfilePage() {
         // Alternatively we can just trust the optimistic UI, but better to sync.
         // For now, we just let the optimistic UI hold.
       } catch (error) {
-        console.error('Failed to upload image', error);
+        logger.error('Failed to upload profile image', { error: error instanceof Error ? error.message : 'Unknown error' });
         alert('Failed to upload profile image.');
       }
 

@@ -13,6 +13,9 @@ import { getUserFromSession } from '~/services/auth';
 import {
   ImageIcon, X, AlertCircle, CheckCircle
 } from 'lucide-react';
+import { createLogger } from '~/utils/logger';
+
+const logger = createLogger('CreateListing');
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -335,7 +338,7 @@ export default function CreatePetPage() {
 
       if (!petResponse.ok) {
         const errorText = await petResponse.text();
-        console.error('Pet creation error response:', errorText);
+        logger.error('Pet creation failed', { status: petResponse.status, errorText });
         throw new Error('Unable to create the pet listing. Please check your information and try again.');
       }
 

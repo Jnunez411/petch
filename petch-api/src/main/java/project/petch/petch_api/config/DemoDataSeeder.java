@@ -2,6 +2,7 @@ package project.petch.petch_api.config;
 
 import java.util.List;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +17,7 @@ import project.petch.petch_api.repositories.PetsRepository;
 import project.petch.petch_api.repositories.UserRepository;
 
 @Configuration
+@Slf4j
 public class DemoDataSeeder {
 
         @Bean
@@ -32,7 +34,7 @@ public class DemoDataSeeder {
                                 adopter.setUserType(UserType.ADOPTER);
                                 adopter.setPhoneNumber("555-123-4567");
                                 userRepository.save(adopter);
-                                System.out.println("Created demo adopter user: adopter@gmail.com / adopterpass");
+                                log.info("Created demo adopter user: adopter@gmail.com / adopterpass");
                         }
 
                         if (userRepository.findByEmail("vendor@gmail.com").isEmpty()) {
@@ -44,7 +46,7 @@ public class DemoDataSeeder {
                                 vendor.setUserType(UserType.VENDOR);
                                 vendor.setPhoneNumber("555-987-6543");
                                 userRepository.save(vendor);
-                                System.out.println("Created demo vendor user: vendor@gmail.com / vendorpass");
+                                log.info("Created demo vendor user: vendor@gmail.com / vendorpass");
                         }
 
                         if (userRepository.findByEmail("admin@petch.com").isEmpty()) {
@@ -56,12 +58,11 @@ public class DemoDataSeeder {
                                 admin.setUserType(UserType.ADMIN);
                                 admin.setPhoneNumber("555-000-0000");
                                 userRepository.save(admin);
-                                System.out.println("Created admin user: admin@petch.com / adminpass123");
+                                log.info("Created admin user: admin@petch.com / adminpass123");
                         }
 
                         if (repository.count() >= 200) {
-                                System.out.println(
-                                                "Database already has " + repository.count() + " pets. Skipping seed.");
+                                log.info("Database already has {} pets. Skipping seed.", repository.count());
                                 return;
                         }
 
@@ -156,7 +157,7 @@ public class DemoDataSeeder {
                         }
 
                         repository.saveAll(petsToSave);
-                        System.out.println("Demo pets seeded successfully! Added 200 pets.");
+                        log.info("Demo pets seeded successfully! Added {} pets.", petsToSave.size());
                 };
         }
 

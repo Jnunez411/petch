@@ -2,6 +2,7 @@ package project.petch.petch_api.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +29,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/pets")
 @RequiredArgsConstructor
+@Slf4j
 public class PetController {
     private final PetService petService;
     private final ImageService imageService;
@@ -142,6 +144,7 @@ public class PetController {
     // POST /api/pets
     @PostMapping
     public ResponseEntity<Pets> createPet(@Valid @RequestBody PetDTO dto) {
+        log.info("Creating new pet: name={}, species={}, breed={}", dto.getName(), dto.getSpecies(), dto.getBreed());
         try {
             User user = null;
             if (dto.getUserId() != null) {
@@ -159,10 +162,10 @@ public class PetController {
                     .user(user)
                     .build();
             Pets createdPet = petService.createPet(pet);
+            log.info("Pet created successfully: id={}, name={}", createdPet.getId(), createdPet.getName());
             return ResponseEntity.created(URI.create("/api/pets/" + createdPet.getId())).body(createdPet);
         } catch (Exception e) {
-            System.err.println("Error creating pet: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error creating pet: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -172,13 +175,16 @@ public class PetController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePet(@PathVariable Long id, @AuthenticationPrincipal User user)
             throws IOException {
+        log.info("Delete pet request: petId={}, userId={}", id, user != null ? user.getId() : "null");
         try {
             // SECURITY: Verify ownership before allowing delete
             if (user == null) {
+                log.warn("Unauthorized delete attempt for pet: id={}", id);
                 return ResponseEntity.status(401).build();
             }
             Pets pet = petService.getPetById(id).orElse(null);
             if (pet == null) {
+                log.debug("Pet not found for deletion: id={}", id);
                 return ResponseEntity.notFound().build();
             }
             // Allow admins to delete any pet, otherwise check ownership
@@ -192,10 +198,10 @@ public class PetController {
             }
             imageService.deleteImagesByPet(id);
             petService.deletePet(id);
+            log.info("Pet deleted successfully: id={}, name={}", id, pet.getName());
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
-            System.err.println("Error deleting pet: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error deleting pet: id={}, error={}", id, e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }

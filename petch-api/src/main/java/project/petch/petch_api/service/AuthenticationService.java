@@ -1,6 +1,7 @@
 package project.petch.petch_api.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -16,9 +17,11 @@ import project.petch.petch_api.dto.auth.RegisterRequest;
 import project.petch.petch_api.exception.UserAlreadyExistsException;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.repositories.UserRepository;
+import project.petch.petch_api.util.LoggingUtils;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthenticationService {
 
     private final UserRepository userRepository;
@@ -68,11 +71,14 @@ public class AuthenticationService {
      * @return authentication response with JWT token
      */
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
+        log.debug("Authentication attempt for email: {}", LoggingUtils.maskEmail(request.email()));
+
         // First check if account exists and if it's locked
         var userOptional = userRepository.findByEmail(request.email());
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             if (!user.isAccountNonLocked()) {
+                log.warn("Login attempt on locked account: {}", LoggingUtils.maskEmail(request.email()));
                 securityEventLogger.logEvent(
                         SecurityEventLogger.SecurityEventType.UNAUTHORIZED_ACCESS,
                         getClientIP(), request.email(), "Account is locked");
@@ -87,6 +93,7 @@ public class AuthenticationService {
                             request.email(),
                             request.password()));
         } catch (BadCredentialsException e) {
+            log.warn("Failed login attempt for email: {}", LoggingUtils.maskEmail(request.email()));
             // Log failed authentication attempt and increment failed attempts
             securityEventLogger.logFailedLogin(getClientIP(), request.email());
 
@@ -98,6 +105,8 @@ public class AuthenticationService {
                 // Lock account after 5 failed attempts for 15 minutes
                 if (attempts >= 5) {
                     user.setAccountLockedUntil(java.time.LocalDateTime.now().plusMinutes(15));
+                    log.warn("Account locked after {} failed attempts: {}", attempts,
+                            LoggingUtils.maskEmail(request.email()));
                     securityEventLogger.logEvent(
                             SecurityEventLogger.SecurityEventType.UNAUTHORIZED_ACCESS,
                             getClientIP(), request.email(),
@@ -119,6 +128,7 @@ public class AuthenticationService {
 
         // Reset failed login attempts on successful login
         if (user.getFailedLoginAttempts() != null && user.getFailedLoginAttempts() > 0) {
+            log.debug("Resetting failed login attempts for: {}", LoggingUtils.maskEmail(request.email()));
             user.setFailedLoginAttempts(0);
             user.setAccountLockedUntil(null);
             userRepository.save(user);
@@ -126,6 +136,8 @@ public class AuthenticationService {
 
         // Generate JWT token
         var jwtToken = jwtService.generateToken(user);
+        log.info("User authenticated successfully: email={}, userType={}", LoggingUtils.maskEmail(request.email()),
+                user.getUserType());
 
         var resp = new AuthenticationResponse(jwtToken, user.getEmail(), user.getFirstName(), user.getLastName(),
                 user.getUserType().name());
@@ -148,7 +160,7 @@ public class AuthenticationService {
                 return request.getRemoteAddr();
             }
         } catch (Exception e) {
-            // Ignore - return unknown
+            log.debug("Failed to extract client IP: {}", e.getMessage());
         }
         return "unknown";
     }

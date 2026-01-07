@@ -1,10 +1,14 @@
 import type { RegisterRequest, LoginRequest, AuthResponse, User } from '../types/auth';
 import { getSession, commitSession, destroySession } from './session.server';
+import { authLogger } from '~/utils/logger';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 const AUTH_URL = `${API_BASE_URL}/api/auth`;
 
 export async function register(data: RegisterRequest): Promise<AuthResponse> {
+  authLogger.info('Registration attempt', { email: data.email, userType: data.userType });
+  const startTime = performance.now();
+
   const response = await fetch(`${AUTH_URL}/register`, {
     method: 'POST',
     headers: {
@@ -13,15 +17,27 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
     body: JSON.stringify(data),
   });
 
+  const duration = Math.round(performance.now() - startTime);
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Registration failed' }));
+    authLogger.error('Registration failed', {
+      email: data.email,
+      status: response.status,
+      error: error.message,
+      duration: `${duration}ms`
+    });
     throw new Error(error.message || 'Registration failed');
   }
 
+  authLogger.info('Registration successful', { email: data.email, duration: `${duration}ms` });
   return response.json();
 }
 
 export async function login(data: LoginRequest): Promise<AuthResponse> {
+  authLogger.info('Login attempt', { email: data.email });
+  const startTime = performance.now();
+
   const response = await fetch(`${AUTH_URL}/login`, {
     method: 'POST',
     headers: {
@@ -30,11 +46,20 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     body: JSON.stringify(data),
   });
 
+  const duration = Math.round(performance.now() - startTime);
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Login failed' }));
+    authLogger.error('Login failed', {
+      email: data.email,
+      status: response.status,
+      error: error.message,
+      duration: `${duration}ms`
+    });
     throw new Error(error.message || 'Login failed');
   }
 
+  authLogger.info('Login successful', { email: data.email, duration: `${duration}ms` });
   return response.json();
 }
 

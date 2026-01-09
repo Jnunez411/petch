@@ -2,10 +2,14 @@ package project.petch.petch_api.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+import jakarta.servlet.http.HttpServletRequest;
 import project.petch.petch_api.dto.auth.AuthenticationRequest;
 import project.petch.petch_api.dto.auth.AuthenticationResponse;
 import project.petch.petch_api.dto.auth.RegisterRequest;
@@ -22,9 +26,11 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final SecurityEventLogger securityEventLogger;
 
     /**
      * Register a new user
+     * 
      * @param request registration details
      * @return authentication response with JWT token
      */
@@ -49,25 +55,31 @@ public class AuthenticationService {
         // Generate JWT token
         var jwtToken = jwtService.generateToken(user);
 
-        AuthenticationResponse response = new AuthenticationResponse(jwtToken, user.getEmail(), user.getFirstName(), user.getLastName(), user.getUserType().name());
-        
+        AuthenticationResponse response = new AuthenticationResponse(jwtToken, user.getEmail(), user.getFirstName(),
+                user.getLastName(), user.getUserType().name());
+
         // Return response
         return response;
     }
 
     /**
      * Authenticate existing user
+     * 
      * @param request authentication credentials
      * @return authentication response with JWT token
      */
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
-        // Authenticate user credentials
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.email(),
-                        request.password()
-                )
-        );
+        try {
+            // Authenticate user credentials
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.email(),
+                            request.password()));
+        } catch (BadCredentialsException e) {
+            // Log failed authentication attempt
+            securityEventLogger.logFailedLogin(getClientIP(), request.email());
+            throw e;
+        }
 
         // Fetch user from database
         var user = userRepository.findByEmail(request.email())
@@ -76,8 +88,29 @@ public class AuthenticationService {
         // Generate JWT token
         var jwtToken = jwtService.generateToken(user);
 
-        var resp = new AuthenticationResponse(jwtToken, user.getEmail(), user.getFirstName(), user.getLastName(), user.getUserType().name());
+        var resp = new AuthenticationResponse(jwtToken, user.getEmail(), user.getFirstName(), user.getLastName(),
+                user.getUserType().name());
         // Return response
         return resp;
+    }
+
+    /**
+     * Extract client IP address from current request
+     */
+    private String getClientIP() {
+        try {
+            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                HttpServletRequest request = attrs.getRequest();
+                String xForwardedFor = request.getHeader("X-Forwarded-For");
+                if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+                    return xForwardedFor.split(",")[0].trim();
+                }
+                return request.getRemoteAddr();
+            }
+        } catch (Exception e) {
+            // Ignore - return unknown
+        }
+        return "unknown";
     }
 }

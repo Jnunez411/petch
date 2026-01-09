@@ -19,22 +19,30 @@ export function Header(props: HeaderProps) {
           {/* Only show nav links for authenticated users */}
           {props.user && (
             <nav className="hidden md:flex items-center gap-6">
-              <Link to="/" className="text-foreground hover:text-primary transition-colors">
-                Home
-              </Link>
-              <Link to="/pets" className="text-foreground hover:text-primary transition-colors">
-                Pet Listings
-              </Link>
-              <Link to="/discover" className="text-foreground hover:text-primary transition-colors">
-                Discover
-              </Link>
-              <Link to="/profile" className="text-foreground hover:text-primary transition-colors">
-                Profile
-              </Link>
-              {props.user.userType === 'VENDOR' && (
-                <Link to="/pets/create" className="text-foreground hover:text-primary transition-colors font-medium">
-                  Edit Pet Listing
+              {props.user.userType === 'ADMIN' ? (
+                <Link to="/admin" className="text-primary hover:text-primary/80 transition-colors font-semibold">
+                  Admin Dashboard
                 </Link>
+              ) : (
+                <>
+                  <Link to="/" className="text-foreground hover:text-primary transition-colors">
+                    Home
+                  </Link>
+                  <Link to="/pets" className="text-foreground hover:text-primary transition-colors">
+                    Pet Listings
+                  </Link>
+                  <Link to="/discover" className="text-foreground hover:text-primary transition-colors">
+                    Discover
+                  </Link>
+                  <Link to="/profile" className="text-foreground hover:text-primary transition-colors">
+                    Profile
+                  </Link>
+                  {props.user.userType === 'VENDOR' && (
+                    <Link to="/pets/create" className="text-foreground hover:text-primary transition-colors">
+                      Edit Pet Listing
+                    </Link>
+                  )}
+                </>
               )}
             </nav>
           )}

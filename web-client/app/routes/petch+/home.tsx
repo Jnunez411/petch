@@ -1,8 +1,9 @@
-import { useLoaderData, Link } from 'react-router';
+import { useLoaderData, Link, redirect } from 'react-router';
 import type { Route } from './+types/home';
 import { getUserFromSession } from '~/services/auth';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
+import { PawIcon } from '~/components/ui/paw-icon';
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -13,6 +14,12 @@ export function meta({ }: Route.MetaArgs) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await getUserFromSession(request);
+  
+  // Redirect admin users to admin dashboard
+  if (user?.userType === 'ADMIN') {
+    throw redirect('/admin');
+  }
+  
   return { user };
 }
 
@@ -75,7 +82,6 @@ export default function Home() {
               <Link to="/pets" className="block">
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                   <CardHeader className="text-center">
-                    <span className="text-4xl mb-4 block">🔍</span>
                     <h3 className="text-lg font-semibold">Explore Pets</h3>
                   </CardHeader>
                   <CardContent className="text-center text-muted-foreground">
@@ -87,7 +93,6 @@ export default function Home() {
               <Link to="/discover" className="block">
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                   <CardHeader className="text-center">
-                    <span className="text-4xl mb-4 block">💖</span>
                     <h3 className="text-lg font-semibold">Discover</h3>
                   </CardHeader>
                   <CardContent className="text-center text-muted-foreground">
@@ -99,7 +104,6 @@ export default function Home() {
               <Link to="/profile" className="block">
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                   <CardHeader className="text-center">
-                    <span className="text-4xl mb-4 block">⚙️</span>
                     <h3 className="text-lg font-semibold">Profile</h3>
                   </CardHeader>
                   <CardContent className="text-center text-muted-foreground">
@@ -113,7 +117,7 @@ export default function Home() {
             <>
               <Card>
                 <CardHeader className="text-center">
-                  <span className="text-4xl mb-4 block">🐕</span>
+                  <PawIcon className="h-10 w-10 mx-auto mb-4 text-primary" />
                   <h3 className="text-lg font-semibold">For Adopters</h3>
                 </CardHeader>
                 <CardContent className="text-center text-muted-foreground">
@@ -124,7 +128,7 @@ export default function Home() {
 
               <Card>
                 <CardHeader className="text-center">
-                  <span className="text-4xl mb-4 block">🏠</span>
+                  <PawIcon className="h-10 w-10 mx-auto mb-4 text-primary" />
                   <h3 className="text-lg font-semibold">For Shelters</h3>
                 </CardHeader>
                 <CardContent className="text-center text-muted-foreground">
@@ -135,7 +139,7 @@ export default function Home() {
 
               <Card>
                 <CardHeader className="text-center">
-                  <span className="text-4xl mb-4 block">💝</span>
+                  <PawIcon className="h-10 w-10 mx-auto mb-4 text-primary" />
                   <h3 className="text-lg font-semibold">Safe & Trusted</h3>
                 </CardHeader>
                 <CardContent className="text-center text-muted-foreground">
@@ -151,7 +155,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t mt-16">
         <div className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground">
-          <p>© 2025 Petch. Made with 💕 for pets everywhere.</p>
+          <p>© 2025 Petch. Made with love for pets everywhere.</p>
         </div>
       </footer>
     </div>

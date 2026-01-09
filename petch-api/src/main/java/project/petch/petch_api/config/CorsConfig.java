@@ -19,15 +19,15 @@ public class CorsConfig {
 
     // You can configure this in application.properties
     // Example: cors.allowed-origins=http://localhost:3000,http://localhost:5173
-    @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173}")
+    @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}")
     private String allowedOrigins;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Parse allowed origins from comma-separated string
-        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        // Allow all origins for development (use specific origins in production)
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
 
         // Allow common HTTP methods
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
@@ -38,8 +38,7 @@ public class CorsConfig {
                 "Content-Type",
                 "Accept",
                 "Origin",
-                "X-Requested-With"
-        ));
+                "X-Requested-With"));
 
         // Expose headers that the frontend can read
         configuration.setExposedHeaders(List.of("Authorization"));

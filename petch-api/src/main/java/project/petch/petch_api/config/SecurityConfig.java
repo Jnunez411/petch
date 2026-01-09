@@ -48,26 +48,27 @@ public class SecurityConfig {
 
                 // Configure endpoint authorization
                 .authorizeHttpRequests(auth -> auth
+                        // Allow all OPTIONS requests (CORS preflight)
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         // Public endpoints - anyone can access these
                         .requestMatchers(
-                                "/api/auth/**",           // All authentication endpoints
-                                "/api/public/**",         // Any public endpoints
-                                "/error",                 // Error endpoint
-                                "/actuator/health",       // Health check endpoint (if using actuator)
-                                "/uploads/**"             // Allow access to uploaded images
+                                "/api/auth/**", // All authentication endpoints
+                                "/api/public/**", // Any public endpoints
+                                "/error", // Error endpoint
+                                "/actuator/health", // Health check endpoint (if using actuator)
+                                "/uploads/**" // Allow access to uploaded images
                         ).permitAll()
-                        
+
                         // Allow GET requests to pet endpoints (viewing only)
                         .requestMatchers(HttpMethod.GET, "/api/pets/**").permitAll()
-                        
+
                         // All other endpoints require authentication
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
 
                 // Stateless session management (no sessions, use JWT instead)
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 // Set custom authentication provider
                 .authenticationProvider(authenticationProvider())

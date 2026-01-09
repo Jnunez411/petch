@@ -1,4 +1,4 @@
-import { useLoaderData, Link, useRevalidator, useFetcher } from 'react-router';
+import { useLoaderData, Link, useFetcher, useSearchParams, useNavigate } from 'react-router';
 import type { Route } from './+types/pets';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
@@ -6,45 +6,118 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~
 import { Checkbox } from '~/components/ui/checkbox';
 import { Label } from '~/components/ui/label';
 import { PawIcon } from '~/components/ui/paw-icon';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
+import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2 } from 'lucide-react';
 
 const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8080';
+const PETS_PER_PAGE = 12;
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: 'All Pets - Petch' },
     { name: 'description', content: 'Browse all available pets' },
   ];
 }
 
-export async function loader({ request }: Route.LoaderArgs){
+export async function loader({ request }: Route.LoaderArgs) {
   const user = await getUserFromSession(request);
-  
-  try{
+  const url = new URL(request.url);
+
+  // Extract filter params from URL
+  const species = url.searchParams.get('species');
+  const ageRange = url.searchParams.get('ageRange');
+  const fosterable = url.searchParams.get('fosterable') === 'true';
+  const atRisk = url.searchParams.get('atRisk') === 'true';
+  const page = parseInt(url.searchParams.get('page') || '1', 10) - 1; // Backend is 0-indexed
+
+  // Build backend query string
+  const queryParams = new URLSearchParams();
+
+  if (species && species !== 'all') {
+    queryParams.set('species', species);
+  }
+
+  // Convert age range to min/max
+  if (ageRange && ageRange !== 'all') {
+    switch (ageRange) {
+      case '0-2':
+        queryParams.set('ageMin', '0');
+        queryParams.set('ageMax', '2');
+        break;
+      case '3-5':
+        queryParams.set('ageMin', '3');
+        queryParams.set('ageMax', '5');
+        break;
+      case '6-10':
+        queryParams.set('ageMin', '6');
+        queryParams.set('ageMax', '10');
+        break;
+      case '10+':
+        queryParams.set('ageMin', '10');
+        break;
+    }
+  }
+
+  if (fosterable) {
+    queryParams.set('fosterable', 'true');
+  }
+
+  if (atRisk) {
+    queryParams.set('atRisk', 'true');
+  }
+
+  queryParams.set('page', page.toString());
+  queryParams.set('size', PETS_PER_PAGE.toString());
+
+  try {
     const session = await getSession(request.headers.get('Cookie'));
     const token = session.get('token');
 
-    const response = await fetch(`${API_BASE_URL}/api/pets`,{
-      headers:{
+    const apiUrl = `${API_BASE_URL}/api/pets?${queryParams.toString()}`;
+    const response = await fetch(apiUrl, {
+      headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
         'Authorization': token ? `Bearer ${token}` : '',
       },
       cache: 'no-store',
     });
-    
-    if(!response.ok){
+
+    if (!response.ok) {
       console.error(`Backend returned ${response.status}`);
-      return { pets: [], user };
+      return {
+        pets: [],
+        totalPets: 0,
+        totalPages: 0,
+        currentPage: 1,
+        user,
+        filters: { species, ageRange, fosterable, atRisk }
+      };
     }
-    
-    const pets = await response.json();
-    return{ pets, user };
-  }catch (error){
+
+    const data = await response.json();
+
+    // Backend returns Spring Page object
+    return {
+      pets: data.content || [],
+      totalPets: data.totalElements || 0,
+      totalPages: data.totalPages || 0,
+      currentPage: (data.number || 0) + 1, // Convert to 1-indexed for UI
+      user,
+      filters: { species, ageRange, fosterable, atRisk }
+    };
+  } catch (error) {
     console.error('Failed to fetch pets:', error);
-    return { pets: [], user };
+    return {
+      pets: [],
+      totalPets: 0,
+      totalPages: 0,
+      currentPage: 1,
+      user,
+      filters: { species, ageRange, fosterable, atRisk }
+    };
   }
 }
 
@@ -52,7 +125,7 @@ export async function loader({ request }: Route.LoaderArgs){
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const petId = formData.get('petId');
-  
+
   if (!petId) {
     return { error: 'Pet ID is required' };
   }
@@ -83,19 +156,55 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
-export default function PetsPage(){
-  const { pets, user } = useLoaderData<typeof loader>();
+export default function PetsPage() {
+  const { pets, totalPets, totalPages, currentPage, user, filters } = useLoaderData<typeof loader>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const fetcher = useFetcher();
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [showPageInput, setShowPageInput] = useState(false);
+  const [pageInputValue, setPageInputValue] = useState('');
 
-  // Filter state (UI only - backend integration pending)
-  const [selectedSpecies, setSelectedSpecies] = useState<string>('all');
-  const [selectedAgeRange, setSelectedAgeRange] = useState<string>('all');
-  const [filterFosterable, setFilterFosterable] = useState<boolean>(false);
-  const [filterAtRisk, setFilterAtRisk] = useState<boolean>(false);
+  // Filter state - initialize from URL params
+  const [selectedSpecies, setSelectedSpecies] = useState<string>(filters.species || 'all');
+  const [selectedAgeRange, setSelectedAgeRange] = useState<string>(filters.ageRange || 'all');
+  const [filterFosterable, setFilterFosterable] = useState<boolean>(filters.fosterable);
+  const [filterAtRisk, setFilterAtRisk] = useState<boolean>(filters.atRisk);
+
+  // Update URL when filters change
+  const applyFilters = (newFilters: {
+    species?: string;
+    ageRange?: string;
+    fosterable?: boolean;
+    atRisk?: boolean;
+    page?: number;
+  }) => {
+    setIsFiltering(true);
+    const params = new URLSearchParams();
+
+    const species = newFilters.species ?? selectedSpecies;
+    const ageRange = newFilters.ageRange ?? selectedAgeRange;
+    const fosterable = newFilters.fosterable ?? filterFosterable;
+    const atRisk = newFilters.atRisk ?? filterAtRisk;
+    const page = newFilters.page ?? 1;
+
+    if (species && species !== 'all') params.set('species', species);
+    if (ageRange && ageRange !== 'all') params.set('ageRange', ageRange);
+    if (fosterable) params.set('fosterable', 'true');
+    if (atRisk) params.set('atRisk', 'true');
+    if (page > 1) params.set('page', page.toString());
+
+    setSearchParams(params);
+  };
+
+  // Reset filtering state when data loads
+  useEffect(() => {
+    setIsFiltering(false);
+  }, [pets]);
 
   const handleDelete = (petId: number) => {
-    if(!confirm('Are you sure you want to delete this pet?')){
+    if (!confirm('Are you sure you want to delete this pet?')) {
       return;
     }
     setDeletingId(petId);
@@ -110,17 +219,96 @@ export default function PetsPage(){
     setDeletingId(null);
   }
 
-  return(
+  // Clear filters and reset to page 1
+  const handleClearFilters = () => {
+    setSelectedSpecies('all');
+    setSelectedAgeRange('all');
+    setFilterFosterable(false);
+    setFilterAtRisk(false);
+    setSearchParams({});
+  };
+
+  const goToPage = (page: number) => {
+    applyFilters({ page });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 7;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+
+      if (currentPage > 3) {
+        pages.push('...');
+      }
+
+      // Show pages around current
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+
+      if (currentPage < totalPages - 2) {
+        pages.push('...');
+      }
+
+      // Always show last page
+      if (!pages.includes(totalPages)) {
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
+  // Helper to get image URL
+  const getPetImageUrl = (pet: any) => {
+    if (pet.images && pet.images.length > 0) {
+      const filePath = pet.images[0].filePath;
+      if (filePath) {
+        // Check if it's an external URL (starts with http)
+        if (filePath.startsWith('http')) {
+          return filePath;
+        }
+        return `http://localhost:8080${filePath}`;
+      }
+    }
+    // Fallback to species-based placeholder
+    const placeholders: Record<string, string> = {
+      'Dog': 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop',
+      'Cat': 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&h=600&fit=crop',
+      'Bird': 'https://images.unsplash.com/photo-1522926193341-e9ffd6a399b6?w=600&h=600&fit=crop',
+      'Rabbit': 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=600&h=600&fit=crop',
+      'default': 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&h=600&fit=crop'
+    };
+    return placeholders[pet.species] || placeholders['default'];
+  };
+
+  const startIndex = (currentPage - 1) * PETS_PER_PAGE;
+  const endIndex = Math.min(startIndex + PETS_PER_PAGE, totalPets);
+
+  return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="pt-8 pb-6 text-center border-b sticky top-16 bg-background z-40 shadow-sm">
-          <h1 className="text-5xl font-bold primary-text tracking-tight center-text mb-2">
-              <span className="text-primary"> Pet Listings </span>
-          </h1>
-          <p className="text-xl text-muted-foreground ">
-            All available pets
-          </p>
+        <h1 className="text-5xl font-bold primary-text tracking-tight center-text mb-2">
+          <span className="text-primary"> Pet Listings </span>
+        </h1>
+        <p className="text-xl text-muted-foreground ">
+          Find your perfect companion • {totalPets} pets available
+        </p>
       </div>
+
       {/* Filters */}
       <div className="container mx-auto px-4 py-6">
         <div className="w-full bg-white rounded-lg border shadow-sm p-4">
@@ -130,17 +318,19 @@ export default function PetsPage(){
               <Label htmlFor="species-filter" className="text-sm font-medium whitespace-nowrap">
                 Species:
               </Label>
-              <Select value={selectedSpecies} onValueChange={setSelectedSpecies}>
+              <Select value={selectedSpecies} onValueChange={(value) => {
+                setSelectedSpecies(value);
+                applyFilters({ species: value, page: 1 });
+              }}>
                 <SelectTrigger id="species-filter" className="w-[140px]">
                   <SelectValue placeholder="All Species" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Species</SelectItem>
-                  <SelectItem value="dog">Dog</SelectItem>
-                  <SelectItem value="cat">Cat</SelectItem>
-                  <SelectItem value="bird">Bird</SelectItem>
-                  <SelectItem value="rabbit">Rabbit</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="Dog">Dog</SelectItem>
+                  <SelectItem value="Cat">Cat</SelectItem>
+                  <SelectItem value="Bird">Bird</SelectItem>
+                  <SelectItem value="Rabbit">Rabbit</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -150,16 +340,19 @@ export default function PetsPage(){
               <Label htmlFor="age-filter" className="text-sm font-medium whitespace-nowrap">
                 Age:
               </Label>
-              <Select value={selectedAgeRange} onValueChange={setSelectedAgeRange}>
+              <Select value={selectedAgeRange} onValueChange={(value) => {
+                setSelectedAgeRange(value);
+                applyFilters({ ageRange: value, page: 1 });
+              }}>
                 <SelectTrigger id="age-filter" className="w-[140px]">
                   <SelectValue placeholder="All Ages" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Ages</SelectItem>
-                  <SelectItem value="0-2">0-2 years</SelectItem>
-                  <SelectItem value="3-5">3-5 years</SelectItem>
-                  <SelectItem value="6-10">6-10 years</SelectItem>
-                  <SelectItem value="10+">10+ years</SelectItem>
+                  <SelectItem value="0-2">0-2 years (Young)</SelectItem>
+                  <SelectItem value="3-5">3-5 years (Adult)</SelectItem>
+                  <SelectItem value="6-10">6-10 years (Mature)</SelectItem>
+                  <SelectItem value="10+">10+ years (Senior)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -169,9 +362,13 @@ export default function PetsPage(){
               <Checkbox
                 id="fosterable-filter"
                 checked={filterFosterable}
-                onCheckedChange={(checked) => setFilterFosterable(checked as boolean)}
+                onCheckedChange={(checked) => {
+                  setFilterFosterable(checked as boolean);
+                  applyFilters({ fosterable: checked as boolean, page: 1 });
+                }}
               />
-              <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer">
+              <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
+                <Heart className="w-4 h-4 text-green-600" />
                 Fosterable Only
               </Label>
             </div>
@@ -181,9 +378,13 @@ export default function PetsPage(){
               <Checkbox
                 id="atrisk-filter"
                 checked={filterAtRisk}
-                onCheckedChange={(checked) => setFilterAtRisk(checked as boolean)}
+                onCheckedChange={(checked) => {
+                  setFilterAtRisk(checked as boolean);
+                  applyFilters({ atRisk: checked as boolean, page: 1 });
+                }}
               />
-              <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer">
+              <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4 text-orange-600" />
                 At Risk Only
               </Label>
             </div>
@@ -192,92 +393,208 @@ export default function PetsPage(){
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setSelectedSpecies('all');
-                setSelectedAgeRange('all');
-                setFilterFosterable(false);
-                setFilterAtRisk(false);
-              }}
+              onClick={handleClearFilters}
               className="ml-auto"
             >
               Clear Filters
             </Button>
           </div>
+
+          {/* Active filters summary */}
+          {(selectedSpecies !== 'all' || selectedAgeRange !== 'all' || filterFosterable || filterAtRisk) && (
+            <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
+              Showing {totalPets} {totalPets === 1 ? 'pet' : 'pets'}
+              {selectedSpecies !== 'all' && ` • Species: ${selectedSpecies}`}
+              {selectedAgeRange !== 'all' && ` • Age: ${selectedAgeRange} years`}
+              {filterFosterable && ' • Fosterable'}
+              {filterAtRisk && ' • At Risk'}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Loading Overlay */}
+      {isFiltering && (
+        <div className="fixed inset-0 bg-background/50 z-50 flex items-center justify-center">
+          <div className="flex items-center gap-2 bg-white p-4 rounded-lg shadow-lg">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span>Filtering...</span>
+          </div>
+        </div>
+      )}
+
       {/* Pets Grid */}
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-6">
         {pets.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-lg text-muted-foreground">
-              No pets available at the moment.
+            <PawIcon className="w-16 h-16 mx-auto mb-4 opacity-30" />
+            <p className="text-lg text-muted-foreground mb-2">
+              No pets found matching your filters.
             </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Try adjusting your search criteria or clear filters to see all available pets.
+            </p>
+            <Button variant="outline" onClick={handleClearFilters}>
+              Clear All Filters
+            </Button>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {pets.map((pet: any) => (
-              <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                {/* Pet Image */}
-                {pet.images && pet.images.length > 0 ? (
-                  <div className="w-full aspect-[4/3] overflow-hidden 
-                      bg-gray-100 group cursor-pointer relative">
+          <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pets.map((pet: any) => (
+                <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow relative">
+                  {/* At Risk Badge */}
+                  {pet.atRisk && (
+                    <div className="absolute top-3 left-3 z-10 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Needs Home Urgently
+                    </div>
+                  )}
+
+                  {/* Pet Image */}
+                  <Link to={`/pets/${pet.id}`} className="block w-full aspect-[4/3] overflow-hidden bg-gray-100 group cursor-pointer relative">
                     <img
-
-                      src={`http://localhost:8080${pet.images[0].filePath}`}
-                      alt={pet.images[0].altText || pet.name}
-                      className="w-full h-full object-cover 
-                        transition-transform group-hover:scale-105"
+                      src={getPetImageUrl(pet)}
+                      alt={pet.name}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      loading="lazy"
                     />
-                  </div>
-                ) : (
-                  <div className="w-full h-64 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                    <PawIcon className="w-16 h-16" />
-                  </div>
-                )}
+                  </Link>
 
-                <CardHeader className="pb-3">
-                  <CardTitle>{pet.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {pet.breed} • {pet.age} years old
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm">{pet.description}</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {pet.species && (
-                      <span className="px-2 py-1 bg-primary/10 rounded text-xs">
-                        {pet.species}
-                      </span>
-                    )}
-                    {pet.fosterable && (
-                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
-                        Fosterable
-                      </span>
-                    )}
-                    {pet.atRisk && (
-                      <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">
-                        At Risk
-                      </span>
-                    )}
-                  </div>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center justify-between">
+                      <span>{pet.name}</span>
+                      {pet.adoptionDetails?.priceEstimate && (
+                        <span className="text-lg font-normal text-primary">
+                          ${pet.adoptionDetails.priceEstimate}
+                        </span>
+                      )}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {pet.breed} • {pet.age} {pet.age === 1 ? 'year' : 'years'} old
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm line-clamp-2">{pet.description}</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {pet.species && (
+                        <span className="px-2 py-1 bg-primary/10 rounded text-xs">
+                          {pet.species}
+                        </span>
+                      )}
+                      {pet.fosterable && (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs flex items-center gap-1">
+                          <Heart className="w-3 h-3" />
+                          Fosterable
+                        </span>
+                      )}
+                      {pet.atRisk && (
+                        <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">
+                          At Risk
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="flex gap-2">
-                    <Button className="flex-1"  asChild>
-                      <Link to={`/pets/${pet.id}`}>View Details</Link>
-                    </Button>
-                    {/* <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(pet.id)}
-                      disabled={deletingId === pet.id}
-                    >
-                      {deletingId === pet.id ? 'Deleting...' : 'Delete'}
-                    </Button> */}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <div className="flex gap-2">
+                      <Button className="flex-1" asChild>
+                        <Link to={`/pets/${pet.id}`}>View Details</Link>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8 pb-8">
+                {/* Previous Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1">
+                  {getPageNumbers().map((page, index) => (
+                    typeof page === 'number' ? (
+                      <Button
+                        key={index}
+                        variant={currentPage === page ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => goToPage(page)}
+                        className="w-10 h-10"
+                      >
+                        {page}
+                      </Button>
+                    ) : (
+                      <div key={index} className="relative">
+                        {showPageInput ? (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const pageNum = parseInt(pageInputValue, 10);
+                              if (pageNum >= 1 && pageNum <= totalPages) {
+                                goToPage(pageNum);
+                              }
+                              setShowPageInput(false);
+                              setPageInputValue('');
+                            }}
+                            className="flex items-center gap-1"
+                          >
+                            <input
+                              type="number"
+                              min={1}
+                              max={totalPages}
+                              value={pageInputValue}
+                              onChange={(e) => setPageInputValue(e.target.value)}
+                              className="w-16 h-10 text-center border rounded-md text-sm"
+                              autoFocus
+                              placeholder={`1-${totalPages}`}
+                            />
+                            <Button type="submit" size="sm" variant="outline" className="h-10">
+                              Go
+                            </Button>
+                          </form>
+                        ) : (
+                          <button
+                            onClick={() => setShowPageInput(true)}
+                            className="px-2 text-muted-foreground hover:text-primary cursor-pointer"
+                          >
+                            ...
+                          </button>
+                        )}
+                      </div>
+                    )
+                  ))}
+                </div>
+
+                {/* Next Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center gap-1"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Page Info */}
+            <div className="text-center text-sm text-muted-foreground pb-8">
+              Showing {startIndex + 1}-{endIndex} of {totalPets} pets
+              {totalPages > 1 && ` • Page ${currentPage} of ${totalPages}`}
+            </div>
+          </>
         )}
       </div>
     </div>

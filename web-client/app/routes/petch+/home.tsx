@@ -4,7 +4,7 @@ import { getUserFromSession } from '~/services/auth';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: 'Petch - Find Your Perfect Pet' },
     { name: 'description', content: 'Connect with loving pets waiting for their forever home' },
@@ -50,7 +50,7 @@ export default function Home() {
                 <span className="text-primary"> Furry Friend</span>
               </h1>
               <p className="text-xl text-muted-foreground">
-                Connect with loving pets from trusted breeders and shelters. 
+                Connect with loving pets from trusted breeders and shelters.
                 Your new best friend is waiting for you.
               </p>
               <div className="flex gap-4 justify-center pt-4">
@@ -84,14 +84,14 @@ export default function Home() {
                 </Card>
               </Link>
 
-              <Link to="/ai-match" className="block">
+              <Link to="/discover" className="block">
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                   <CardHeader className="text-center">
-                    <span className="text-4xl mb-4 block">✨</span>
-                    <h3 className="text-lg font-semibold">AI Match</h3>
+                    <span className="text-4xl mb-4 block">💖</span>
+                    <h3 className="text-lg font-semibold">Discover</h3>
                   </CardHeader>
                   <CardContent className="text-center text-muted-foreground">
-                    Take our quick quiz and let AI find your ideal companion.
+                    Swipe through pets and find ones you love. The more you swipe, the better your matches!
                   </CardContent>
                 </Card>
               </Link>
@@ -100,10 +100,10 @@ export default function Home() {
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                   <CardHeader className="text-center">
                     <span className="text-4xl mb-4 block">⚙️</span>
-                    <h3 className="text-lg font-semibold">Preferences</h3>
+                    <h3 className="text-lg font-semibold">Profile</h3>
                   </CardHeader>
                   <CardContent className="text-center text-muted-foreground">
-                    Fine-tune your profile to get better pet recommendations.
+                    Update your details and preferences.
                   </CardContent>
                 </Card>
               </Link>
@@ -117,8 +117,8 @@ export default function Home() {
                   <h3 className="text-lg font-semibold">For Adopters</h3>
                 </CardHeader>
                 <CardContent className="text-center text-muted-foreground">
-                  Browse thousands of pets from verified breeders and shelters. 
-                  Find your perfect match with our smart filters.
+                  Browse thousands of pets from verified breeders and shelters.
+                  Find your perfect match with our powerful filters.
                 </CardContent>
               </Card>
 
@@ -128,7 +128,7 @@ export default function Home() {
                   <h3 className="text-lg font-semibold">For Shelters</h3>
                 </CardHeader>
                 <CardContent className="text-center text-muted-foreground">
-                  List your animals and connect with loving families. 
+                  List your animals and connect with loving families.
                   Track adoptions and manage your listings easily.
                 </CardContent>
               </Card>
@@ -139,7 +139,7 @@ export default function Home() {
                   <h3 className="text-lg font-semibold">Safe & Trusted</h3>
                 </CardHeader>
                 <CardContent className="text-center text-muted-foreground">
-                  All vendors are verified. Secure messaging and 
+                  All vendors are verified. Secure messaging and
                   transparent adoption process for peace of mind.
                 </CardContent>
               </Card>

@@ -34,9 +34,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Pets{
+public class Pets {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)   
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "name", nullable = false)
@@ -60,23 +60,24 @@ public class Pets{
     @Column(name = "fosterable", nullable = false)
     private Boolean fosterable;
 
-    //Image Realationship
+    // Image Realationship
+    @Builder.Default
     @JsonManagedReference
     @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Images> images = new ArrayList<>();
 
-    //User/Vendor Relationship
+    // User/Vendor Relationship
     @JsonBackReference
     @ManyToOne(fetch = FetchType.EAGER) // quickly loads user to quickly get all their pets
     @JoinColumn(name = "user_id", nullable = true)
     private User user;
 
-    //Adoption Details Relationship (One-to-One)
+    // Adoption Details Relationship (One-to-One)
     @JsonManagedReference
     @OneToOne(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private AdoptionDetails adoptionDetails;
 
-    //Must add realationship to shelter
+    // Must add realationship to shelter
     // @ManyToOne(fetch = FetchType.LAZY)
     // @JoinColumn(name = "shelter_id", nullable = false)
     // private Shelters shelter;
@@ -88,5 +89,10 @@ public class Pets{
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-}
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+}

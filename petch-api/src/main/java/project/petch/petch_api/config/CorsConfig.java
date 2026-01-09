@@ -26,8 +26,8 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allow all origins for development (use specific origins in production)
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        // Use specific origins from configuration
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
 
         // Allow common HTTP methods
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

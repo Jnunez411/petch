@@ -1,6 +1,6 @@
 import { getSession } from '../services/session.server';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+import { API_BASE_URL } from '~/config/api-config';
+import { apiLogger } from '~/utils/logger';
 
 interface FetchOptions extends RequestInit {
   headers?: HeadersInit;
@@ -28,13 +28,36 @@ export async function authenticatedFetch(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const method = options.method || 'GET';
+  const startTime = performance.now();
+
+  apiLogger.debug(`Request: ${method} ${endpoint}`, {
+    hasAuth: !!token,
+    body: options.body ? '[present]' : undefined
+  });
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });
 
+  const duration = Math.round(performance.now() - startTime);
+
   if (response.status === 401) {
+    apiLogger.warn(`Unauthorized: ${method} ${endpoint}`, { duration: `${duration}ms` });
     throw new Response('Unauthorized', { status: 401 });
+  }
+
+  if (!response.ok) {
+    apiLogger.error(`Request failed: ${method} ${endpoint}`, {
+      status: response.status,
+      duration: `${duration}ms`
+    });
+  } else {
+    apiLogger.debug(`Response: ${method} ${endpoint}`, {
+      status: response.status,
+      duration: `${duration}ms`
+    });
   }
 
   return response;

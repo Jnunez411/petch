@@ -1,6 +1,7 @@
 package project.petch.petch_api.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.petch.petch_api.dto.user.VendorProfileDTO;
@@ -14,6 +15,7 @@ import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VendorProfileService {
 
     private final VendorProfileRepository vendorProfileRepository;
@@ -54,6 +56,7 @@ public class VendorProfileService {
 
     private void mapDtoToEntity(VendorProfileDTO dto, VendorProfile profile) {
         profile.setOrganizationName(dto.getOrganizationName());
+        profile.setProfileImageUrl(dto.getProfileImageUrl());
         profile.setWebsiteUrl(dto.getWebsiteUrl());
         profile.setPhoneNumber(dto.getPhoneNumber());
         profile.setCity(dto.getCity());
@@ -65,6 +68,7 @@ public class VendorProfileService {
         return VendorProfileDTO.builder()
                 .id(profile.getId())
                 .organizationName(profile.getOrganizationName())
+                .profileImageUrl(profile.getProfileImageUrl())
                 .websiteUrl(profile.getWebsiteUrl())
                 .phoneNumber(profile.getPhoneNumber())
                 .city(profile.getCity())

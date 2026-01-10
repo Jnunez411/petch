@@ -21,6 +21,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 import lombok.AllArgsConstructor;
@@ -29,7 +30,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "pets")
+@Table(name = "pets", indexes = {
+        @Index(name = "idx_pets_species", columnList = "species"),
+        @Index(name = "idx_pets_breed", columnList = "breed"),
+        @Index(name = "idx_pets_age", columnList = "age"),
+        @Index(name = "idx_pets_view_count", columnList = "view_count")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -95,4 +101,8 @@ public class Pets {
 
     @Column(name = "longitude")
     private Double longitude;
+
+    @Builder.Default
+    @Column(name = "view_count")
+    private Long viewCount = 0L;
 }

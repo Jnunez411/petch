@@ -54,6 +54,7 @@ public class VendorProfileService {
 
     private void mapDtoToEntity(VendorProfileDTO dto, VendorProfile profile) {
         profile.setOrganizationName(dto.getOrganizationName());
+        profile.setProfileImageUrl(dto.getProfileImageUrl());
         profile.setWebsiteUrl(dto.getWebsiteUrl());
         profile.setPhoneNumber(dto.getPhoneNumber());
         profile.setCity(dto.getCity());
@@ -65,6 +66,7 @@ public class VendorProfileService {
         return VendorProfileDTO.builder()
                 .id(profile.getId())
                 .organizationName(profile.getOrganizationName())
+                .profileImageUrl(profile.getProfileImageUrl())
                 .websiteUrl(profile.getWebsiteUrl())
                 .phoneNumber(profile.getPhoneNumber())
                 .city(profile.getCity())

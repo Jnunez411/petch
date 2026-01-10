@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, redirect, useLoaderData } from 'react-router';
 import type { Route } from './+types/discover';
 import { Button } from '~/components/ui/button';
@@ -10,9 +10,12 @@ import {
     discoverPets,
     recordInteraction,
     fetchLikedPets,
-    getLikedPets,
     type UserPreferences,
+    undoInteraction
 } from '~/services/pet-match-algorithm';
+import { API_BASE_URL, getImageUrl } from '~/config/api-config';
+import { PLACEHOLDER_IMAGES, SWIPE_ANIMATION_DURATION } from '~/config/constants';
+import type { Pet, SwipeHistory } from '~/types/pet';
 
 export function meta({ }: Route.MetaArgs) {
     return [
@@ -35,70 +38,63 @@ export async function loader({ request }: Route.LoaderArgs) {
 export default function DiscoverPage() {
     const { user, token } = useLoaderData<typeof loader>();
     const [preferences, setPreferences] = useState<UserPreferences>({ likedPetIds: [], passedPetIds: [], totalSwipes: 0 });
-    const [petQueue, setPetQueue] = useState<any[]>([]);
-    const [likedPetsList, setLikedPetsList] = useState<any[]>([]); // Store full liked pets from backend
+    const [petQueue, setPetQueue] = useState<Pet[]>([]);
+    const [likedPetsList, setLikedPetsList] = useState<Pet[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+    const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | 'undo-start' | 'undo-end' | 'instant-left' | 'instant-right' | 'undo-from-left' | 'undo-from-right' | 'undo-enter' | null>(null);
     const [showFavorites, setShowFavorites] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isAnimating, setIsAnimating] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
+    const [history, setHistory] = useState<SwipeHistory[]>([]);
 
+    const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    const load = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            // Load both discover pets and liked pets in parallel
+            const [pets, likedPets] = await Promise.all([
+                discoverPets(token),
+                fetchLikedPets(token)
+            ]);
+            setPetQueue(pets);
+            setLikedPetsList(likedPets);
+            // Update preferences with liked pet IDs from backend
+            setPreferences(prev => ({
+                ...prev,
+                likedPetIds: likedPets.map((p) => p.id)
+            }));
+        } catch (error) {
+            console.error('Failed to load pets:', error);
+            setError('Failed to connect to the server. Please check your connection and try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [token]);
 
     // Initial load from API
     useEffect(() => {
-        async function load() {
-            try {
-                // Load both discover pets and liked pets in parallel
-                const [pets, likedPets] = await Promise.all([
-                    discoverPets(token),
-                    fetchLikedPets(token)
-                ]);
-                setPetQueue(pets);
-                setLikedPetsList(likedPets);
-                // Update preferences with liked pet IDs from backend
-                setPreferences(prev => ({
-                    ...prev,
-                    likedPetIds: likedPets.map((p: any) => p.id)
-                }));
-            } catch (error) {
-                console.error('Failed to load pets:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        }
         load();
-    }, [token]);
+    }, [load]);
 
     const currentPet = petQueue[currentIndex];
     const hasMorePets = currentIndex < petQueue.length;
-    const canUndo = false;
+    const canUndo = history.length > 0 && !isAnimating;
 
     // Helper to get image URL from pet (Backend format)
-    const getPetImageUrl = (pet: any) => {
+    const getPetImageUrl = (pet: Pet) => {
         if (pet.images && pet.images.length > 0) {
-            const filePath = pet.images[0].filePath;
-            if (filePath) {
-                // Check if it's already a full external URL
-                if (filePath.startsWith('http')) {
-                    return filePath;
-                }
-                // Backend serves images at /uploads/images/...
-                return `http://localhost:8080${filePath}`;
-            }
+            const imageUrl = getImageUrl(pet.images[0].filePath);
+            if (imageUrl) return imageUrl;
         }
-        // Use species-appropriate placeholder images
-        const placeholders: Record<string, string> = {
-            'Dog': 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop',
-            'Cat': 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&h=600&fit=crop',
-            'Bird': 'https://images.unsplash.com/photo-1522926193341-e9ffd6a399b6?w=600&h=600&fit=crop',
-            'default': 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&h=600&fit=crop'
-        };
-        return placeholders[pet.species] || placeholders['default'];
+        return PLACEHOLDER_IMAGES[pet.species] || PLACEHOLDER_IMAGES.default;
     };
 
     // Helper to get adoption fee
-    const getPetAdoptionFee = (pet: any) => {
+    const getPetAdoptionFee = (pet: Pet) => {
         return pet.adoptionDetails?.priceEstimate || 0;
     };
 
@@ -111,6 +107,8 @@ export default function DiscoverPage() {
 
         try {
             await recordInteraction(currentPet.id, 'LIKE', token);
+            // PERFORMANCE: Limit history to last 20 swipes to prevent memory growth
+            setHistory(prev => [...prev.slice(-19), { pet: currentPet, direction: 'right' }]);
             setPreferences(prev => ({
                 ...prev,
                 likedPetIds: [...prev.likedPetIds, currentPet.id],
@@ -121,7 +119,7 @@ export default function DiscoverPage() {
                 setCurrentIndex(prev => prev + 1);
                 setSwipeDirection(null);
                 setIsAnimating(false);
-            }, 300);
+            }, SWIPE_ANIMATION_DURATION);
         } catch (error) {
             console.error('Failed to record like:', error);
             setSwipeDirection(null);
@@ -138,6 +136,8 @@ export default function DiscoverPage() {
 
         try {
             await recordInteraction(currentPet.id, 'PASS', token);
+            // PERFORMANCE: Limit history to last 20 swipes to prevent memory growth
+            setHistory(prev => [...prev.slice(-19), { pet: currentPet, direction: 'left' }]);
             setPreferences(prev => ({
                 ...prev,
                 passedPetIds: [...prev.passedPetIds, currentPet.id],
@@ -148,7 +148,7 @@ export default function DiscoverPage() {
                 setCurrentIndex(prev => prev + 1);
                 setSwipeDirection(null);
                 setIsAnimating(false);
-            }, 300);
+            }, SWIPE_ANIMATION_DURATION);
         } catch (error) {
             console.error('Failed to record pass:', error);
             setSwipeDirection(null);
@@ -156,29 +156,89 @@ export default function DiscoverPage() {
         }
     }, [currentPet, token, isAnimating]);
 
-    // Simplified UI: removing local reset/undo for now as they need backend support
-    // Discovery reset: clearing interactions in the backend
+    // Discovery reset: clearing interactions in the backend and refreshing state
     const handleReset = async () => {
+        setIsResetting(true);
         try {
-            const response = await fetch(`http://localhost:8080/api/pets/discover/reset`, {
+            const response = await fetch(`${API_BASE_URL}/api/pets/discover/reset`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
             if (response.ok) {
-                window.location.reload();
+                // Refetch data instead of reloading the page
+                const [pets, likedPets] = await Promise.all([
+                    discoverPets(token),
+                    fetchLikedPets(token)
+                ]);
+                setPetQueue(pets);
+                setLikedPetsList(likedPets);
+                setCurrentIndex(0);
+                setHistory([]);
+                setPreferences({
+                    likedPetIds: likedPets.map((p) => p.id),
+                    passedPetIds: [],
+                    totalSwipes: 0
+                });
             } else {
                 console.error('Failed to reset discovery:', await response.text());
             }
         } catch (error) {
             console.error('Error resetting discovery:', error);
+        } finally {
+            setIsResetting(false);
         }
     };
 
-    const handleUndo = () => {
-        alert("Undo coming soon with backend support!");
-    };
+
+
+    // Undo action
+    const handleUndo = useCallback(async () => {
+        if (history.length === 0 || isAnimating) return;
+
+        const lastInteraction = history[history.length - 1];
+        setIsAnimating(true);
+
+        try {
+            // Call backend to remove interaction
+            await undoInteraction(lastInteraction.pet.id, token);
+
+            // Update UI state
+            setHistory(prev => prev.slice(0, -1));
+
+            // Remove from liked pets if it was there
+            setPreferences(prev => ({
+                ...prev,
+                likedPetIds: prev.likedPetIds.filter(id => id !== lastInteraction.pet.id),
+                passedPetIds: prev.passedPetIds.filter(id => id !== lastInteraction.pet.id),
+                totalSwipes: Math.max(0, prev.totalSwipes - 1)
+            }));
+
+            // Seamless undo animation sequence:
+            // 1. Position card off-screen instantly (no transition)
+            const dir = lastInteraction.direction || 'left';
+            setSwipeDirection(`undo-from-${dir}` as 'undo-from-left' | 'undo-from-right');
+            setCurrentIndex(prev => Math.max(0, prev - 1));
+
+            // 2. After a single frame, trigger the slide-in animation
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setSwipeDirection('undo-enter');
+
+                    // 3. Clean up after animation completes (400ms for bounce effect)
+                    setTimeout(() => {
+                        setSwipeDirection(null);
+                        setIsAnimating(false);
+                    }, 400);
+                });
+            });
+
+        } catch (error) {
+            console.error('Failed to undo:', error);
+            setIsAnimating(false);
+        }
+    }, [history, token, isAnimating]);
 
     // Keyboard navigation
     useEffect(() => {
@@ -207,23 +267,54 @@ export default function DiscoverPage() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [handleLike, handlePass, handleUndo, showFavorites]);
 
+    // Handle unfavoriting a pet from the favorites view
+    const handleUnfavorite = useCallback(async (petId: number) => {
+        try {
+            await undoInteraction(petId, token);
+            // Update local state
+            setLikedPetsList(prev => prev.filter(p => p.id !== petId));
+            setPreferences(prev => ({
+                ...prev,
+                likedPetIds: prev.likedPetIds.filter(id => id !== petId),
+            }));
+        } catch (error) {
+            console.error('Failed to unfavorite pet:', error);
+        }
+    }, [token]);
+
+    // PERFORMANCE: Memoize liked pets computation to avoid recalculating on every render
+    // NOTE: This must be before any early returns to satisfy React's rules of hooks
+    const allLikedPets = useMemo(() => [
+        ...likedPetsList,
+        ...petQueue.filter(p => preferences.likedPetIds.includes(p.id) && !likedPetsList.find((lp: Pet) => lp.id === p.id))
+    ], [likedPetsList, petQueue, preferences.likedPetIds]);
+
+    // Error state
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
+                <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
+                <h3 className="text-xl font-semibold mb-2">Connection Error</h3>
+                <p className="text-muted-foreground mb-6 max-w-md">{error}</p>
+                <Button onClick={load} variant="default" className="gap-2">
+                    <RotateCcw className="w-4 h-4" />
+                    Try Again
+                </Button>
+            </div>
+        );
+    }
+
     // Loading state
     if (isLoading) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="animate-pulse text-muted-foreground flex flex-col items-center gap-4">
-                    <Sparkles className="w-12 h-12 text-primary" />
+                    <Sparkles className="w-12 h-12 text-coral" />
                     <span>Fetching your matches...</span>
                 </div>
             </div>
         );
     }
-
-    // Use the liked pets list from backend (plus any new likes from this session)
-    const allLikedPets = [
-        ...likedPetsList,
-        ...petQueue.filter(p => preferences.likedPetIds.includes(p.id) && !likedPetsList.find((lp: any) => lp.id === p.id))
-    ];
 
     // Favorites view
     if (showFavorites) {
@@ -291,8 +382,18 @@ export default function DiscoverPage() {
                                             alt={pet.name}
                                             className="w-full h-full object-cover"
                                         />
+                                        {/* Unfavorite button */}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => handleUnfavorite(pet.id)}
+                                            className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/50 hover:bg-red-500 text-white transition-colors"
+                                            title="Remove from favorites"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
                                         {pet.atRisk && (
-                                            <div className="absolute top-2 left-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                                            <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
                                                 <AlertTriangle className="w-3 h-3" />
                                                 Needs Home
                                             </div>
@@ -323,7 +424,7 @@ export default function DiscoverPage() {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center p-4">
                 <Card className="max-w-md w-full text-center p-8">
-                    <Sparkles className="w-16 h-16 mx-auto text-primary mb-4" />
+                    <Sparkles className="w-16 h-16 mx-auto text-coral mb-4" />
                     <h2 className="text-2xl font-bold mb-2">You've Seen Everyone!</h2>
                     <p className="text-muted-foreground mb-6">
                         You've swiped through all available matches.
@@ -390,12 +491,21 @@ export default function DiscoverPage() {
                 <div className="relative w-full max-w-md aspect-[3/4]">
                     {/* Current card */}
                     <Card
-                        className={`absolute inset-0 overflow-hidden shadow-xl transition-all duration-300 ${swipeDirection === 'right'
-                            ? 'translate-x-full rotate-12 opacity-0'
-                            : swipeDirection === 'left'
-                                ? '-translate-x-full -rotate-12 opacity-0'
-                                : ''
-                            }`}
+                        className={`absolute inset-0 overflow-hidden shadow-xl
+                            ${swipeDirection?.startsWith('undo-from') ? 'duration-0' : ''}
+                            ${swipeDirection === 'undo-enter' ? 'duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)] scale-100 translate-x-0 rotate-0 opacity-100' : ''}
+                            ${!swipeDirection?.startsWith('undo') ? 'transition-all' : 'transition-all'}
+                            ${!swipeDirection?.startsWith('undo') && !isResetting ? 'duration-300' : ''}
+                            ${isResetting ? 'duration-600' : ''}
+                            ${swipeDirection === 'right' ? 'translate-x-full rotate-12 opacity-0' : ''}
+                            ${swipeDirection === 'left' ? '-translate-x-full -rotate-12 opacity-0' : ''}
+                            ${swipeDirection === 'undo-start' ? 'scale-50 opacity-0' : ''}
+                            ${swipeDirection === 'undo-end' ? 'scale-100 opacity-100' : ''}
+                            ${swipeDirection === 'instant-right' ? 'translate-x-[150%] rotate-6 opacity-100' : ''}
+                            ${swipeDirection === 'instant-left' ? '-translate-x-[150%] -rotate-6 opacity-100' : ''}
+                            ${swipeDirection === 'undo-from-right' ? 'translate-x-[120%] rotate-6 scale-95 opacity-0' : ''}
+                            ${swipeDirection === 'undo-from-left' ? '-translate-x-[120%] -rotate-6 scale-95 opacity-0' : ''}
+                        `}
                     >
                         {/* Pet image */}
                         <div className="absolute inset-0">
@@ -411,8 +521,7 @@ export default function DiscoverPage() {
                         {/* Badges */}
                         <div className="absolute top-4 left-4 flex gap-2">
                             {currentPet.atRisk && (
-                                <span className="bg-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 shadow-lg">
-                                    <AlertTriangle className="w-4 h-4" />
+                                <span className="bg-red-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-lg">
                                     Needs Home Urgently
                                 </span>
                             )}
@@ -519,7 +628,7 @@ export default function DiscoverPage() {
                         className="h-12 w-12 rounded-full"
                         title="View full profile"
                     >
-                        <Link to={`/pets/${currentPet.id}`}>
+                        <Link to={`/pets/${currentPet.id}?origin=discover`}>
                             <Eye className="h-5 w-5" />
                         </Link>
                     </Button>

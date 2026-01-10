@@ -47,6 +47,18 @@ public class DemoDataSeeder {
                                 System.out.println("Created demo vendor user: vendor@gmail.com / vendorpass");
                         }
 
+                        if (userRepository.findByEmail("admin@petch.com").isEmpty()) {
+                                User admin = new User();
+                                admin.setEmail("admin@petch.com");
+                                admin.setPasswordHash(passwordEncoder.encode("adminpass123"));
+                                admin.setFirstName("System");
+                                admin.setLastName("Administrator");
+                                admin.setUserType(UserType.ADMIN);
+                                admin.setPhoneNumber("555-000-0000");
+                                userRepository.save(admin);
+                                System.out.println("Created admin user: admin@petch.com / adminpass123");
+                        }
+
                         if (repository.count() >= 200) {
                                 System.out.println(
                                                 "Database already has " + repository.count() + " pets. Skipping seed.");

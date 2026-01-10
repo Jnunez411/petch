@@ -2,6 +2,7 @@ package project.petch.petch_api.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import project.petch.petch_api.dto.user.AdopterProfileDTO;
 import project.petch.petch_api.models.AdopterProfile;
 import project.petch.petch_api.models.User;
@@ -18,6 +19,8 @@ public class AdopterProfileService {
     private final AdopterProfileRepository adopterProfileRepository;
     private final UserRepository userRepository;
 
+    // PERFORMANCE: Use readOnly transaction for read operations
+    @Transactional(readOnly = true)
     public Optional<AdopterProfileDTO> getProfileByUserId(Long userId) {
         Long nonNullUserId = Objects.requireNonNull(userId, "userId must not be null");
         return adopterProfileRepository.findByUserId(nonNullUserId).map(this::toDTO);
@@ -57,7 +60,8 @@ public class AdopterProfileService {
     }
 
     private AdopterProfileDTO toDTO(AdopterProfile profile) {
-        if (profile == null) return null;
+        if (profile == null)
+            return null;
         return AdopterProfileDTO.builder()
                 .id(profile.getId())
                 .householdSize(profile.getHouseholdSize())

@@ -20,6 +20,8 @@ public class VendorProfileDTO {
     @NotBlank(message = "Organization name is required")
     private String organizationName;
 
+    private String profileImageUrl;
+
     private String websiteUrl;
 
     @Pattern(regexp = "^[0-9]*$", message = "Phone number must contain digits only")

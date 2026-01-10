@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select';
 import { Checkbox } from '~/components/ui/checkbox';
 import { Label } from '~/components/ui/label';
-import { PawIcon } from '~/components/ui/paw-icon';
 import { useState, useEffect } from 'react';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
-import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2, Dog } from 'lucide-react';
+import { API_BASE_URL, getImageUrl } from '~/config/api-config';
+import { PLACEHOLDER_IMAGES } from '~/config/constants';
+import type { Pet } from '~/types/pet';
 
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8080';
 const PETS_PER_PAGE = 12;
 
 export function meta({ }: Route.MetaArgs) {
@@ -30,10 +31,15 @@ export async function loader({ request }: Route.LoaderArgs) {
   const ageRange = url.searchParams.get('ageRange');
   const fosterable = url.searchParams.get('fosterable') === 'true';
   const atRisk = url.searchParams.get('atRisk') === 'true';
+  const search = url.searchParams.get('search') || '';
   const page = parseInt(url.searchParams.get('page') || '1', 10) - 1; // Backend is 0-indexed
 
   // Build backend query string
   const queryParams = new URLSearchParams();
+
+  if (search) {
+    queryParams.set('search', search);
+  }
 
   if (species && species !== 'all') {
     queryParams.set('species', species);
@@ -93,7 +99,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         totalPages: 0,
         currentPage: 1,
         user,
-        filters: { species, ageRange, fosterable, atRisk }
+        filters: { species, ageRange, fosterable, atRisk, search }
       };
     }
 
@@ -106,7 +112,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       totalPages: data.totalPages || 0,
       currentPage: (data.number || 0) + 1, // Convert to 1-indexed for UI
       user,
-      filters: { species, ageRange, fosterable, atRisk }
+      filters: { species, ageRange, fosterable, atRisk, search }
     };
   } catch (error) {
     console.error('Failed to fetch pets:', error);
@@ -171,6 +177,20 @@ export default function PetsPage() {
   const [selectedAgeRange, setSelectedAgeRange] = useState<string>(filters.ageRange || 'all');
   const [filterFosterable, setFilterFosterable] = useState<boolean>(filters.fosterable);
   const [filterAtRisk, setFilterAtRisk] = useState<boolean>(filters.atRisk);
+  const [searchQuery, setSearchQuery] = useState<string>(filters.search || '');
+
+  // Build return URL from current filter state (preserves filters when navigating to pet details)
+  const buildReturnUrl = () => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('search', searchQuery);
+    if (selectedSpecies && selectedSpecies !== 'all') params.set('species', selectedSpecies);
+    if (selectedAgeRange && selectedAgeRange !== 'all') params.set('ageRange', selectedAgeRange);
+    if (filterFosterable) params.set('fosterable', 'true');
+    if (filterAtRisk) params.set('atRisk', 'true');
+    if (currentPage > 1) params.set('page', currentPage.toString());
+    const queryString = params.toString();
+    return '/pets' + (queryString ? '?' + queryString : '');
+  };
 
   // Update URL when filters change
   const applyFilters = (newFilters: {
@@ -178,6 +198,7 @@ export default function PetsPage() {
     ageRange?: string;
     fosterable?: boolean;
     atRisk?: boolean;
+    search?: string;
     page?: number;
   }) => {
     setIsFiltering(true);
@@ -187,8 +208,10 @@ export default function PetsPage() {
     const ageRange = newFilters.ageRange ?? selectedAgeRange;
     const fosterable = newFilters.fosterable ?? filterFosterable;
     const atRisk = newFilters.atRisk ?? filterAtRisk;
+    const search = newFilters.search ?? searchQuery;
     const page = newFilters.page ?? 1;
 
+    if (search) params.set('search', search);
     if (species && species !== 'all') params.set('species', species);
     if (ageRange && ageRange !== 'all') params.set('ageRange', ageRange);
     if (fosterable) params.set('fosterable', 'true');
@@ -225,6 +248,7 @@ export default function PetsPage() {
     setSelectedAgeRange('all');
     setFilterFosterable(false);
     setFilterAtRisk(false);
+    setSearchQuery('');
     setSearchParams({});
   };
 
@@ -272,26 +296,12 @@ export default function PetsPage() {
   };
 
   // Helper to get image URL
-  const getPetImageUrl = (pet: any) => {
+  const getPetImageUrl = (pet: Pet) => {
     if (pet.images && pet.images.length > 0) {
-      const filePath = pet.images[0].filePath;
-      if (filePath) {
-        // Check if it's an external URL (starts with http)
-        if (filePath.startsWith('http')) {
-          return filePath;
-        }
-        return `http://localhost:8080${filePath}`;
-      }
+      const imageUrl = getImageUrl(pet.images[0].filePath);
+      if (imageUrl) return imageUrl;
     }
-    // Fallback to species-based placeholder
-    const placeholders: Record<string, string> = {
-      'Dog': 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop',
-      'Cat': 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&h=600&fit=crop',
-      'Bird': 'https://images.unsplash.com/photo-1522926193341-e9ffd6a399b6?w=600&h=600&fit=crop',
-      'Rabbit': 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=600&h=600&fit=crop',
-      'default': 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&h=600&fit=crop'
-    };
-    return placeholders[pet.species] || placeholders['default'];
+    return PLACEHOLDER_IMAGES[pet.species] || PLACEHOLDER_IMAGES.default;
   };
 
   const startIndex = (currentPage - 1) * PETS_PER_PAGE;
@@ -302,7 +312,7 @@ export default function PetsPage() {
       {/* Header */}
       <div className="pt-8 pb-6 text-center border-b sticky top-16 bg-background z-40 shadow-sm">
         <h1 className="text-5xl font-bold primary-text tracking-tight center-text mb-2">
-          <span className="text-primary"> Pet Listings </span>
+          <span className="text-coral"> Pet Listings </span>
         </h1>
         <p className="text-xl text-muted-foreground ">
           Find your perfect companion • {totalPets} pets available
@@ -313,6 +323,28 @@ export default function PetsPage() {
       <div className="container mx-auto px-4 py-6">
         <div className="w-full bg-white rounded-lg border shadow-sm p-4">
           <div className="flex flex-wrap items-center gap-6">
+            {/* Search Input */}
+            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+              <input
+                type="text"
+                placeholder="Search by name, breed..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    applyFilters({ search: searchQuery, page: 1 });
+                  }
+                }}
+                className="px-4 py-2 border rounded-lg bg-background text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <Button
+                size="sm"
+                onClick={() => applyFilters({ search: searchQuery, page: 1 })}
+              >
+                Search
+              </Button>
+            </div>
+
             {/* Species Filter */}
             <div className="flex items-center gap-2">
               <Label htmlFor="species-filter" className="text-sm font-medium whitespace-nowrap">
@@ -367,8 +399,7 @@ export default function PetsPage() {
                   applyFilters({ fosterable: checked as boolean, page: 1 });
                 }}
               />
-              <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
-                <Heart className="w-4 h-4 text-green-600" />
+              <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer">
                 Fosterable Only
               </Label>
             </div>
@@ -383,8 +414,7 @@ export default function PetsPage() {
                   applyFilters({ atRisk: checked as boolean, page: 1 });
                 }}
               />
-              <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer flex items-center gap-1">
-                <AlertTriangle className="w-4 h-4 text-orange-600" />
+              <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer">
                 At Risk Only
               </Label>
             </div>
@@ -417,7 +447,7 @@ export default function PetsPage() {
       {isFiltering && (
         <div className="fixed inset-0 bg-background/50 z-50 flex items-center justify-center">
           <div className="flex items-center gap-2 bg-white p-4 rounded-lg shadow-lg">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <Loader2 className="w-6 h-6 animate-spin text-coral" />
             <span>Filtering...</span>
           </div>
         </div>
@@ -427,7 +457,9 @@ export default function PetsPage() {
       <div className="container mx-auto px-4 py-6">
         {pets.length === 0 ? (
           <div className="text-center py-12">
-            <PawIcon className="w-16 h-16 mx-auto mb-4 opacity-30" />
+            <div className="size-16 rounded-xl bg-coral/10 flex items-center justify-center mx-auto mb-4">
+              <Dog className="w-8 h-8 text-coral" />
+            </div>
             <p className="text-lg text-muted-foreground mb-2">
               No pets found matching your filters.
             </p>
@@ -441,63 +473,89 @@ export default function PetsPage() {
         ) : (
           <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pets.map((pet: any) => (
-                <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow relative">
-                  {/* At Risk Badge */}
+              {pets.map((pet: Pet) => (
+                <Card key={pet.id} className="relative group overflow-hidden border-border/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-card/50 hover:bg-card">
+                  {/* At Risk Badge - Kept as high priority signal */}
                   {pet.atRisk && (
-                    <div className="absolute top-3 left-3 z-10 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
+                    <div className="absolute top-3 left-3 z-10 bg-red-500/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-medium shadow-sm">
                       Needs Home Urgently
                     </div>
                   )}
 
                   {/* Pet Image */}
-                  <Link to={`/pets/${pet.id}`} className="block w-full aspect-[4/3] overflow-hidden bg-gray-100 group cursor-pointer relative">
-                    <img
-                      src={getPetImageUrl(pet)}
-                      alt={pet.name}
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      loading="lazy"
-                    />
-                  </Link>
+                  <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                    <Link to={`/pets/${pet.id}`}>
+                      <img
+                        src={getPetImageUrl(pet)}
+                        alt={pet.name}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      {/* Gradient overlay for text readability if we wanted, but clean is nice for now */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    </Link>
+                  </div>
 
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center justify-between">
-                      <span>{pet.name}</span>
-                      {pet.adoptionDetails?.priceEstimate && (
-                        <span className="text-lg font-normal text-primary">
-                          ${pet.adoptionDetails.priceEstimate}
-                        </span>
-                      )}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {pet.breed} • {pet.age} {pet.age === 1 ? 'year' : 'years'} old
-                    </p>
+                  <CardHeader className="pb-2 pt-4">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <CardTitle className="text-xl font-bold tracking-tight mb-1">
+                          <Link to={`/pets/${pet.id}`} className="hover:text-coral transition-colors">
+                            {pet.name}
+                          </Link>
+                        </CardTitle>
+                        <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          {pet.breed}
+                          <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+                          {pet.age} {pet.age === 1 ? 'year' : 'years'} old
+                        </p>
+                      </div>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm line-clamp-2">{pet.description}</p>
+
+                  <CardContent className="space-y-4">
+                    {/* Tags Row */}
                     <div className="flex gap-2 flex-wrap">
                       {pet.species && (
-                        <span className="px-2 py-1 bg-primary/10 rounded text-xs">
+                        <span className="px-2.5 py-0.5 bg-secondary text-secondary-foreground rounded-md text-xs font-medium border border-border/50">
                           {pet.species}
                         </span>
                       )}
                       {pet.fosterable && (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs flex items-center gap-1">
-                          <Heart className="w-3 h-3" />
+                        <span className="px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-100 rounded-md text-xs font-medium">
                           Fosterable
-                        </span>
-                      )}
-                      {pet.atRisk && (
-                        <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">
-                          At Risk
                         </span>
                       )}
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button className="flex-1" asChild>
-                        <Link to={`/pets/${pet.id}`}>View Details</Link>
+                    <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                      {pet.description}
+                    </p>
+
+                    <div className="pt-2 flex items-center justify-between gap-4 border-t border-border/40 mt-auto">
+                      {/* Price moved to bottom, neutral styling */}
+                      {pet.adoptionDetails?.priceEstimate ? (
+                        <div className="text-xs font-medium text-muted-foreground/80 flex flex-col">
+                          Adoption Fee
+                          <span className="text-sm text-foreground font-semibold">
+                            ${pet.adoptionDetails.priceEstimate}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-xs font-medium text-muted-foreground/80">
+                          Inquire for Fee
+                        </div>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        className="group/btn border-coral/20 text-coral hover:bg-coral hover:text-white hover:border-coral transition-all duration-300"
+                        asChild
+                      >
+                        <Link to={`/pets/${pet.id}?returnTo=${encodeURIComponent(buildReturnUrl())}`} className="flex items-center gap-2">
+                          Meet {pet.name}
+                          <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-0.5" />
+                        </Link>
                       </Button>
                     </div>
                   </CardContent>
@@ -565,7 +623,7 @@ export default function PetsPage() {
                         ) : (
                           <button
                             onClick={() => setShowPageInput(true)}
-                            className="px-2 text-muted-foreground hover:text-primary cursor-pointer"
+                            className="px-2 text-muted-foreground hover:text-coral cursor-pointer"
                           >
                             ...
                           </button>

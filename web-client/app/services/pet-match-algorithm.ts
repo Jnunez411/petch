@@ -1,14 +1,11 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+import { API_BASE_URL } from '~/config/api-config';
+import type { Pet, UserPreferences } from '~/types/pet';
 
-// Note: Weights are now handled backend, but we keep the types for compatibility
-export interface UserPreferences {
-    likedPetIds: number[];
-    passedPetIds: number[];
-    totalSwipes: number;
-}
+// Re-export for convenience
+export type { UserPreferences } from '~/types/pet';
 
 // Fetch recommended pets from backend
-export async function discoverPets(token: string): Promise<any[]> {
+export async function discoverPets(token: string): Promise<Pet[]> {
     const response = await fetch(`${API_BASE_URL}/api/pets/discover`, {
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -42,8 +39,25 @@ export async function recordInteraction(
     }
 }
 
+// Undo a swipe (interaction)
+export async function undoInteraction(
+    petId: number,
+    token: string
+): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/pets/${petId}/interact`, {
+        method: 'DELETE',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to undo interaction');
+    }
+}
+
 // Fetch user's liked pets from backend
-export async function fetchLikedPets(token: string): Promise<any[]> {
+export async function fetchLikedPets(token: string): Promise<Pet[]> {
     const response = await fetch(`${API_BASE_URL}/api/pets/liked`, {
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -58,7 +72,8 @@ export async function fetchLikedPets(token: string): Promise<any[]> {
 }
 
 // Helper to get liked pets (could also be an API call, but for now we can filter)
-export function getLikedPets(allPets: any[], preferences: UserPreferences): any[] {
+export function getLikedPets(allPets: Pet[], preferences: UserPreferences): Pet[] {
     const likedSet = new Set(preferences.likedPetIds);
     return allPets.filter(pet => likedSet.has(pet.id));
 }
+

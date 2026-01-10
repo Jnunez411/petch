@@ -10,7 +10,6 @@ import {
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { PawIcon } from "~/components/ui/paw-icon";
 import {
   Select,
   SelectContent,
@@ -18,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { Heart, Store, Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, CheckCircle } from "lucide-react";
+import { Heart, Store, Eye, EyeOff, Mail, Lock, User, Phone, AlertCircle, CheckCircle, Dog } from "lucide-react";
 import { Link, Form } from "react-router";
 import { useState } from "react";
 
@@ -122,7 +121,9 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
       <div className="w-full max-w-md p-4">
         <Card className="border-none shadow-lg">
           <CardHeader className="flex flex-col items-center space-y-1.5 pb-4 pt-6">
-            <PawIcon className="h-12 w-12" />
+            <div className="size-14 rounded-xl bg-coral flex items-center justify-center">
+              <Dog className="h-8 w-8 text-white" />
+            </div>
             <div className="space-y-0.5 flex flex-col items-center">
               <h2 className="text-2xl font-semibold text-foreground">
                 Join Petch
@@ -155,13 +156,13 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
                     <SelectContent>
                       <SelectItem value="ADOPTER">
                         <div className="flex items-center gap-2">
-                          <Heart size={16} className="text-pink-500" />
+                          <Heart size={16} className="text-coral" />
                           <span>Pet Adopter - Looking for a pet</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="VENDOR">
                         <div className="flex items-center gap-2">
-                          <Store size={16} className="text-blue-500" />
+                          <Store size={16} className="text-teal" />
                           <span>Vendor - Breeder or Shelter</span>
                         </div>
                       </SelectItem>
@@ -229,7 +230,7 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
                     value={formData.email}
                     onChange={(e) => handleChange("email", e.target.value)}
                     onBlur={() => handleBlur("email")}
-                    className={emailError ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={`${emailError ? "border-destructive focus-visible:ring-destructive" : ""} ${!emailError && formData.email ? "bg-zinc-300 border-zinc-400" : ""}`}
                   />
                   {emailError && (
                     <p className="text-sm text-destructive flex items-center gap-1">
@@ -292,7 +293,7 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:bg-transparent"
+                      className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
@@ -354,7 +355,7 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
 
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full bg-coral hover:bg-coral-dark text-white"
                   disabled={isSubmitting || !!hasErrors}
                 >
                   {isSubmitting ? "Creating account..." : "Create free account"}
@@ -365,7 +366,7 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
           <CardFooter className="flex justify-center border-t py-4">
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link to="/login" className="text-primary hover:underline font-medium">
+              <Link to="/login" className="text-coral hover:underline font-medium">
                 Sign in
               </Link>
             </p>

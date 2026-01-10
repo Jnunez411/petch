@@ -17,4 +17,6 @@ public interface PetInteractionRepository extends JpaRepository<PetInteraction, 
     @Query("SELECT i FROM PetInteraction i JOIN FETCH i.pet WHERE i.user = :user AND i.interactionType = :type")
     List<PetInteraction> findByUserAndInteractionType(@Param("user") User user,
             @Param("type") PetInteraction.InteractionType type);
+
+    java.util.Optional<PetInteraction> findByUserAndPet_Id(User user, Long petId);
 }

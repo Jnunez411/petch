@@ -9,8 +9,7 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { PawIcon } from "~/components/ui/paw-icon";
-import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, Dog } from "lucide-react";
 import { Link, Form } from "react-router";
 import { useState } from "react";
 
@@ -49,7 +48,9 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
       <div className="w-full max-w-md p-4">
         <Card className="border-none shadow-lg">
           <CardHeader className="flex flex-col items-center space-y-1.5 pb-4 pt-6">
-            <PawIcon className="h-12 w-12" />
+            <div className="size-14 rounded-xl bg-coral flex items-center justify-center">
+              <Dog className="h-8 w-8 text-white" />
+            </div>
             <div className="space-y-0.5 flex flex-col items-center">
               <h2 className="text-2xl font-semibold text-foreground">
                 Welcome Back
@@ -86,7 +87,7 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
-                    className={emailError ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={`${emailError ? "border-destructive focus-visible:ring-destructive" : ""} ${!emailError && email ? "bg-zinc-300 border-zinc-400" : ""}`}
                   />
                   {emailError && (
                     <p className="text-sm text-destructive flex items-center gap-1">
@@ -119,7 +120,7 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:bg-transparent"
+                      className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
@@ -139,7 +140,7 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
 
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full bg-coral hover:bg-coral-dark text-white"
                   disabled={isSubmitting || !!emailError || !!passwordError}
                 >
                   {isSubmitting ? "Signing in..." : "Sign in"}
@@ -150,7 +151,7 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
           <CardFooter className="flex justify-center border-t py-4">
             <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:underline font-medium">
+              <Link to="/signup" className="text-coral hover:underline font-medium">
                 Sign up
               </Link>
             </p>

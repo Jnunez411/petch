@@ -40,8 +40,28 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Disable CSRF protection (not needed for stateless JWT authentication)
+                // CSRF Protection is disabled because:
+                // 1. We use stateless JWT authentication (no session cookies)
+                // 2. All state-changing requests require Authorization header
+                // 3. JWTs are stored in memory/localStorage, not cookies
+                // For cookie-based auth, CSRF must be enabled
                 .csrf(csrf -> csrf.disable())
+
+                // Security headers to prevent common attacks
+                .headers(headers -> headers
+                        .contentTypeOptions(contentType -> {
+                        }) // X-Content-Type-Options: nosniff
+                        .frameOptions(frame -> frame.deny()) // X-Frame-Options: DENY
+                        .xssProtection(xss -> xss.disable()) // Disable deprecated X-XSS-Protection, use CSP instead
+                        // Content Security Policy - prevents XSS and other injection attacks
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'self'; " +
+                                        "script-src 'self'; " +
+                                        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                                        "font-src 'self' https://fonts.gstatic.com; " +
+                                        "img-src 'self' data: https: blob:; " +
+                                        "connect-src 'self' http://localhost:* https://localhost:*; " +
+                                        "frame-ancestors 'none';")))
 
                 // Configure CORS (Cross-Origin Resource Sharing)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -59,6 +79,9 @@ public class SecurityConfig {
                                 "/actuator/health", // Health check endpoint (if using actuator)
                                 "/uploads/**" // Allow access to uploaded images
                         ).permitAll()
+
+                        // Admin endpoints
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // Allow GET requests to pet endpoints (viewing only)
                         .requestMatchers(HttpMethod.GET, "/api/pets/**").permitAll()

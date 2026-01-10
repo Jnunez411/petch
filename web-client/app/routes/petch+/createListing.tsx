@@ -11,7 +11,7 @@ import { Progress } from '~/components/ui/progress';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
 import {
-  ImageIcon, X, AlertCircle, CheckCircle, PawPrint,
+  ImageIcon, X, AlertCircle, CheckCircle, Dog,
   DollarSign, Phone, Mail, Link as LinkIcon, FileText
 } from 'lucide-react';
 
@@ -427,7 +427,9 @@ export default function CreatePetPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold flex items-center gap-2">
-              <PawPrint className="w-8 h-8 text-primary" />
+              <div className="size-10 rounded-lg bg-coral flex items-center justify-center">
+                <Dog className="w-6 h-6 text-white" />
+              </div>
               Create Pet Listing
             </h1>
             <Button asChild variant="outline">
@@ -459,7 +461,7 @@ export default function CreatePetPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <PawPrint className="w-5 h-5" />
+                  <Dog className="w-5 h-5 text-coral" />
                   Pet Details
                 </h3>
 
@@ -654,8 +656,8 @@ export default function CreatePetPage() {
                       type="button"
                       onClick={() => handleAdoptionTypeChange(true)}
                       className={`px-4 py-2 rounded-lg font-semibold transition-colors ${adoptionDetails.isDirect
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                     >
                       Direct Adoption
@@ -664,8 +666,8 @@ export default function CreatePetPage() {
                       type="button"
                       onClick={() => handleAdoptionTypeChange(false)}
                       className={`px-4 py-2 rounded-lg font-semibold transition-colors ${!adoptionDetails.isDirect
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                     >
                       Redirect to Website

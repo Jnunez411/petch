@@ -1,6 +1,7 @@
 package project.petch.petch_api.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ImageService {
     private final ImagesRepository imagesRepository;
     private final PetsRepository petsRepository;
@@ -100,6 +102,7 @@ public class ImageService {
                 .build();
 
         Images saved = imagesRepository.save(image);
+        log.info("Image uploaded successfully: petId={}, imageId={}, filename={}", petId, saved.getId(), filename);
         return toDTO(saved);
     }
 
@@ -114,6 +117,7 @@ public class ImageService {
     }
 
     public void deleteImagesByPet(Long petId) throws IOException {
+        log.info("Deleting all images for petId={}", petId);
         List<Images> images = imagesRepository.findByPetId(petId);
         Path uploadPath = Paths.get(uploadDir).toAbsolutePath();
 
@@ -121,13 +125,15 @@ public class ImageService {
             try {
                 Path filePath = uploadPath.resolve(image.getFileName());
                 Files.deleteIfExists(filePath);
+                log.debug("Deleted image file: {}", image.getFileName());
             } catch (IOException e) {
                 // Log but continue deleting other images and database records
-                System.err.println("Failed to delete image file: " + image.getFileName() + ", " + e.getMessage());
+                log.error("Failed to delete image file: {}, error: {}", image.getFileName(), e.getMessage());
             }
         }
 
         imagesRepository.deleteByPetId(petId);
+        log.info("Deleted {} images for petId={}", images.size(), petId);
     }
 
     // PERFORMANCE: Use count query instead of loading all images

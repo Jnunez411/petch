@@ -12,6 +12,9 @@ import {
   Loader2,
   ChevronDown
 } from 'lucide-react';
+import { createLogger } from '~/utils/logger';
+
+const logger = createLogger('AdopterProfile');
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -40,7 +43,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   try {
     adopterProfile = await getAdopterProfile(request);
   } catch (error) {
-    console.error('Failed to fetch adopter profile:', error);
+    logger.error('Failed to fetch adopter profile', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
   return { user, adopterProfile };

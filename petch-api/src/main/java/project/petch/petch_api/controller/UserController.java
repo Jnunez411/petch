@@ -1,6 +1,7 @@
 package project.petch.petch_api.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +21,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
+@Slf4j
 public class UserController {
 
     /**
@@ -35,6 +37,7 @@ public class UserController {
 
         // The principal is the User object (from UserDetails)
         User currentUser = (User) authentication.getPrincipal();
+        log.debug("User profile accessed: userId={}", currentUser.getId());
 
         // Prepare response
         Map<String, Object> response = new HashMap<>();
@@ -57,6 +60,7 @@ public class UserController {
     public ResponseEntity<Map<String, String>> testAuthentication() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
+        log.debug("Authentication test for userId={}", currentUser.getId());
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Authentication successful!");

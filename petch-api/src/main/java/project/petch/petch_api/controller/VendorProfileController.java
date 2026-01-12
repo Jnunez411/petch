@@ -2,6 +2,7 @@ package project.petch.petch_api.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -24,6 +25,7 @@ import org.springframework.beans.factory.annotation.Value;
 @RequestMapping("/api/v1/vendor/profile")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('VENDOR')")
+@Slf4j
 public class VendorProfileController {
 
     private final VendorProfileService vendorProfileService;
@@ -31,11 +33,18 @@ public class VendorProfileController {
     @GetMapping("/me")
     public ResponseEntity<VendorProfileDTO> getMyVendorProfile(Authentication authentication) {
         User user = (User) authentication.getPrincipal();
+        log.debug("Fetching vendor profile for userId={}", user.getId());
         Optional<VendorProfileDTO> profile = vendorProfileService.getProfileByUserId(user.getId());
 
         return profile
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .map(p -> {
+                    log.debug("Vendor profile found for userId={}", user.getId());
+                    return ResponseEntity.ok(p);
+                })
+                .orElseGet(() -> {
+                    log.debug("Vendor profile not found for userId={}", user.getId());
+                    return ResponseEntity.notFound().build();
+                });
     }
 
     @PostMapping("/me")
@@ -43,12 +52,15 @@ public class VendorProfileController {
             Authentication authentication,
             @Valid @RequestBody VendorProfileDTO dto) {
         User user = (User) authentication.getPrincipal();
+        log.info("Creating vendor profile for userId={}", user.getId());
         boolean exists = vendorProfileService.getProfileByUserId(user.getId()).isPresent();
         if (exists) {
+            log.warn("Vendor profile already exists for userId={}", user.getId());
             return ResponseEntity.status(409).build();
         }
 
         VendorProfileDTO created = vendorProfileService.createProfile(user.getId(), dto);
+        log.info("Vendor profile created successfully for userId={}", user.getId());
         String locationPath = "/api/v1/vendor/profile/me";
         URI location = URI.create(locationPath);
         return ResponseEntity.created(Objects.requireNonNull(location)).body(created);
@@ -59,9 +71,16 @@ public class VendorProfileController {
             Authentication authentication,
             @Valid @RequestBody VendorProfileDTO dto) {
         User user = (User) authentication.getPrincipal();
+        log.info("Updating vendor profile for userId={}", user.getId());
         return vendorProfileService.updateProfile(user.getId(), dto)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(profile -> {
+                    log.info("Vendor profile updated successfully for userId={}", user.getId());
+                    return ResponseEntity.ok(profile);
+                })
+                .orElseGet(() -> {
+                    log.warn("Vendor profile not found for update: userId={}", user.getId());
+                    return ResponseEntity.notFound().build();
+                });
     }
 
     @PostMapping("/me/image")
@@ -69,13 +88,16 @@ public class VendorProfileController {
             Authentication authentication,
             @RequestParam("file") MultipartFile file) throws java.io.IOException {
         User user = (User) authentication.getPrincipal();
+        log.info("Uploading profile image for vendor userId={}", user.getId());
         Optional<VendorProfileDTO> profileOpt = vendorProfileService.getProfileByUserId(user.getId());
 
         if (profileOpt.isEmpty()) {
+            log.warn("Cannot upload image - vendor profile not found for userId={}", user.getId());
             return ResponseEntity.notFound().build();
         }
 
         if (file.isEmpty()) {
+            log.warn("Empty file uploaded for vendor userId={}", user.getId());
             return ResponseEntity.badRequest().build();
         }
 
@@ -86,6 +108,7 @@ public class VendorProfileController {
         Files.createDirectories(uploadPath);
         Path filePath = uploadPath.resolve(filename);
         file.transferTo(filePath.toFile());
+        log.info("Profile image saved for vendor userId={}: {}", user.getId(), filename);
 
         String fileUrl = "/uploads/vendors/" + filename;
 
@@ -93,7 +116,13 @@ public class VendorProfileController {
         dto.setProfileImageUrl(fileUrl);
 
         return vendorProfileService.updateProfile(user.getId(), dto)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(profile -> {
+                    log.info("Vendor profile image updated for userId={}", user.getId());
+                    return ResponseEntity.ok(profile);
+                })
+                .orElseGet(() -> {
+                    log.error("Failed to update vendor profile with image for userId={}", user.getId());
+                    return ResponseEntity.notFound().build();
+                });
     }
 }

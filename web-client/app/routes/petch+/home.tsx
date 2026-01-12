@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES } from '~/config/constants';
 import type { Pet } from '~/types/pet';
+import { routeLogger } from '~/utils/logger';
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -23,11 +24,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   // Redirect admin users to admin dashboard
   if (user?.userType === 'ADMIN') {
+    routeLogger.info('Admin user redirected to dashboard', { email: user.email });
     throw redirect('/admin');
   }
 
   // Fetch trending/featured pets from the API
   let trendingPets: Pet[] = [];
+  const startTime = performance.now();
   try {
     const session = await getSession(request.headers.get('Cookie'));
     const token = session.get('token');
@@ -43,9 +46,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     if (response.ok) {
       trendingPets = await response.json();
     }
+    const duration = Math.round(performance.now() - startTime);
+    routeLogger.debug('Home page loaded', {
+      trendingPetsCount: trendingPets.length,
+      isAuthenticated: !!user,
+      duration: `${duration}ms`
+    });
     return { user, trendingPets, error: null };
   } catch (error) {
-    console.error('Failed to fetch trending pets:', error);
+    routeLogger.error('Failed to fetch trending pets', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
     return { user, trendingPets: [], error: 'Failed to load trending pets' };
   }
 }

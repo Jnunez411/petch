@@ -16,6 +16,9 @@ import {
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES, SWIPE_ANIMATION_DURATION } from '~/config/constants';
 import type { Pet, SwipeHistory } from '~/types/pet';
+import { uiLogger } from '~/utils/logger';
+
+const logger = uiLogger.child('Discover');
 
 export function meta({ }: Route.MetaArgs) {
     return [
@@ -68,7 +71,7 @@ export default function DiscoverPage() {
                 likedPetIds: likedPets.map((p) => p.id)
             }));
         } catch (error) {
-            console.error('Failed to load pets:', error);
+            logger.error('Failed to load pets', { error: error instanceof Error ? error.message : 'Unknown error' });
             setError('Failed to connect to the server. Please check your connection and try again.');
         } finally {
             setIsLoading(false);
@@ -121,7 +124,7 @@ export default function DiscoverPage() {
                 setIsAnimating(false);
             }, SWIPE_ANIMATION_DURATION);
         } catch (error) {
-            console.error('Failed to record like:', error);
+            logger.error('Failed to record like', { petId: currentPet?.id, error: error instanceof Error ? error.message : 'Unknown error' });
             setSwipeDirection(null);
             setIsAnimating(false);
         }
@@ -150,7 +153,7 @@ export default function DiscoverPage() {
                 setIsAnimating(false);
             }, SWIPE_ANIMATION_DURATION);
         } catch (error) {
-            console.error('Failed to record pass:', error);
+            logger.error('Failed to record pass', { petId: currentPet?.id, error: error instanceof Error ? error.message : 'Unknown error' });
             setSwipeDirection(null);
             setIsAnimating(false);
         }
@@ -182,10 +185,10 @@ export default function DiscoverPage() {
                     totalSwipes: 0
                 });
             } else {
-                console.error('Failed to reset discovery:', await response.text());
+                logger.error('Failed to reset discovery', { status: response.status });
             }
         } catch (error) {
-            console.error('Error resetting discovery:', error);
+            logger.error('Error resetting discovery', { error: error instanceof Error ? error.message : 'Unknown error' });
         } finally {
             setIsResetting(false);
         }
@@ -235,7 +238,7 @@ export default function DiscoverPage() {
             });
 
         } catch (error) {
-            console.error('Failed to undo:', error);
+            logger.error('Failed to undo', { error: error instanceof Error ? error.message : 'Unknown error' });
             setIsAnimating(false);
         }
     }, [history, token, isAnimating]);
@@ -278,7 +281,7 @@ export default function DiscoverPage() {
                 likedPetIds: prev.likedPetIds.filter(id => id !== petId),
             }));
         } catch (error) {
-            console.error('Failed to unfavorite pet:', error);
+            logger.error('Failed to unfavorite pet', { petId, error: error instanceof Error ? error.message : 'Unknown error' });
         }
     }, [token]);
 

@@ -1,5 +1,6 @@
 package project.petch.petch_api.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -18,6 +19,7 @@ import java.util.Map;
  * Catches exceptions and returns appropriate HTTP responses
  */
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     /**
@@ -25,6 +27,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        log.warn("Validation failed: {}", ex.getMessage());
         Map<String, Object> response = new HashMap<>();
         Map<String, String> errors = new HashMap<>();
 
@@ -47,6 +50,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(UserAlreadyExistsException.class)
     public ResponseEntity<Map<String, Object>> handleUserAlreadyExists(UserAlreadyExistsException ex) {
+        log.warn("User already exists: {}", ex.getMessage());
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now());
         response.put("status", HttpStatus.CONFLICT.value());
@@ -60,6 +64,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler({ UserNotFoundException.class, UsernameNotFoundException.class })
     public ResponseEntity<Map<String, Object>> handleUserNotFound(RuntimeException ex) {
+        log.warn("User not found: {}", ex.getMessage());
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now());
         response.put("status", HttpStatus.NOT_FOUND.value());
@@ -73,6 +78,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleBadCredentials(BadCredentialsException ex) {
+        log.warn("Bad credentials attempt");
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now());
         response.put("status", HttpStatus.UNAUTHORIZED.value());
@@ -87,7 +93,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
         // Log the actual error server-side for debugging
-        System.err.println("Unhandled exception: " + ex.getClass().getName() + " - " + ex.getMessage());
+        log.error("Unhandled exception: {} - {}", ex.getClass().getName(), ex.getMessage(), ex);
 
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now());

@@ -1,4 +1,4 @@
-export type UserType = 'ADOPTER' | 'VENDOR';
+export type UserType = 'ADOPTER' | 'VENDOR' | 'ADMIN';
 
 export interface RegisterRequest {
   email: string;
@@ -27,4 +27,12 @@ export interface User {
   firstName: string;
   lastName: string;
   userType: string;
+}
+
+/** Extended user type for admin management pages */
+export interface AdminUser extends User {
+  id: number;
+  phoneNumber?: string;
+  createdAt: string;
+  updatedAt?: string;
 }

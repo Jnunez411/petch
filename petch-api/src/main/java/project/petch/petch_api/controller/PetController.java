@@ -17,7 +17,9 @@ import project.petch.petch_api.models.User;
 import project.petch.petch_api.repositories.UserRepository;
 import project.petch.petch_api.service.ImageService;
 import project.petch.petch_api.service.PetService;
+import project.petch.petch_api.service.SecurityEventLogger;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
@@ -30,6 +32,8 @@ public class PetController {
     private final PetService petService;
     private final ImageService imageService;
     private final UserRepository userRepository;
+    private final SecurityEventLogger securityEventLogger;
+    private final HttpServletRequest httpServletRequest;
 
     // GET /api/pets/discover
     @GetMapping("/discover")
@@ -62,6 +66,18 @@ public class PetController {
         PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
         petService.recordInteraction(user, id, interactionType);
         return ResponseEntity.ok().build();
+    }
+
+    // DELETE /api/pets/{id}/interact
+    @DeleteMapping("/{id}/interact")
+    public ResponseEntity<Void> deleteInteraction(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        petService.deleteInteraction(user, id);
+        return ResponseEntity.noContent().build();
     }
 
     // POST /api/pets/discover/reset
@@ -100,11 +116,26 @@ public class PetController {
         return ResponseEntity.ok(pets);
     }
 
-    // get pet by id
+    // get pet by id (also increments view count)
     // GET /api/pets/{id}
     @GetMapping("/{id}")
     public ResponseEntity<Pets> getPetById(@PathVariable Long id) {
-        return petService.getPetById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        return petService.getPetById(id)
+                .map(pet -> {
+                    // Increment view count for trending logic
+                    petService.incrementViewCount(id);
+                    return ResponseEntity.ok(pet);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Get trending pets (most viewed)
+    // GET /api/pets/trending?count=8
+    @GetMapping("/trending")
+    public ResponseEntity<List<Pets>> getTrendingPets(
+            @RequestParam(defaultValue = "8") int count) {
+        List<Pets> pets = petService.getTrendingPets(count);
+        return ResponseEntity.ok(pets);
     }
 
     // create pet
@@ -139,8 +170,26 @@ public class PetController {
     // delete pet
     // DELETE /api/pets/{id}
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePet(@PathVariable Long id) throws IOException {
+    public ResponseEntity<Void> deletePet(@PathVariable Long id, @AuthenticationPrincipal User user)
+            throws IOException {
         try {
+            // SECURITY: Verify ownership before allowing delete
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
+            Pets pet = petService.getPetById(id).orElse(null);
+            if (pet == null) {
+                return ResponseEntity.notFound().build();
+            }
+            // Allow admins to delete any pet, otherwise check ownership
+            boolean isAdmin = user.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!isAdmin && (pet.getUser() == null || !pet.getUser().getId().equals(user.getId()))) {
+                // SECURITY: Log IDOR attempt
+                securityEventLogger.logIdorAttempt(
+                        getClientIP(), user.getId().toString(), "pet-delete", id);
+                return ResponseEntity.status(403).build();
+            }
             imageService.deleteImagesByPet(id);
             petService.deletePet(id);
             return ResponseEntity.noContent().build();
@@ -154,8 +203,26 @@ public class PetController {
     // update pet
     // PUT /api/pets/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Pets> updatePet(@PathVariable Long id, @Valid @RequestBody PetDTO dto) {
+    public ResponseEntity<Pets> updatePet(@PathVariable Long id, @Valid @RequestBody PetDTO dto,
+            @AuthenticationPrincipal User user) {
         try {
+            // SECURITY: Verify ownership before allowing update
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
+            Pets existingPet = petService.getPetById(id).orElse(null);
+            if (existingPet == null) {
+                return ResponseEntity.notFound().build();
+            }
+            // Allow admins to update any pet, otherwise check ownership
+            boolean isAdmin = user.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!isAdmin && (existingPet.getUser() == null || !existingPet.getUser().getId().equals(user.getId()))) {
+                // SECURITY: Log IDOR attempt
+                securityEventLogger.logIdorAttempt(
+                        getClientIP(), user.getId().toString(), "pet-update", id);
+                return ResponseEntity.status(403).build();
+            }
             Pets updatedPet = petService.updatePet(id, dto);
             return ResponseEntity.ok(updatedPet);
         } catch (RuntimeException e) {
@@ -223,19 +290,32 @@ public class PetController {
     // POST /api/pets/{id}/images
     @PostMapping("/{id}/upload-image")
     public ResponseEntity<ImageDTO> uploadImageForPet(@PathVariable Long id, @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false) String altText) throws IOException {
+            @RequestParam(required = false) String altText, @AuthenticationPrincipal User user) throws IOException {
         try {
-            // System.out.println("Uploading image for pet " + id + ", file: " +
-            // file.getOriginalFilename());
+            // SECURITY: Verify ownership before allowing image upload
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
+            Pets pet = petService.getPetById(id).orElse(null);
+            if (pet == null) {
+                return ResponseEntity.notFound().build();
+            }
+            // Allow admins to upload for any pet, otherwise check ownership
+            boolean isAdmin = user.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!isAdmin && (pet.getUser() == null || !pet.getUser().getId().equals(user.getId()))) {
+                // SECURITY: Log IDOR attempt
+                securityEventLogger.logIdorAttempt(
+                        getClientIP(), user.getId().toString(), "image-upload", id);
+                return ResponseEntity.status(403).build();
+            }
+
             ImageDTO imageDTO = imageService.uploadImage(id, file, altText);
-            // System.out.println("Image uploaded successfully: " + imageDTO.getFilePath());
             return ResponseEntity.created(URI.create("/api/pets/" + id + "/images/" + imageDTO.getId())).body(imageDTO);
         } catch (IllegalArgumentException e) {
-            // System.err.println("Bad request uploading image: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
-            // System.err.println("Error uploading image: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
@@ -244,9 +324,27 @@ public class PetController {
     // Delete image for a pet
     // DELETE /api/pets/{petId}/images/{imageId}
     @DeleteMapping("/{petId}/images/{imageId}")
-    public ResponseEntity<Void> deleteImageForPet(@PathVariable Long petId, @PathVariable Long imageId)
-            throws IOException {
+    public ResponseEntity<Void> deleteImageForPet(@PathVariable Long petId, @PathVariable Long imageId,
+            @AuthenticationPrincipal User user) throws IOException {
         try {
+            // SECURITY: Verify ownership before allowing image deletion
+            if (user == null) {
+                return ResponseEntity.status(401).build();
+            }
+            Pets pet = petService.getPetById(petId).orElse(null);
+            if (pet == null) {
+                return ResponseEntity.notFound().build();
+            }
+            // Allow admins to delete any pet's images, otherwise check ownership
+            boolean isAdmin = user.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            if (!isAdmin && (pet.getUser() == null || !pet.getUser().getId().equals(user.getId()))) {
+                // SECURITY: Log IDOR attempt
+                securityEventLogger.logIdorAttempt(
+                        getClientIP(), user.getId().toString(), "image-delete", petId);
+                return ResponseEntity.status(403).build();
+            }
+
             imageService.deleteImage(imageId);
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
@@ -292,5 +390,16 @@ public class PetController {
     public ResponseEntity<Long> getPetCountBySpecies(@PathVariable String species) {
         long count = petService.countPetsBySpecies(species);
         return ResponseEntity.ok(count);
+    }
+
+    /**
+     * Extract client IP address, handling proxies.
+     */
+    private String getClientIP() {
+        String xForwardedFor = httpServletRequest.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return httpServletRequest.getRemoteAddr();
     }
 }

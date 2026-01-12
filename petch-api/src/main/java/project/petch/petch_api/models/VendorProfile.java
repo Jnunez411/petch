@@ -31,6 +31,8 @@ public class VendorProfile {
     @Column(nullable = false)
     private String organizationName;
 
+    private String profileImageUrl;
+
     private String websiteUrl;
 
     private String phoneNumber;

@@ -11,8 +11,7 @@ import { Progress } from '~/components/ui/progress';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
 import {
-  ImageIcon, X, AlertCircle, CheckCircle, PawPrint,
-  DollarSign, Phone, Mail, Link as LinkIcon, FileText
+  ImageIcon, X, AlertCircle, CheckCircle
 } from 'lucide-react';
 
 export function meta({ }: Route.MetaArgs) {
@@ -422,12 +421,11 @@ export default function CreatePetPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-page-alt">
       <div className="border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold flex items-center gap-2">
-              <PawPrint className="w-8 h-8 text-primary" />
               Create Pet Listing
             </h1>
             <Button asChild variant="outline">
@@ -458,8 +456,7 @@ export default function CreatePetPage() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-4">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <PawPrint className="w-5 h-5" />
+                <h3 className="font-semibold text-lg">
                   Pet Details
                 </h3>
 
@@ -599,8 +596,7 @@ export default function CreatePetPage() {
               </div>
 
               <div className="space-y-4 border-t pt-6">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" />
+                <h3 className="font-semibold text-lg">
                   Adoption Details
                 </h3>
 
@@ -629,8 +625,7 @@ export default function CreatePetPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="stepsDescription" className="flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
+                  <Label htmlFor="stepsDescription">
                     Steps to Adopt *
                   </Label>
                   <textarea
@@ -654,8 +649,8 @@ export default function CreatePetPage() {
                       type="button"
                       onClick={() => handleAdoptionTypeChange(true)}
                       className={`px-4 py-2 rounded-lg font-semibold transition-colors ${adoptionDetails.isDirect
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                     >
                       Direct Adoption
@@ -664,8 +659,8 @@ export default function CreatePetPage() {
                       type="button"
                       onClick={() => handleAdoptionTypeChange(false)}
                       className={`px-4 py-2 rounded-lg font-semibold transition-colors ${!adoptionDetails.isDirect
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                     >
                       Redirect to Website
@@ -678,8 +673,7 @@ export default function CreatePetPage() {
                         Adopters will contact you directly at these details:
                       </p>
                       <div>
-                        <Label htmlFor="phoneNumber" className="flex items-center gap-2">
-                          <Phone className="w-4 h-4" />
+                        <Label htmlFor="phoneNumber">
                           Phone Number *
                         </Label>
                         <Input
@@ -696,8 +690,7 @@ export default function CreatePetPage() {
                         <FieldError error={phoneError} />
                       </div>
                       <div>
-                        <Label htmlFor="email" className="flex items-center gap-2">
-                          <Mail className="w-4 h-4" />
+                        <Label htmlFor="email">
                           Email *
                         </Label>
                         <Input
@@ -720,8 +713,7 @@ export default function CreatePetPage() {
                         Adopters will be redirected to your organization's website:
                       </p>
                       <div>
-                        <Label htmlFor="redirectLink" className="flex items-center gap-2">
-                          <LinkIcon className="w-4 h-4" />
+                        <Label htmlFor="redirectLink">
                           Adoption Page Link *
                         </Label>
                         <Input
@@ -738,8 +730,7 @@ export default function CreatePetPage() {
                         <FieldError error={redirectLinkError} />
                       </div>
                       <div>
-                        <Label htmlFor="redirectPhoneNumber" className="flex items-center gap-2">
-                          <Phone className="w-4 h-4" />
+                        <Label htmlFor="redirectPhoneNumber">
                           Organization Phone *
                         </Label>
                         <Input
@@ -756,8 +747,7 @@ export default function CreatePetPage() {
                         <FieldError error={redirectPhoneError} />
                       </div>
                       <div>
-                        <Label htmlFor="redirectEmail" className="flex items-center gap-2">
-                          <Mail className="w-4 h-4" />
+                        <Label htmlFor="redirectEmail">
                           Organization Email *
                         </Label>
                         <Input
@@ -779,8 +769,7 @@ export default function CreatePetPage() {
               </div>
 
               <div className="space-y-4 border-t pt-6">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5" />
+                <h3 className="font-semibold text-lg">
                   Pet Images
                 </h3>
 

@@ -58,7 +58,7 @@ public class GlobalExceptionHandler {
     /**
      * Handle user not found exception
      */
-    @ExceptionHandler({UserNotFoundException.class, UsernameNotFoundException.class})
+    @ExceptionHandler({ UserNotFoundException.class, UsernameNotFoundException.class })
     public ResponseEntity<Map<String, Object>> handleUserNotFound(RuntimeException ex) {
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now());
@@ -82,14 +82,18 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handle all other exceptions
+     * Handle all other exceptions - SECURITY: Don't expose internal details
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+        // Log the actual error server-side for debugging
+        System.err.println("Unhandled exception: " + ex.getClass().getName() + " - " + ex.getMessage());
+
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now());
         response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        response.put("message", "An error occurred: " + ex.getMessage());
+        // SECURITY: Return generic message, don't expose internal details
+        response.put("message", "An unexpected error occurred. Please try again later.");
 
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }

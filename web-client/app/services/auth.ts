@@ -69,6 +69,11 @@ export async function getUserFromSession(request: Request): Promise<User | null>
   return user || null;
 }
 
+export async function getAuthToken(request: Request): Promise<string | null> {
+  const session = await getSession(request.headers.get('Cookie'));
+  return session.get('token') || null;
+}
+
 export async function requireAuth(request: Request): Promise<User> {
   const user = await getUserFromSession(request);
 

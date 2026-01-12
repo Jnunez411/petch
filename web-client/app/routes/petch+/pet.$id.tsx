@@ -1,4 +1,4 @@
-import { useLoaderData, Link, redirect } from "react-router";
+import { useLoaderData, Link, redirect, useSearchParams } from "react-router";
 import type { Route } from "./+types/pet.$id";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
@@ -6,8 +6,7 @@ import { Card } from "~/components/ui/card";
 import { getUserFromSession } from "~/services/auth";
 import { getSession } from "~/services/session.server";
 import { FAKE_PETS, type FakePet } from '~/data/fake-pets';
-
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8080';
+import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 
 interface Image {
   id: number;
@@ -140,19 +139,36 @@ export default function PetDetail() {
 
   const mainImage = pet.images?.[selectedImageIndex];
 
-  const getImageUrl = (filePath: string) => {
+  const getImageUrlLocal = (filePath: string) => {
     if (!filePath) return '';
-    if (filePath.startsWith('http')) return filePath;
-    return `${apiBaseUrl}${filePath}`;
+    return getImageUrl(filePath) || '';
   };
+
+  const [searchParams] = useSearchParams();
+  const origin = searchParams.get('origin');
+  const returnTo = searchParams.get('returnTo');
+
+  // Use returnTo if available (preserves filter state), otherwise fall back to origin-based logic
+  let backLink = returnTo ? decodeURIComponent(returnTo) : '/pets';
+  let backText = '← Back to Pets';
+
+  if (!returnTo) {
+    if (origin === 'discover') {
+      backLink = '/discover';
+      backText = '← Back to Discovery';
+    } else if (origin === 'admin') {
+      backLink = '/admin/pets';
+      backText = '← Back to Admin Listings';
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Back Button */}
         <div className="mb-6">
-          <Link to="/pets" className="text-primary hover:text-primary/80 font-medium">
-            ← Back to Pets
+          <Link to={backLink} className="text-coral hover:text-coral-dark font-medium">
+            {backText}
           </Link>
         </div>
 
@@ -182,8 +198,8 @@ export default function PetDetail() {
                     key={img.id}
                     onClick={() => setSelectedImageIndex(idx)}
                     className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${idx === selectedImageIndex
-                        ? "border-primary shadow-md"
-                        : "border-muted hover:border-primary/50"
+                      ? "border-coral shadow-md"
+                      : "border-muted hover:border-coral/50"
                       }`}
                   >
                     <img
@@ -203,10 +219,10 @@ export default function PetDetail() {
             <div>
               <h1 className="text-4xl font-bold text-foreground mb-2">{pet.name}</h1>
               <div className="flex gap-3 flex-wrap">
-                <span className="inline-block bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full font-semibold">
+                <span className="inline-block bg-coral/10 text-coral px-4 py-2 rounded-full font-semibold">
                   {pet.species}
                 </span>
-                <span className="inline-block bg-blue-100 text-blue-800 px-4 py-2 rounded-full">
+                <span className="inline-block bg-teal/10 text-teal px-4 py-2 rounded-full">
                   {pet.breed}
                 </span>
                 {pet.atRisk && (
@@ -287,7 +303,7 @@ export default function PetDetail() {
             <div className="flex gap-4">
               <Button
                 onClick={() => setShowAdoptionDetails(!showAdoptionDetails)}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 text-lg font-semibold"
+                className="flex-1 bg-coral hover:bg-coral-dark text-white py-3 text-lg font-semibold"
               >
                 {showAdoptionDetails ? 'Hide Adoption Details' : 'View Adoption Details'}
               </Button>
@@ -295,14 +311,14 @@ export default function PetDetail() {
 
             {/* Adoption Details */}
             {showAdoptionDetails && pet.adoptionDetails && (
-              <Card className="bg-card p-6 shadow-md border-2 border-orange-500">
+              <Card className="bg-card p-6 shadow-md border-2 border-coral">
                 <h2 className="text-2xl font-bold text-foreground mb-4">Adoption Details</h2>
 
                 <div className="space-y-4">
                   {/* Cost */}
                   <div className="border-b border-border pb-4">
                     <p className="text-muted-foreground text-sm font-medium">Estimated Adoption Cost</p>
-                    <p className="text-2xl font-bold text-orange-600">${pet.adoptionDetails.priceEstimate?.toFixed(2) || '0.00'}</p>
+                    <p className="text-2xl font-bold text-coral">${pet.adoptionDetails.priceEstimate?.toFixed(2) || '0.00'}</p>
                   </div>
 
                   {/* Steps Description */}

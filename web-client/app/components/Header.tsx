@@ -1,7 +1,7 @@
 import type { User } from "~/types/auth";
 import { Button } from "./ui/button";
 import { Form, Link, useLocation } from "react-router";
-import { Dog, Menu, X, Home, Search, Heart, User as UserIcon, Plus, LogOut } from "lucide-react";
+import { Dog, Menu, X, Home, Search, Heart, User as UserIcon, Plus, LogOut, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 
 interface HeaderProps {
@@ -52,6 +52,7 @@ export function Header(props: HeaderProps) {
     ? [{ to: "/admin", label: "Admin Dashboard", icon: Home }]
     : [
       { to: "/", label: "Home", icon: Home },
+      { to: "/about", label: "About", icon: Info },
       { to: "/pets", label: "Pet Listings", icon: Search },
       { to: "/discover", label: "Discover", icon: Heart },
       { to: "/profile", label: "Profile", icon: UserIcon },

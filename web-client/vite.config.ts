@@ -6,6 +6,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 export default defineConfig({
   plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
   server: {
+    allowedHosts: ['petch.unr.dev', 'localhost'],
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

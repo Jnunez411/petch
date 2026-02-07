@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useLoaderData, useFetcher, Link } from 'react-router';
 import type { Route } from './+types/admin.pets';
 import { getAuthToken } from '~/services/auth';
@@ -6,6 +6,17 @@ import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import { API_BASE_URL } from '~/config/api-config';
 import type { Pet } from '~/types/pet';
+import {
+  Building2,
+  Plus,
+  Edit3,
+  Trash2,
+  ExternalLink,
+  CheckCircle,
+  User,
+  Camera,
+  AlertCircle
+} from 'lucide-react';
 
 export function meta({ }: Route.MetaArgs) {
     return [
@@ -83,6 +94,7 @@ export default function AdminPets() {
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
 
     if (error) {
         return (
@@ -117,7 +129,11 @@ export default function AdminPets() {
     };
 
     const handleDeleteConfirm = () => {
-        if (deleteConfirm) {
+        if(deleteConfirm){
+            if(audioRef.current){
+                audioRef.current.currentTime = 0;
+                audioRef.current.play();
+            }
             const form = document.createElement('form');
             form.method = 'post';
             const petIdInput = document.createElement('input');
@@ -136,19 +152,21 @@ export default function AdminPets() {
     return (
         <div className="space-y-6">
             {/* Delete Confirmation Modal */}
+            <audio ref={audioRef} src="/chime2.mp3" preload="auto" />
             {deleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
-                        <h3 className="text-lg font-semibold mb-2">Confirm Delete</h3>
-                        <p className="text-muted-foreground mb-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-page-alt">
+                    <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
+                        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                        <h2 className="text-xl font-bold mb-2">Confirm Delete</h2>
+                        <p className="mb-6 text-center text-muted-foreground">
                             Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
                         </p>
-                        <div className="flex gap-3 justify-end">
-                            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+                        <div className="flex gap-4 w-full justify-center">
+                            <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>
                                 Cancel
                             </Button>
-                            <Button variant="destructive" onClick={handleDeleteConfirm}>
-                                Delete Pet
+                            <Button variant="destructive" className="flex-1" onClick={handleDeleteConfirm}>
+                                Confirm
                             </Button>
                         </div>
                     </div>

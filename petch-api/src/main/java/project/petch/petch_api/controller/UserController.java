@@ -5,9 +5,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import project.petch.petch_api.repositories.UserRepository;
 
 import project.petch.petch_api.models.User;
 
@@ -23,6 +27,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class UserController {
+
+    private final UserRepository userRepository;
 
     /**
      * Get current authenticated user's profile
@@ -68,5 +74,21 @@ public class UserController {
         response.put("role", currentUser.getUserType().name());
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Delete current authenticated user's account
+     * DELETE /api/users/me
+     */
+    @DeleteMapping("/me")
+    @Transactional
+    public ResponseEntity<Void> deleteCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) authentication.getPrincipal();
+        log.info("User account deletion requested: userId={}", currentUser.getId());
+
+        userRepository.deleteById(currentUser.getId());
+
+        return ResponseEntity.ok().build();
     }
 }

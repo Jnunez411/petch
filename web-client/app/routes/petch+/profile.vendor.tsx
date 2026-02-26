@@ -17,7 +17,8 @@ import {
   ExternalLink,
   CheckCircle,
   User,
-  Camera
+  Camera,
+  AlertCircle
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { getImageUrl } from '~/config/api-config';
@@ -160,6 +161,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function VendorProfilePage() {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const { user, vendorProfile, vendorPets } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const fetcher = useFetcher();
@@ -222,14 +224,16 @@ export default function VendorProfilePage() {
     setShowDeleteAccountModal(false);
   };
 
-  const handleDelete = (petId: number) => {
-    if (!confirm('Are you sure you want to delete this pet? This action cannot be undone.')) {
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number } | null>(null);
+  /*if (!confirm('Are you sure you want to delete this pet? This action cannot be undone.')) {
       return;
     }
     fetcher.submit(
-      { intent: 'delete-pet', petId: petId.toString() },
+      { intent: 'delete-pet', petId: petId.toString() i},
       { method: 'POST' }
-    );
+    );*/
+  const handleDelete = (petId: number) => {
+    setDeleteConfirm({ id: petId });
   };
 
   const isDeletingPet = (petId: number) => {
@@ -250,6 +254,45 @@ export default function VendorProfilePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      {/* Custom Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-page-alt">
+          <audio ref={audioRef} src="/chime2.mp3" preload="auto" />
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+            <h2 className="text-xl font-bold mb-2">Confirm Delete</h2>
+            <p className="mb-6 text-center text-muted-foreground">
+              Are you sure you want to delete this pet? This action cannot be undone.
+            </p>
+            <div className="flex gap-4 w-full justify-center">
+              <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" className="flex-1" onClick={() => {
+                if(audioRef.current){
+                  audioRef.current.currentTime = 0;
+                  audioRef.current.play();
+                  setTimeout(() => {
+                    fetcher.submit(
+                      { intent: 'delete-pet', petId: deleteConfirm.id.toString() },
+                      { method: 'POST' }
+                    );
+                    setDeleteConfirm(null);
+                  }, 250);
+                }else{
+                  fetcher.submit(
+                    { intent: 'delete-pet', petId: deleteConfirm.id.toString() },
+                    { method: 'POST' }
+                  );
+                  setDeleteConfirm(null);
+                }
+              }}>
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Hero Section */}
       <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         <div className="container mx-auto px-4 py-10">

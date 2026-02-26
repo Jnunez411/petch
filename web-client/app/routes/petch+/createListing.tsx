@@ -37,6 +37,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function CreatePetPage() {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const { token, user } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -46,6 +47,7 @@ export default function CreatePetPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -396,7 +398,12 @@ export default function CreatePetPage() {
       }
 
       setUploadProgress(100);
-      navigate('/pets?refresh=' + Date.now());
+      setShowConfirmation(true);
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.play();
+        }
+      }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setLoading(false);
@@ -425,6 +432,33 @@ export default function CreatePetPage() {
 
   return (
     <div className="min-h-screen bg-page-alt">
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-page-alt">
+          <audio ref={audioRef} src="/chime.mp3" preload="auto" />
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
+            <CheckCircle className="w-12 h-12 text-green-500 mb-4" />
+            <h2 className="text-xl font-bold mb-2">Pet Listing Successfully Published!</h2>
+            <p className="mb-6 text-center">Thank you for helping pets find a home!</p>
+            <div className="flex flex-col gap-3 w-full">
+              <Button
+                onClick={() => navigate('/pets?refresh=' + Date.now())}
+                className="w-full"
+              >
+                Go to Listings
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/profile/vendor')}
+                className="w-full"
+              >
+                Profile
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Main Content */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex justify-between items-center">

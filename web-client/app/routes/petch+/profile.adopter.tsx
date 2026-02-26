@@ -1,7 +1,8 @@
-import { useLoaderData, Link, redirect, Form, useActionData, useNavigation } from 'react-router';
+import { useLoaderData, Link, redirect, Form, useActionData, useNavigation, useFetcher } from 'react-router';
 import type { Route } from './+types/profile.adopter';
-import { getUserFromSession } from '~/services/auth';
+import { getUserFromSession, logout } from '~/services/auth';
 import { getSession } from '~/services/session.server';
+import { authenticatedFetch } from '~/utils/api';
 import { getAdopterProfile, createAdopterProfile, updateAdopterProfile } from '~/services/profile.server';
 import type { AdopterProfile, HomeType } from '~/types/adopter';
 import { Button } from '~/components/ui/button';
@@ -10,8 +11,10 @@ import { Label } from '~/components/ui/label';
 import {
   Save,
   Loader2,
-  ChevronDown
+  ChevronDown,
+  Trash2
 } from 'lucide-react';
+import { useState } from 'react';
 import { createLogger } from '~/utils/logger';
 
 const logger = createLogger('AdopterProfile');
@@ -50,11 +53,29 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData();
+  const intent = formData.get('intent');
+
+  if (intent === 'delete-account') {
+    try {
+      const response = await authenticatedFetch(request, '/api/users/me', {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete account: ${response.status}`);
+      }
+
+      return await logout(request);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to delete account' };
+    }
+  }
+
   if (request.method !== 'POST') {
     return { error: 'Method not allowed' };
   }
 
-  const formData = await request.formData();
   const homeTypeValue = formData.get('homeType');
   const additionalNotesValue = formData.get('additionalNotes');
 
@@ -126,8 +147,23 @@ export default function AdopterProfilePage() {
   const { user, adopterProfile } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
+  const deleteFetcher = useFetcher();
 
   const isSubmitting = navigation.state === 'submitting';
+  const isDeleting = deleteFetcher.state !== 'idle';
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+
+  const handleDeleteAccount = () => {
+    setShowDeleteAccountModal(true);
+  };
+
+  const confirmDeleteAccount = () => {
+    deleteFetcher.submit(
+      { intent: 'delete-account' },
+      { method: 'POST' }
+    );
+    setShowDeleteAccountModal(false);
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -176,6 +212,19 @@ export default function AdopterProfilePage() {
                   <span className="inline-flex items-center px-3 py-1 mt-1 rounded-full text-sm font-medium bg-teal/10 text-teal">
                     Adopter
                   </span>
+                </div>
+
+                {/* Delete Account */}
+                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    {isDeleting ? 'Deleting...' : 'Delete Account'}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -326,6 +375,26 @@ export default function AdopterProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Account Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold mb-2">Delete Account</h3>
+            <p className="text-muted-foreground mb-4">
+              Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowDeleteAccountModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDeleteAccount}>
+                Delete Account
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

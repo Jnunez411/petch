@@ -92,11 +92,12 @@ public class PetController {
         return ResponseEntity.ok().build();
     }
 
-    // get all pets with optional filtering
+    // get all pets with optional filtering and search
     // GET
-    // /api/pets?species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&page=0&size=12
+    // /api/pets?search=Max&species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&page=0&size=12
     @GetMapping
     public ResponseEntity<Page<Pets>> getFilteredPets(
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) String species,
             @RequestParam(required = false) Integer ageMin,
             @RequestParam(required = false) Integer ageMax,
@@ -106,7 +107,7 @@ public class PetController {
             @RequestParam(defaultValue = "12") int size) {
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Pets> pets = petService.getFilteredPets(species, ageMin, ageMax, fosterable, atRisk, pageable);
+        Page<Pets> pets = petService.getFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, pageable);
         return ResponseEntity.ok(pets);
     }
 

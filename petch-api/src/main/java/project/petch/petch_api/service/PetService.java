@@ -66,13 +66,14 @@ public class PetService {
      * Get filtered and paginated pets for the pet listings page.
      */
     public Page<Pets> getFilteredPets(
+            String search,
             String species,
             Integer ageMin,
             Integer ageMax,
             Boolean fosterable,
             Boolean atRisk,
             Pageable pageable) {
-        return petsRepository.findFilteredPets(species, ageMin, ageMax, fosterable, atRisk, pageable);
+        return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, pageable);
     }
 
     /**

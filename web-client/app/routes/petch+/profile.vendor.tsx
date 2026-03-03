@@ -1,6 +1,6 @@
 import { useLoaderData, Link, redirect, Form, useActionData, useNavigation, useFetcher } from 'react-router';
 import type { Route } from './+types/profile.vendor';
-import { getUserFromSession, logout } from '~/services/auth';
+import { getUserFromSession } from '~/services/auth';
 import { getSession } from '~/services/session.server';
 import { authenticatedFetch } from '~/utils/api';
 import { getVendorProfile, createVendorProfile, updateVendorProfile } from '~/services/profile.server';
@@ -17,8 +17,7 @@ import {
   ExternalLink,
   CheckCircle,
   User,
-  Camera,
-  AlertCircle
+  Camera
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { getImageUrl } from '~/config/api-config';
@@ -90,22 +89,6 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get('intent');
 
-  if (intent === 'delete-account') {
-    try {
-      const response = await authenticatedFetch(request, '/api/users/me', {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete account: ${response.status}`);
-      }
-
-      return await logout(request);
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : 'Failed to delete account' };
-    }
-  }
-
   if (intent === 'delete-pet') {
     const petId = formData.get('petId');
     if (!petId) {
@@ -161,17 +144,26 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function VendorProfilePage() {
-  const audioRef = useRef<HTMLAudioElement>(null);
   const { user, vendorProfile, vendorPets } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const fetcher = useFetcher();
-  const deleteFetcher = useFetcher();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
   const [isEditing, setIsEditing] = useState(!vendorProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [petSearchQuery, setPetSearchQuery] = useState('');
+
+  // Client-side filtering of vendor pets
+  const filteredPets = vendorPets.filter((pet) => {
+    if (!petSearchQuery.trim()) return true;
+    const query = petSearchQuery.toLowerCase();
+    return (
+      pet.name.toLowerCase().includes(query) ||
+      pet.breed.toLowerCase().includes(query) ||
+      pet.species.toLowerCase().includes(query)
+    );
+  });
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -210,30 +202,14 @@ export default function VendorProfilePage() {
     }
   };
 
-  const isDeletingAccount = deleteFetcher.state !== 'idle';
-
-  const handleDeleteAccount = () => {
-    setShowDeleteAccountModal(true);
-  };
-
-  const confirmDeleteAccount = () => {
-    deleteFetcher.submit(
-      { intent: 'delete-account' },
-      { method: 'POST' }
-    );
-    setShowDeleteAccountModal(false);
-  };
-
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number } | null>(null);
-  /*if (!confirm('Are you sure you want to delete this pet? This action cannot be undone.')) {
+  const handleDelete = (petId: number) => {
+    if (!confirm('Are you sure you want to delete this pet? This action cannot be undone.')) {
       return;
     }
     fetcher.submit(
-      { intent: 'delete-pet', petId: petId.toString() i},
+      { intent: 'delete-pet', petId: petId.toString() },
       { method: 'POST' }
-    );*/
-  const handleDelete = (petId: number) => {
-    setDeleteConfirm({ id: petId });
+    );
   };
 
   const isDeletingPet = (petId: number) => {
@@ -254,45 +230,6 @@ export default function VendorProfilePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      {/* Custom Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-page-alt">
-          <audio ref={audioRef} src="/chime2.mp3" preload="auto" />
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-bold mb-2">Confirm Delete</h2>
-            <p className="mb-6 text-center text-muted-foreground">
-              Are you sure you want to delete this pet? This action cannot be undone.
-            </p>
-            <div className="flex gap-4 w-full justify-center">
-              <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>
-                Cancel
-              </Button>
-              <Button variant="destructive" className="flex-1" onClick={() => {
-                if(audioRef.current){
-                  audioRef.current.currentTime = 0;
-                  audioRef.current.play();
-                  setTimeout(() => {
-                    fetcher.submit(
-                      { intent: 'delete-pet', petId: deleteConfirm.id.toString() },
-                      { method: 'POST' }
-                    );
-                    setDeleteConfirm(null);
-                  }, 250);
-                }else{
-                  fetcher.submit(
-                    { intent: 'delete-pet', petId: deleteConfirm.id.toString() },
-                    { method: 'POST' }
-                  );
-                  setDeleteConfirm(null);
-                }
-              }}>
-                Confirm
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Hero Section */}
       <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         <div className="container mx-auto px-4 py-10">
@@ -359,17 +296,8 @@ export default function VendorProfilePage() {
             {/* Quick Actions */}
             <div className="flex gap-3">
               <Button
-                variant="outline"
-                className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
-                onClick={handleDeleteAccount}
-                disabled={isDeletingAccount}
-              >
-                <Trash2 className="size-4 mr-2" />
-                {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-xl"
+                variant={isEditing ? "outline" : "outline"}
+                className={`rounded-xl ${isEditing ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-700' : ''}`}
                 onClick={() => setIsEditing(!isEditing)}
               >
                 <Edit3 className="size-4 mr-2" />
@@ -531,6 +459,36 @@ export default function VendorProfilePage() {
               )}
             </div>
 
+            {/* Search bar for vendor pets */}
+            {vendorPets.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Search your listings by name, breed, or species..."
+                    value={petSearchQuery}
+                    onChange={(e) => setPetSearchQuery(e.target.value)}
+                    className="px-4 py-2.5 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-foreground w-full focus:outline-none focus:ring-2 focus:ring-coral/50 text-sm"
+                  />
+                  {petSearchQuery && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl whitespace-nowrap"
+                      onClick={() => setPetSearchQuery('')}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {petSearchQuery && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Showing {filteredPets.length} of {vendorPets.length} listings
+                  </p>
+                )}
+              </div>
+            )}
+
             {vendorPets.length === 0 ? (
               <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700 p-12 text-center">
                 <h3 className="text-xl font-bold mb-2">No Listings Yet</h3>
@@ -544,9 +502,23 @@ export default function VendorProfilePage() {
                   </Link>
                 </Button>
               </div>
+            ) : filteredPets.length === 0 ? (
+              <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700 p-12 text-center">
+                <h3 className="text-xl font-bold mb-2">No Matching Listings</h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  No pets match your search "{petSearchQuery}". Try a different search term.
+                </p>
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => setPetSearchQuery('')}
+                >
+                  Clear Search
+                </Button>
+              </div>
             ) : (
               <div className={`grid sm:grid-cols-2 gap-4 ${!isEditing ? 'lg:grid-cols-3 xl:grid-cols-4' : ''}`}>
-                {vendorPets.map((pet) => (
+                {filteredPets.map((pet) => (
                   <div
                     key={pet.id}
                     className="group bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden hover:shadow-lg hover:border-coral/30 transition-all duration-300"
@@ -613,25 +585,6 @@ export default function VendorProfilePage() {
           </div>
         </div>
       </div>
-      {/* Delete Account Modal */}
-      {showDeleteAccountModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold mb-2">Delete Account</h3>
-            <p className="text-muted-foreground mb-4">
-              Are you sure you want to delete your account? This action cannot be undone and all your data, including pet listings, will be permanently removed.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setShowDeleteAccountModal(false)}>
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={confirmDeleteAccount}>
-                Delete Account
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </div >
   );
 }

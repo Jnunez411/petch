@@ -45,15 +45,29 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
         @Query("SELECT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.id = :id")
         java.util.Optional<Pets> findByIdWithDetails(@Param("id") Long id);
 
-        // Filtered query with pagination
-        @Query("SELECT p FROM Pets p WHERE " +
-                        "(:species IS NULL OR UPPER(CAST(p.species AS string)) = UPPER(CAST(:species AS string))) AND "
+        // Filtered query with pagination and search (native SQL for reliable null
+        // handling)
+        @Query(value = "SELECT * FROM pets p WHERE " +
+                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
                         +
-                        "(:ageMin IS NULL OR p.age >= :ageMin) AND " +
-                        "(:ageMax IS NULL OR p.age <= :ageMax) AND " +
-                        "(:fosterable IS NULL OR p.fosterable = :fosterable) AND " +
-                        "(:atRisk IS NULL OR p.atRisk = :atRisk)")
+                        "(CAST(:species AS text) IS NULL OR UPPER(p.species) = UPPER(CAST(:species AS text))) AND "
+                        +
+                        "(CAST(:ageMin AS integer) IS NULL OR p.age >= CAST(:ageMin AS integer)) AND " +
+                        "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
+                        "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND " +
+                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean))", countQuery = "SELECT COUNT(*) FROM pets p WHERE "
+                                        +
+                                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
+                                        +
+                                        "(CAST(:species AS text) IS NULL OR UPPER(p.species) = UPPER(CAST(:species AS text))) AND "
+                                        +
+                                        "(CAST(:ageMin AS integer) IS NULL OR p.age >= CAST(:ageMin AS integer)) AND " +
+                                        "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
+                                        "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND "
+                                        +
+                                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean))", nativeQuery = true)
         Page<Pets> findFilteredPets(
+                        @Param("search") String search,
                         @Param("species") String species,
                         @Param("ageMin") Integer ageMin,
                         @Param("ageMax") Integer ageMax,

@@ -920,6 +920,7 @@ export default function CreatePetPage() {
                   variant="outline"
                   onClick={() => navigate('/pets')}
                   disabled={loading}
+                  className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-700"
                 >
                   Cancel
                 </Button>

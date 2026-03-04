@@ -144,7 +144,11 @@ export default function AdminUsers() {
                             Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
                         </p>
                         <div className="flex gap-3 justify-end">
-                            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>
+                            <Button
+                                variant="outline"
+                                onClick={() => setDeleteConfirm(null)}
+                                className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-700"
+                            >
                                 Cancel
                             </Button>
                             <Button variant="destructive" onClick={handleDeleteConfirm}>

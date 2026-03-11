@@ -6,6 +6,8 @@ export default [
   route("login", "routes/petch+/login.tsx"),
   route("signup", "routes/petch+/signup.tsx"),
   route("logout", "routes/petch+/logout.tsx"),
+  route("forgot-password", "routes/petch+/forgot-password.tsx"),
+  route("reset-password", "routes/petch+/reset-password.tsx"),
   route("profile", "routes/petch+/profile.tsx"),
   route("profile/adopter", "routes/petch+/profile.adopter.tsx"),
   route("profile/vendor", "routes/petch+/profile.vendor.tsx"),

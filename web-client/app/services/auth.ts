@@ -63,6 +63,40 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
   return response.json();
 }
 
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  authLogger.info('Forgot password request', { email });
+
+  const response = await fetch(`${AUTH_URL}/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    throw new Error(error.message || 'Failed to send reset email');
+  }
+
+  return response.json();
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  authLogger.info('Password reset attempt');
+
+  const response = await fetch(`${AUTH_URL}/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Reset failed' }));
+    throw new Error(error.message || 'Failed to reset password');
+  }
+
+  return response.json();
+}
+
 // Session-based helpers
 export async function createUserSession(
   request: Request,

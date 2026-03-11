@@ -13,6 +13,7 @@ export default [
   route("pets/create", "routes/petch+/createListing.tsx"),
   route("pets/:id", "routes/petch+/pet.$id.tsx"),
   route("discover", "routes/petch+/discover.tsx"),
+  route("favorites", "routes/petch+/favorites.tsx"),
   route("admin", "routes/petch+/admin.tsx", [
     index("routes/petch+/admin._index.tsx"),
     route("users", "routes/petch+/admin.users.tsx"),

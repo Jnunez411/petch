@@ -53,6 +53,36 @@ public class PetController {
         return ResponseEntity.ok(petService.getLikedPets(user));
     }
 
+    // GET /api/pets/favorites - Get user's favorited pets
+    @GetMapping("/favorites")
+    public ResponseEntity<List<Pets>> getFavoritePets(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(petService.getFavoritePets(user));
+    }
+
+    // GET /api/pets/favorites/ids - Get IDs of favorited pets (for UI state)
+    @GetMapping("/favorites/ids")
+    public ResponseEntity<List<Long>> getFavoriteIds(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(petService.getFavoriteIds(user));
+    }
+
+    // POST /api/pets/{id}/favorite - Toggle favorite status
+    @PostMapping("/{id}/favorite")
+    public ResponseEntity<Map<String, Boolean>> toggleFavorite(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        boolean isFavorited = petService.toggleFavorite(user, id);
+        return ResponseEntity.ok(Map.of("favorited", isFavorited));
+    }
+
     // POST /api/pets/{id}/interact
     @PostMapping("/{id}/interact")
     public ResponseEntity<Void> interactWithPet(

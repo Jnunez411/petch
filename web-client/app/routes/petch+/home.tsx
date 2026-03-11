@@ -28,6 +28,11 @@ export async function loader({ request }: Route.LoaderArgs) {
     throw redirect('/admin');
   }
 
+  // Redirect all logged-in users to the pet listings page
+  if (user) {
+    throw redirect('/pets');
+  }
+
   // Fetch trending/featured pets from the API
   let trendingPets: Pet[] = [];
   const startTime = performance.now();

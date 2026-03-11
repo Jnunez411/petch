@@ -74,6 +74,10 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
   const validatePassword = (password: string) => {
     if (!password) return "Please create a password";
     if (password.length < 8) return `Just ${8 - password.length} more character${8 - password.length === 1 ? '' : 's'} needed!`;
+    if (!/[a-z]/.test(password)) return "Add a lowercase letter";
+    if (!/[A-Z]/.test(password)) return "Add an uppercase letter";
+    if (!/[0-9]/.test(password)) return "Add a number";
+    if (!/[@$!%*?&]/.test(password)) return "Add a special character (@$!%*?&)";
     return null;
   };
 
@@ -82,15 +86,15 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
     if (!password) return { strength: 0, label: "", color: "" };
     let strength = 0;
     if (password.length >= 8) strength++;
-    if (password.length >= 12) strength++;
+    if (/[a-z]/.test(password)) strength++;
     if (/[A-Z]/.test(password)) strength++;
     if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
+    if (/[@$!%*?&]/.test(password)) strength++;
 
-    if (strength <= 2) return { strength, label: "Weak - consider adding numbers or symbols", color: "bg-red-500" };
-    if (strength <= 3) return { strength, label: "Getting better!", color: "bg-yellow-500" };
-    if (strength <= 4) return { strength, label: "Strong password!", color: "bg-green-500" };
-    return { strength, label: "Excellent! Very secure", color: "bg-green-600" };
+    if (strength <= 2) return { strength, label: "Needs: uppercase, lowercase, number, and special char (@$!%*?&)", color: "bg-red-500" };
+    if (strength <= 3) return { strength, label: "Getting there — check the requirements above", color: "bg-yellow-500" };
+    if (strength <= 4) return { strength, label: "Almost! Just one more requirement", color: "bg-yellow-500" };
+    return { strength, label: "All requirements met!", color: "bg-green-600" };
   };
 
   const handleChange = (field: string, value: string | boolean) => {

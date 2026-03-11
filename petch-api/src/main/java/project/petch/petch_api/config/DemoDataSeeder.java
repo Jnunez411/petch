@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import project.petch.petch_api.models.Images;
@@ -18,6 +19,7 @@ import project.petch.petch_api.repositories.UserRepository;
 
 @Configuration
 @Slf4j
+@Profile({ "dev", "demo", "default" })
 public class DemoDataSeeder {
 
         @Bean

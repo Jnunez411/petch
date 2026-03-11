@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import project.petch.petch_api.dto.pet.AdoptionDetailsDTO;
 import project.petch.petch_api.service.AdoptionDetailsService;
@@ -22,6 +23,7 @@ public class AdoptionDetailsController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('VENDOR')")
     public ResponseEntity<AdoptionDetailsDTO> createAdoptionDetails(@PathVariable Long petId,
             @RequestBody AdoptionDetailsDTO dto) {
         log.info("Creating adoption details for petId={}", petId);
@@ -31,6 +33,7 @@ public class AdoptionDetailsController {
     }
 
     @PutMapping
+    @PreAuthorize("hasRole('VENDOR')")
     public ResponseEntity<AdoptionDetailsDTO> updateAdoptionDetails(@PathVariable Long petId,
             @RequestBody AdoptionDetailsDTO dto) {
         log.info("Updating adoption details for petId={}", petId);
@@ -40,6 +43,7 @@ public class AdoptionDetailsController {
     }
 
     @DeleteMapping
+    @PreAuthorize("hasRole('VENDOR')")
     public ResponseEntity<Void> deleteAdoptionDetails(@PathVariable Long petId) {
         log.warn("Deleting adoption details for petId={}", petId);
         adoptionDetailsService.deleteAdoptionDetails(petId);

@@ -10,13 +10,17 @@ import { Checkbox } from '~/components/ui/checkbox';
 import { Progress } from '~/components/ui/progress';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
+import { getVendorAdoptionPreferences } from '~/services/profile.server';
+import type { VendorAdoptionPreferencesResponse } from '~/types/vendor';
 import {
-  ImageIcon, X, AlertCircle, CheckCircle
+  ImageIcon, X, AlertCircle, CheckCircle, FileText
 } from 'lucide-react';
 import { createLogger } from '~/utils/logger';
 import { API_BASE_URL } from '~/config/api-config';
 
 const logger = createLogger('CreateListing');
+
+type ListingAdoptionMethod = 'DIRECT' | 'REDIRECT' | 'ONLINE_FORM';
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -34,20 +38,71 @@ export async function loader({ request }: Route.LoaderArgs) {
     return redirect('/login?redirectTo=/pets/create');
   }
 
-  return { token, user };
+  let vendorPreferences: VendorAdoptionPreferencesResponse | null = null;
+
+  if (user.userType === 'VENDOR') {
+    try {
+      vendorPreferences = await getVendorAdoptionPreferences(request);
+    } catch {
+      vendorPreferences = null;
+    }
+  }
+
+  return { token, user, vendorPreferences };
+}
+
+function getInitialAdoptionDetails(
+  email: string | undefined,
+  vendorPreferences: VendorAdoptionPreferencesResponse | null
+) {
+  if (!vendorPreferences) {
+    return {
+      method: 'DIRECT' as ListingAdoptionMethod,
+      priceEstimate: 0,
+      stepsDescription: '',
+      phoneNumber: '',
+      email: email || '',
+      redirectLink: '',
+      redirectPhoneNumber: '',
+      redirectEmail: '',
+    };
+  }
+
+  const contactMethod = vendorPreferences.contactMethod;
+  const primaryPhone = vendorPreferences.contactNumber || vendorPreferences.phoneNumber || '';
+  const primaryEmail = vendorPreferences.email || email || '';
+
+  return {
+    method: contactMethod === 'CONTACT_NUMBER'
+      ? 'DIRECT'
+      : contactMethod === 'ONLINE_FORM'
+        ? 'ONLINE_FORM'
+        : 'REDIRECT',
+    priceEstimate: 0,
+    stepsDescription: vendorPreferences.stepsDescription || '',
+    phoneNumber: contactMethod === 'CONTACT_NUMBER' ? primaryPhone : '',
+    email: contactMethod === 'CONTACT_NUMBER' ? primaryEmail : email || '',
+    redirectLink: contactMethod === 'DIRECT_LINK' ? vendorPreferences.directLinkUrl || '' : '',
+    redirectPhoneNumber: contactMethod !== 'CONTACT_NUMBER' ? primaryPhone : '',
+    redirectEmail: contactMethod !== 'CONTACT_NUMBER' ? primaryEmail : '',
+  };
 }
 
 export default function CreatePetPage() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { token, user } = useLoaderData<typeof loader>();
+  const { token, user, vendorPreferences } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedDocumentFiles, setSelectedDocumentFiles] = useState<File[]>([]);
+  const [isDocumentDragging, setIsDocumentDragging] = useState(false);
+  const [selectedAdoptionFormFile, setSelectedAdoptionFormFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -60,16 +115,9 @@ export default function CreatePetPage() {
     fosterable: false,
   });
 
-  const [adoptionDetails, setAdoptionDetails] = useState({
-    isDirect: true,
-    priceEstimate: 0,
-    stepsDescription: '',
-    phoneNumber: '',
-    email: user?.email || '',
-    redirectLink: '',
-    redirectPhoneNumber: '',
-    redirectEmail: '',
-  });
+  const [adoptionDetails, setAdoptionDetails] = useState(
+    getInitialAdoptionDetails(user?.email, vendorPreferences)
+  );
 
   // Touched state for validation
   const [touched, setTouched] = useState({
@@ -155,15 +203,15 @@ export default function CreatePetPage() {
   const ageError = touched.age ? validateAge(formData.age) : null;
   const priceError = touched.priceEstimate ? validatePrice(adoptionDetails.priceEstimate) : null;
   const stepsError = touched.stepsDescription ? validateSteps(adoptionDetails.stepsDescription) : null;
-  const phoneError = touched.phoneNumber && adoptionDetails.isDirect
+  const phoneError = touched.phoneNumber && adoptionDetails.method === 'DIRECT'
     ? validatePhone(adoptionDetails.phoneNumber) : null;
-  const emailError = touched.email && adoptionDetails.isDirect
+  const emailError = touched.email && adoptionDetails.method === 'DIRECT'
     ? validateEmail(adoptionDetails.email) : null;
-  const redirectLinkError = touched.redirectLink && !adoptionDetails.isDirect
+  const redirectLinkError = touched.redirectLink && adoptionDetails.method === 'REDIRECT'
     ? validateUrl(adoptionDetails.redirectLink) : null;
-  const redirectPhoneError = touched.redirectPhoneNumber && !adoptionDetails.isDirect
+  const redirectPhoneError = touched.redirectPhoneNumber && adoptionDetails.method === 'REDIRECT'
     ? validatePhone(adoptionDetails.redirectPhoneNumber) : null;
-  const redirectEmailError = touched.redirectEmail && !adoptionDetails.isDirect
+  const redirectEmailError = touched.redirectEmail && adoptionDetails.method === 'REDIRECT'
     ? validateEmail(adoptionDetails.redirectEmail) : null;
 
   const handleBlur = (field: string) => {
@@ -205,10 +253,10 @@ export default function CreatePetPage() {
     }
   };
 
-  const handleAdoptionTypeChange = (isDirect: boolean) => {
+  const handleAdoptionTypeChange = (method: ListingAdoptionMethod) => {
     setAdoptionDetails((prev) => ({
       ...prev,
-      isDirect,
+      method,
     }));
   };
 
@@ -223,6 +271,31 @@ export default function CreatePetPage() {
   const removeImage = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeDocument = (index: number) => {
+    setSelectedDocumentFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const setAdoptionFormFile = (file: File | null) => {
+    if (!file) {
+      setSelectedAdoptionFormFile(null);
+      return;
+    }
+
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+      setError('Please upload a PDF file for the adoption form.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('The adoption form PDF is too large. Please keep it under 10MB.');
+      return;
+    }
+
+    setError(null);
+    setSelectedAdoptionFormFile(file);
   };
 
   const processFiles = (files: FileList | File[]) => {
@@ -254,6 +327,41 @@ export default function CreatePetPage() {
     });
   };
 
+  const handleDocumentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      processDocumentFiles(files);
+      e.target.value = '';
+    }
+  };
+
+  const processDocumentFiles = (files: FileList | File[]) => {
+    const allowedTypes = ['application/pdf'];
+
+    const newFiles: File[] = [];
+
+    Array.from(files).forEach((file) => {
+      const allowedByExtension = /\.pdf$/i.test(file.name);
+
+      if (!allowedTypes.includes(file.type) && !allowedByExtension) {
+        setError('Please upload PDF files only for pet documents.');
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        setError('That document is too large. Please keep documents under 10MB.');
+        return;
+      }
+
+      newFiles.push(file);
+    });
+
+    if (newFiles.length > 0) {
+      setError(null);
+      setSelectedDocumentFiles((prev) => [...prev, ...newFiles]);
+    }
+  };
+
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -274,6 +382,29 @@ export default function CreatePetPage() {
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       processFiles(files);
+    }
+  };
+
+  const handleDocumentDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDocumentDragging(true);
+  };
+
+  const handleDocumentDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDocumentDragging(false);
+  };
+
+  const handleDocumentDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDocumentDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processDocumentFiles(files);
     }
   };
 
@@ -300,6 +431,25 @@ export default function CreatePetPage() {
       validateBreed(formData.breed) || validateAge(formData.age) ||
       validateSteps(adoptionDetails.stepsDescription)) {
       setError("Please fix the errors above before submitting.");
+      return;
+    }
+
+    if (adoptionDetails.method === 'DIRECT' && (validatePhone(adoptionDetails.phoneNumber) || validateEmail(adoptionDetails.email))) {
+      setError("Please fix the direct adoption contact details before submitting.");
+      return;
+    }
+
+    if (adoptionDetails.method === 'REDIRECT' && (
+      validateUrl(adoptionDetails.redirectLink)
+      || validatePhone(adoptionDetails.redirectPhoneNumber)
+      || validateEmail(adoptionDetails.redirectEmail)
+    )) {
+      setError("Please fix the website redirect contact details before submitting.");
+      return;
+    }
+
+    if (adoptionDetails.method === 'ONLINE_FORM' && !vendorPreferences?.hasOnlineFormPdf && !selectedAdoptionFormFile) {
+      setError('Upload a PDF adoption form for this listing or save one in Adoption Preferences first.');
       return;
     }
 
@@ -377,12 +527,20 @@ export default function CreatePetPage() {
 
       // Create adoption details
       const adoptionPayload = {
-        isDirect: adoptionDetails.isDirect,
+        isDirect: adoptionDetails.method === 'DIRECT',
         priceEstimate: adoptionDetails.priceEstimate,
         stepsDescription: adoptionDetails.stepsDescription,
-        phoneNumber: adoptionDetails.isDirect ? adoptionDetails.phoneNumber : adoptionDetails.redirectPhoneNumber,
-        email: adoptionDetails.isDirect ? adoptionDetails.email : adoptionDetails.redirectEmail,
-        redirectLink: adoptionDetails.isDirect ? null : adoptionDetails.redirectLink,
+        phoneNumber: adoptionDetails.method === 'DIRECT'
+          ? adoptionDetails.phoneNumber
+          : adoptionDetails.method === 'REDIRECT'
+            ? adoptionDetails.redirectPhoneNumber
+            : null,
+        email: adoptionDetails.method === 'DIRECT'
+          ? adoptionDetails.email
+          : adoptionDetails.method === 'REDIRECT'
+            ? adoptionDetails.redirectEmail
+            : null,
+        redirectLink: adoptionDetails.method === 'REDIRECT' ? adoptionDetails.redirectLink : null,
       };
 
       const adoptionResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/adoption-details`, {
@@ -396,6 +554,45 @@ export default function CreatePetPage() {
 
       if (!adoptionResponse.ok) {
         throw new Error('Pet created but unable to save adoption details. Please edit the listing to add them.');
+      }
+
+      if (adoptionDetails.method === 'ONLINE_FORM' && selectedAdoptionFormFile) {
+        const adoptionFormData = new FormData();
+        adoptionFormData.append('file', selectedAdoptionFormFile);
+
+        const adoptionTemplateResponse = await fetch(`/api/pets/${pet.id}/adoption-details/online-form-pdf`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: adoptionFormData,
+        });
+
+        if (!adoptionTemplateResponse.ok) {
+          throw new Error('Pet created but failed to upload the listing adoption form PDF.');
+        }
+      }
+
+      if (selectedDocumentFiles.length > 0) {
+        for (let i = 0; i < selectedDocumentFiles.length; i++) {
+          const file = selectedDocumentFiles[i];
+          const documentFormData = new FormData();
+          documentFormData.append('file', file);
+
+          const documentResponse = await fetch(`/api/pets/${pet.id}/documents`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: documentFormData,
+          });
+
+          if (!documentResponse.ok) {
+            throw new Error(`Pet created but failed to upload document ${i + 1}.`);
+          }
+
+          setUploadProgress(60 + ((i + 1) / selectedDocumentFiles.length) * 30);
+        }
       }
 
       setUploadProgress(100);
@@ -685,8 +882,8 @@ export default function CreatePetPage() {
                   <div className="flex items-center justify-center gap-4">
                     <button
                       type="button"
-                      onClick={() => handleAdoptionTypeChange(true)}
-                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${adoptionDetails.isDirect
+                      onClick={() => handleAdoptionTypeChange('DIRECT')}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${adoptionDetails.method === 'DIRECT'
                         ? 'bg-primary text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
@@ -695,17 +892,27 @@ export default function CreatePetPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleAdoptionTypeChange(false)}
-                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${!adoptionDetails.isDirect
+                      onClick={() => handleAdoptionTypeChange('REDIRECT')}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${adoptionDetails.method === 'REDIRECT'
                         ? 'bg-primary text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                     >
                       Redirect to Website
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdoptionTypeChange('ONLINE_FORM')}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${adoptionDetails.method === 'ONLINE_FORM'
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                    >
+                      PDF Form
+                    </button>
                   </div>
 
-                  {adoptionDetails.isDirect ? (
+                  {adoptionDetails.method === 'DIRECT' ? (
                     <div className="space-y-4 pt-4 border-t">
                       <p className="text-sm text-muted-foreground">
                         Adopters will contact you directly at these details:
@@ -745,7 +952,7 @@ export default function CreatePetPage() {
                         <FieldError error={emailError} />
                       </div>
                     </div>
-                  ) : (
+                  ) : adoptionDetails.method === 'REDIRECT' ? (
                     <div className="space-y-4 pt-4 border-t">
                       <p className="text-sm text-muted-foreground">
                         Adopters will be redirected to your organization's website:
@@ -800,6 +1007,67 @@ export default function CreatePetPage() {
                           className={redirectEmailError ? "border-destructive" : ""}
                         />
                         <FieldError error={redirectEmailError} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                        <div className="flex items-start gap-3">
+                          <FileText className="mt-0.5 h-5 w-5 text-primary" />
+                          <div>
+                            <p className="font-medium text-foreground">PDF form submission</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Adopters will download your saved PDF form, fill it out, and upload it back from the pet page.
+                            </p>
+                            {vendorPreferences?.hasOnlineFormPdf ? (
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Attached from Adoption Preferences: <span className="font-medium text-foreground">{vendorPreferences.onlineFormFileName || 'Uploaded PDF template'}</span>
+                              </p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground mt-2">
+                                No default PDF template found in Adoption Preferences. You can upload one just for this listing below.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="border-t pt-4 space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <Label htmlFor="listingOnlineFormPdf">Listing adoption PDF</Label>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Upload one PDF for this listing. Selecting a new file replaces the previous selection.
+                              </p>
+                            </div>
+                            {selectedAdoptionFormFile && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedAdoptionFormFile(null)}
+                              >
+                                Clear
+                              </Button>
+                            )}
+                          </div>
+
+                          <Input
+                            id="listingOnlineFormPdf"
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            onChange={(event) => setAdoptionFormFile(event.target.files?.[0] || null)}
+                          />
+
+                          {selectedAdoptionFormFile ? (
+                            <p className="text-sm text-muted-foreground">
+                              Selected for this listing: <span className="font-medium text-foreground">{selectedAdoptionFormFile.name}</span>
+                            </p>
+                          ) : vendorPreferences?.hasOnlineFormPdf ? (
+                            <p className="text-sm text-muted-foreground">
+                              This listing will use your saved vendor preference PDF unless you replace it here.
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -901,6 +1169,82 @@ export default function CreatePetPage() {
                               Main
                             </span>
                           )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4 border-t pt-6">
+                <h3 className="font-semibold text-lg">Additional Pet Documents</h3>
+                <p className="text-sm text-muted-foreground">
+                  Optional PDF documents such as medical records or vaccination paperwork can appear on the pet listing for download.
+                </p>
+
+                <div
+                  onDragOver={handleDocumentDragOver}
+                  onDragLeave={handleDocumentDragLeave}
+                  onDrop={handleDocumentDrop}
+                  onClick={() => documentInputRef.current?.click()}
+                  className={`
+                    relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
+                    transition-all duration-200 ease-in-out
+                    ${isDocumentDragging
+                      ? 'border-primary bg-primary/5 scale-[1.02]'
+                      : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'
+                    }
+                  `}
+                >
+                  <input
+                    ref={documentInputRef}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handleDocumentFileChange}
+                    className="hidden"
+                    multiple
+                  />
+
+                  <div className="flex flex-col items-center gap-3">
+                    <div className={`p-4 rounded-full transition-colors ${isDocumentDragging ? 'bg-primary/10' : 'bg-muted'}`}>
+                      <FileText className={`h-8 w-8 transition-colors ${isDocumentDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="font-medium">
+                        {isDocumentDragging ? 'Drop your documents here' : 'Drag and drop supporting documents here'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        or click to browse • PDF only • Max 10MB each
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedDocumentFiles.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      {selectedDocumentFiles.length} document{selectedDocumentFiles.length !== 1 ? 's' : ''} selected
+                    </p>
+                    <div className="space-y-2">
+                      {selectedDocumentFiles.map((file, index) => (
+                        <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+                          <div>
+                            <p className="font-medium text-sm">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeDocument(index);
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
                       ))}
                     </div>

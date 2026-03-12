@@ -7,6 +7,7 @@ import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 
@@ -82,6 +83,10 @@ public class Pets {
     @JsonManagedReference
     @OneToOne(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private AdoptionDetails adoptionDetails;
+
+    @JsonIgnore
+    @OneToOne(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private PetDocuments petDocuments;
 
     // Must add realationship to shelter
     // @ManyToOne(fetch = FetchType.LAZY)

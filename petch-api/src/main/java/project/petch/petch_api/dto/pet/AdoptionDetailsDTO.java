@@ -22,4 +22,10 @@ public class AdoptionDetailsDTO {
     private String phoneNumber;
 
     private String email;
+
+    private Boolean hasOnlineFormPdf;
+
+    private String onlineFormFileName;
+
+    private String onlineFormContentType;
 }

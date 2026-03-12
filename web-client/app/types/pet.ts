@@ -20,6 +20,31 @@ export interface AdoptionDetails {
     redirectEmail?: string;
 }
 
+export interface AdoptionFormSubmission {
+    id: number;
+    petId: number;
+    petName?: string;
+    adopterUserId: number;
+    adopterName: string;
+    adopterEmail: string;
+    fileName: string;
+    contentType: string;
+    createdAt: string;
+}
+
+export interface PetDocumentFile {
+    id: number;
+    fileName: string;
+    contentType: string;
+    fileSize: number;
+    createdAt: string;
+}
+
+export interface PetDocuments {
+    petId: number;
+    documents: PetDocumentFile[];
+}
+
 export interface Pet {
     id: number;
     name: string;

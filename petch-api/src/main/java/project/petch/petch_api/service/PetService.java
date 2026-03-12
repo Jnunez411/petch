@@ -58,7 +58,7 @@ public class PetService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PetDTO> discoverPetDTOs(User user) {
         return discoverPets(user).stream().map(this::toDTO).toList();
     }

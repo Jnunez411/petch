@@ -34,7 +34,7 @@ public class AdoptionFormSubmissionService{
             throw new IllegalArgumentException("User must be authenticated");
         }
 
-        Pets pet = petsRepository.findById(nonNullPetId).orElseThrow(() -> new ResourceNotFoundException("Pet not found with id, it got out: " + nonNullPetId));
+        Pets pet = petsRepository.findById(nonNullPetId).orElseThrow(() -> new ResourceNotFoundException("Pet not found with id: " + nonNullPetId));
 
         VendorAdoptionPreferences template = vendorAdoptionPreferencesService.getOnlineFormTemplateForPet(nonNullPetId);
         if(template.getContactMethod() != VendorAdoptionPreferences.AdoptionContactMethod.ONLINE_FORM){
@@ -198,7 +198,7 @@ public class AdoptionFormSubmissionService{
         }
 
         if(file.getSize() > 10 * 1024 * 1024){
-            throw new IllegalArgumentException("PDF file size exceeds maximum allowed (10MB), too massive");
+            throw new IllegalArgumentException("PDF file size exceeds maximum allowed (10MB)");
         }
 
         String contentType = file.getContentType();

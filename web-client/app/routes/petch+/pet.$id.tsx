@@ -144,6 +144,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       sessionUser: user,
       onlineFormTemplate: null,
       submissions: [] as AdoptionFormSubmission[],
+      petDocuments: [] as PetDocumentFile[],
+      isFavorited: false,
     };
   }
 
@@ -211,7 +213,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       }
     }
 
-    return { pet, apiBaseUrl: API_BASE_URL, token, sessionUser: user, onlineFormTemplate, submissions, petDocuments };
     // Check if this pet is favorited
     let isFavorited = false;
     if (token) {
@@ -228,7 +229,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       }
     }
 
-    return { pet, apiBaseUrl: API_BASE_URL, isFavorited };
+    return { pet, apiBaseUrl: API_BASE_URL, token, sessionUser: user, onlineFormTemplate, submissions, petDocuments, isFavorited };
   } catch (error) {
     throw new Response("Pet not found", { status: 404 });
   }
@@ -294,7 +295,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function PetDetail() {
-  const { pet, apiBaseUrl, token, sessionUser, onlineFormTemplate, submissions = [], petDocuments = [] } = useLoaderData<typeof loader>();
+  const { pet, apiBaseUrl, token, sessionUser, onlineFormTemplate, submissions = [], petDocuments = [], isFavorited: loaderFavorited } = useLoaderData<typeof loader>();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAdoptionDetails, setShowAdoptionDetails] = useState(false);
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
@@ -304,7 +305,7 @@ export default function PetDetail() {
   const [visibleSubmissions, setVisibleSubmissions] = useState(submissions);
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [isFavorited, setIsFavorited] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(loaderFavorited ?? false);
   const [showReportModal, setShowReportModal] = useState(false);
   const fetcher = useFetcher();
 

@@ -29,7 +29,7 @@ function getProfileLoadErrorMessage(error: unknown) {
 function getPreferencesLoadErrorMessage(error: unknown) {
   if (error instanceof Error) {
     if (error.message.includes('401') || error.message.includes('403')) {
-      return 'Your session is active in the web app, but tbut failed to load saved preferences. Log out and sign back in, then try again.';
+      return 'Your session is active in the web app, but failed to load saved preferences. Log out and sign back in, then try again.';
     }
   }
 

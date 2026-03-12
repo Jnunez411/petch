@@ -3,22 +3,20 @@
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { Eye, EyeOff, AlertCircle, Dog } from "lucide-react";
+import { AlertCircle, CheckCircle, Dog, ArrowLeft } from "lucide-react";
 import { Link, Form } from "react-router";
 import { useState } from "react";
 
-interface LoginFormProps {
+interface ForgotPasswordFormProps {
   error?: string;
+  success?: boolean;
   isSubmitting?: boolean;
 }
 
-export function LoginForm({ error, isSubmitting }: LoginFormProps) {
-  const [showPassword, setShowPassword] = useState(false);
+export function ForgotPasswordForm({ error, success, isSubmitting }: ForgotPasswordFormProps) {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [touched, setTouched] = useState({ email: false, password: false });
+  const [touched, setTouched] = useState(false);
 
-  // Validation helpers
   const validateEmail = (email: string) => {
     if (!email) return "Please enter your email address";
     if (!email.includes("@")) return "That doesn't look like a valid email. Did you forget the @?";
@@ -28,14 +26,50 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
     return null;
   };
 
-  const validatePassword = (password: string) => {
-    if (!password) return "Please enter your password";
-    if (password.length < 8) return "Password must be at least 8 characters";
-    return null;
-  };
+  const emailError = touched ? validateEmail(email) : null;
 
-  const emailError = touched.email ? validateEmail(email) : null;
-  const passwordError = touched.password ? validatePassword(password) : null;
+  if (success) {
+    return (
+      <div className="min-h-screen flex">
+        <div className="hidden lg:flex lg:w-1/2 bg-coral relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-coral to-coral-dark" />
+          <div className="absolute top-1/4 -left-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+          <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
+            <Dog className="size-24 mb-8" />
+            <h1 className="text-4xl font-bold mb-4">Check Your Email</h1>
+            <p className="text-xl text-white/80 text-center max-w-md">
+              We've sent you instructions to reset your password.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-zinc-950">
+          <div className="w-full max-w-md space-y-8 text-center">
+            <div className="flex justify-center">
+              <div className="size-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle className="size-8 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-foreground">Check your email</h2>
+              <p className="mt-4 text-muted-foreground">
+                If an account with that email exists, we've sent a password reset link.
+                Please check your inbox and spam folder.
+              </p>
+            </div>
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 text-coral hover:underline font-medium"
+            >
+              <ArrowLeft className="size-4" />
+              Back to sign in
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -46,9 +80,9 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
         <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
         <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
           <Dog className="size-24 mb-8" />
-          <h1 className="text-4xl font-bold mb-4">Welcome to Petch</h1>
+          <h1 className="text-4xl font-bold mb-4">Forgot Password?</h1>
           <p className="text-xl text-white/80 text-center max-w-md">
-            Find your perfect furry companion. Swipe, match, and adopt.
+            No worries! Enter your email and we'll send you a reset link.
           </p>
         </div>
       </div>
@@ -65,10 +99,10 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
 
           <div className="text-center lg:text-left">
             <h2 className="text-3xl font-bold text-foreground">
-              Sign in
+              Reset your password
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Welcome back! Please enter your details.
+              Enter the email associated with your account and we'll send you a link to reset your password.
             </p>
           </div>
 
@@ -76,7 +110,7 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
             <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-lg flex items-start gap-2">
               <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="font-medium">Oops! Something went wrong</p>
+                <p className="font-medium">Something went wrong</p>
                 <p className="text-sm">{error}</p>
               </div>
             </div>
@@ -95,7 +129,7 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
+                onBlur={() => setTouched(true)}
                 className={`h-12 text-base ${emailError ? "border-destructive focus-visible:ring-destructive" : ""}`}
               />
               {emailError && (
@@ -105,62 +139,19 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">
-                Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  className={`h-12 text-base pr-12 ${passwordError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                  required
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onBlur={() => setTouched(prev => ({ ...prev, password: true }))}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </Button>
-              </div>
-              {passwordError && (
-                <p className="text-sm text-destructive">
-                  {passwordError}
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end">
-              <Link to="/forgot-password" className="text-sm text-coral hover:underline font-medium">
-                Forgot password?
-              </Link>
-            </div>
-
             <Button
               type="submit"
               className="w-full h-12 text-base bg-coral hover:bg-coral-dark text-white rounded-lg"
-              disabled={isSubmitting || !!emailError || !!passwordError}
+              disabled={isSubmitting || !!emailError}
             >
-              {isSubmitting ? "Signing in..." : "Sign in"}
+              {isSubmitting ? "Sending..." : "Send reset link"}
             </Button>
           </Form>
 
           <p className="text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link to="/signup" className="text-coral hover:underline font-medium">
-              Sign up
+            <Link to="/login" className="inline-flex items-center gap-1 text-coral hover:underline font-medium">
+              <ArrowLeft className="size-3" />
+              Back to sign in
             </Link>
           </p>
         </div>

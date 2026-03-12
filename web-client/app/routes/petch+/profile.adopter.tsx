@@ -8,6 +8,7 @@ import type { AdopterProfile, HomeType } from '~/types/adopter';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { ChangePasswordSection } from '~/components/blocks/ChangePasswordSection';
 import {
   Save,
   Loader2,
@@ -55,6 +56,29 @@ export async function loader({ request }: Route.LoaderArgs) {
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get('intent');
+
+  if (intent === 'change-password') {
+    const currentPassword = formData.get('currentPassword') as string;
+    const newPassword = formData.get('newPassword') as string;
+
+    try {
+      const response = await authenticatedFetch(request, '/api/users/me/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { error: data.message || 'Failed to change password' };
+      }
+      return { success: true };
+    } catch (error) {
+      if (error instanceof Response) {
+        return { error: 'Your session has expired. Please log in again.' };
+      }
+      return { error: error instanceof Error ? error.message : 'Failed to change password' };
+    }
+  }
 
   if (intent === 'delete-account') {
     try {
@@ -181,8 +205,8 @@ export default function AdopterProfilePage() {
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="grid lg:grid-cols-3 gap-8">
 
-          {/* Sidebar - Account Info Card */}
-          <div className="lg:col-span-1">
+          {/* Sidebar - Account Info & Change Password */}
+          <div className="lg:col-span-1 space-y-6">
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden">
               {/* Card Header with Accent */}
               <div className="bg-coral/5 dark:bg-coral/10 px-6 py-5 border-b border-coral/10">
@@ -228,6 +252,9 @@ export default function AdopterProfilePage() {
                 </div>
               </div>
             </div>
+
+            {/* Change Password */}
+            <ChangePasswordSection />
           </div>
 
           {/* Main Form Card */}

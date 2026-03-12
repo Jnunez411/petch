@@ -9,6 +9,7 @@ import type { VendorProfile } from '~/types/vendor';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { ChangePasswordSection } from '~/components/blocks/ChangePasswordSection';
 import {
   Building2,
   Plus,
@@ -139,6 +140,29 @@ export async function action({ request }: Route.ActionArgs) {
       return await logout(request);
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Failed to delete account' };
+    }
+  }
+
+  if (intent === 'change-password') {
+    const currentPassword = formData.get('currentPassword') as string;
+    const newPassword = formData.get('newPassword') as string;
+
+    try {
+      const response = await authenticatedFetch(request, '/api/users/me/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { error: data.message || 'Failed to change password' };
+      }
+      return { success: true };
+    } catch (error) {
+      if (error instanceof Response) {
+        return { error: 'Your session has expired. Please log in again.' };
+      }
+      return { error: error instanceof Error ? error.message : 'Failed to change password' };
     }
   }
 
@@ -534,6 +558,11 @@ export default function VendorProfilePage() {
                   </Button>
                 </Form>
               </div>
+            </div>
+
+            {/* Change Password */}
+            <div className="mt-6">
+              <ChangePasswordSection />
             </div>
           </div>
 

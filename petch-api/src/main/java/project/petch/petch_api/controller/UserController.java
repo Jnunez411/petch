@@ -1,16 +1,21 @@
 package project.petch.petch_api.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import project.petch.petch_api.dto.auth.ChangePasswordRequest;
 import project.petch.petch_api.repositories.UserRepository;
 
 import project.petch.petch_api.models.User;
@@ -29,6 +34,7 @@ import java.util.Map;
 public class UserController {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Get current authenticated user's profile
@@ -74,6 +80,30 @@ public class UserController {
         response.put("role", currentUser.getUserType().name());
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Change password for the current authenticated user
+     * PUT /api/users/me/password
+     */
+    @PutMapping("/me/password")
+    @Transactional
+    public ResponseEntity<Map<String, String>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) authentication.getPrincipal();
+
+        // Verify current password
+        if (!passwordEncoder.matches(request.currentPassword(), currentUser.getPasswordHash())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Current password is incorrect."));
+        }
+
+        // Update password
+        currentUser.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(currentUser);
+
+        log.info("Password changed for userId={}", currentUser.getId());
+        return ResponseEntity.ok(Map.of("message", "Password updated successfully."));
     }
 
     /**

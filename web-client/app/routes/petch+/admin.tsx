@@ -2,7 +2,7 @@ import { Outlet, useLoaderData, Link, redirect, Form, useLocation } from 'react-
 import type { Route } from './+types/admin';
 import { getUserFromSession } from '~/services/auth';
 import { Button } from '~/components/ui/button';
-import { Dog, Menu, X, LayoutDashboard, Users, PawPrint, List, LogOut } from 'lucide-react';
+import { Dog, Menu, X, LayoutDashboard, Users, PawPrint, List, LogOut, Flag } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -43,6 +43,7 @@ export default function AdminLayout() {
         { to: "/admin/users", label: "Users" },
         { to: "/admin/pets", label: "Pets" },
         { to: "/admin/listings", label: "Listings" },
+        { to: "/admin/reports", label: "Reports" },
     ];
 
     const isActive = (path: string) => {

@@ -144,13 +144,12 @@ export default function AdminPets() {
                             Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
                         </p>
                         <div className="flex gap-3 justify-end">
-                            <Button
-                                variant="outline"
+                            <button
+                                className="px-4 py-2 rounded-md text-sm font-medium border border-zinc-300 text-zinc-700 bg-white hover:bg-zinc-100 hover:border-zinc-400 transition-colors"
                                 onClick={() => setDeleteConfirm(null)}
-                                className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-700"
                             >
                                 Cancel
-                            </Button>
+                            </button>
                             <Button variant="destructive" onClick={handleDeleteConfirm}>
                                 Delete Pet
                             </Button>

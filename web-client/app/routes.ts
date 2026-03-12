@@ -18,6 +18,8 @@ export default [
   route("pets/:id", "routes/petch+/pet.$id.tsx"),
   route("discover", "routes/petch+/discover.tsx"),
   route("favorites", "routes/petch+/favorites.tsx"),
+  route("checkout", "routes/petch+/checkout.tsx"),
+  route("payment-success", "routes/petch+/payment-success.tsx"),
   route("admin", "routes/petch+/admin.tsx", [
     index("routes/petch+/admin._index.tsx"),
     route("users", "routes/petch+/admin.users.tsx"),

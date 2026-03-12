@@ -342,4 +342,48 @@ public class PetService {
             userPreferenceRepository.save(prefs);
         });
     }
+
+    /**
+     * Get all pets the user has favorited.
+     */
+    public List<Pets> getFavoritePets(User user) {
+        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.FAVORITE)
+                .stream()
+                .map(PetInteraction::getPet)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get IDs of all pets the user has favorited (for efficient UI state
+     * hydration).
+     */
+    public List<Long> getFavoriteIds(User user) {
+        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.FAVORITE)
+                .stream()
+                .map(i -> i.getPet().getId())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Toggle favorite status for a pet. Returns true if favorited, false if
+     * unfavorited.
+     */
+    public boolean toggleFavorite(User user, Long petId) {
+        Optional<PetInteraction> existing = petInteractionRepository
+                .findByUserAndPet_IdAndInteractionType(user, petId, PetInteraction.InteractionType.FAVORITE);
+
+        if (existing.isPresent()) {
+            petInteractionRepository.delete(existing.get());
+            return false;
+        } else {
+            Pets pet = petsRepository.findById(petId)
+                    .orElseThrow(() -> new RuntimeException("Pet not found"));
+            petInteractionRepository.save(PetInteraction.builder()
+                    .user(user)
+                    .pet(pet)
+                    .interactionType(PetInteraction.InteractionType.FAVORITE)
+                    .build());
+            return true;
+        }
+    }
 }

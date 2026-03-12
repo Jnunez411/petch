@@ -85,14 +85,28 @@ export async function loader({ request }: Route.LoaderArgs) {
     const token = session.get('token');
 
     const apiUrl = `${API_BASE_URL}/api/pets?${queryParams.toString()}`;
-    const response = await fetch(apiUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Authorization': token ? `Bearer ${token}` : '',
-      },
-      cache: 'no-store',
-    });
+
+    // Fetch pets and favorite IDs in parallel
+    const [response, favResponse] = await Promise.all([
+      fetch(apiUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        cache: 'no-store',
+      }),
+      token
+        ? fetch(`${API_BASE_URL}/api/pets/favorites/ids`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
+        : Promise.resolve(null),
+    ]);
+
+    let favoriteIds: number[] = [];
+    if (favResponse && favResponse.ok) {
+      favoriteIds = await favResponse.json();
+    }
 
     if (!response.ok) {
       logger.error('Backend returned error when fetching pets', { status: response.status });
@@ -102,6 +116,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         totalPages: 0,
         currentPage: 1,
         user,
+        favoriteIds,
         filters: { species, ageRange, fosterable, atRisk, search }
       };
     }
@@ -115,6 +130,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       totalPages: data.totalPages || 0,
       currentPage: (data.number || 0) + 1, // Convert to 1-indexed for UI
       user,
+      favoriteIds,
       filters: { species, ageRange, fosterable, atRisk, search }
     };
   } catch (error) {
@@ -125,15 +141,17 @@ export async function loader({ request }: Route.LoaderArgs) {
       totalPages: 0,
       currentPage: 1,
       user,
+      favoriteIds: [],
       filters: { species, ageRange, fosterable, atRisk }
     };
   }
 }
 
-// Server action for deleting pets (keeps token secure on server)
+// Server action for deleting pets and toggling favorites
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const petId = formData.get('petId');
+  const intent = formData.get('intent') as string | null;
 
   if (!petId) {
     return { error: 'Pet ID is required' };
@@ -146,6 +164,24 @@ export async function action({ request }: Route.ActionArgs) {
     return { error: 'Not authenticated' };
   }
 
+  // Handle favorite toggle
+  if (intent === 'favorite') {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/pets/${petId}/favorite`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        return { error: 'Failed to toggle favorite' };
+      }
+      const result = await response.json();
+      return { success: true, intent: 'favorite', petId: Number(petId), favorited: result.favorited };
+    } catch {
+      return { error: 'Failed to toggle favorite' };
+    }
+  }
+
+  // Handle pet deletion
   try {
     const response = await fetch(`${API_BASE_URL}/api/pets/${petId}`, {
       method: 'DELETE',
@@ -166,7 +202,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function PetsPage() {
-  const { pets, totalPets, totalPages, currentPage, user, filters } = useLoaderData<typeof loader>();
+  const { pets, totalPets, totalPages, currentPage, user, filters, favoriteIds: initialFavoriteIds } = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const fetcher = useFetcher();
@@ -181,6 +217,25 @@ export default function PetsPage() {
   const [filterFosterable, setFilterFosterable] = useState<boolean>(filters.fosterable);
   const [filterAtRisk, setFilterAtRisk] = useState<boolean>(filters.atRisk);
   const [searchQuery, setSearchQuery] = useState<string>(filters.search || '');
+  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set(initialFavoriteIds || []));
+
+  // Favorite toggle handler
+  const handleToggleFavorite = (petId: number) => {
+    // Optimistic UI
+    setFavoriteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(petId)) {
+        next.delete(petId);
+      } else {
+        next.add(petId);
+      }
+      return next;
+    });
+    fetcher.submit(
+      { petId: petId.toString(), intent: 'favorite' },
+      { method: 'POST' }
+    );
+  };
 
   // Build return URL from current filter state (preserves filters when navigating to pet details)
   const buildReturnUrl = () => {
@@ -494,9 +549,24 @@ export default function PetsPage() {
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         loading="lazy"
                       />
-                      {/* Gradient overlay for text readability if we wanted, but clean is nice for now */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </Link>
+                    {/* Favorite Heart Button */}
+                    {user && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); handleToggleFavorite(pet.id); }}
+                        className={`absolute top-3 right-3 z-10 size-9 rounded-full backdrop-blur-sm shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 ${favoriteIds.has(pet.id)
+                            ? 'bg-white/90 hover:bg-red-50'
+                            : 'bg-black/40 hover:bg-black/60'
+                          }`}
+                        title={favoriteIds.has(pet.id) ? 'Remove from favorites' : 'Add to favorites'}
+                      >
+                        <Heart className={`w-5 h-5 transition-colors duration-200 ${favoriteIds.has(pet.id)
+                            ? 'text-rose-500 fill-rose-500'
+                            : 'text-white'
+                          }`} />
+                      </button>
+                    )}
                   </div>
 
                   <CardHeader className="pb-2 pt-4">

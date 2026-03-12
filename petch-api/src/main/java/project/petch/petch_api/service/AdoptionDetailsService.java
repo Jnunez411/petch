@@ -74,7 +74,7 @@ public class AdoptionDetailsService {
 
     public void deleteAdoptionDetails(Long petId) {
         AdoptionDetails adoptionDetails = adoptionDetailsRepository.findByPetId(petId)
-                .orElseThrow(() -> new ResourceNotFoundException("Adoption details not found for pet, it is now homeless: " + petId));
+                .orElseThrow(() -> new ResourceNotFoundException("Adoption details not found for pet: " + petId));
         adoptionDetailsRepository.delete(adoptionDetails);
     }
 
@@ -83,24 +83,24 @@ public class AdoptionDetailsService {
         AdoptionDetails adoptionDetails = adoptionDetailsRepository.findByPetId(petId).orElseThrow(() -> new ResourceNotFoundException("Adoption details not found for pet: " + petId));
 
         if(adoptionDetails.getOnlineFormPdf() == null || adoptionDetails.getOnlineFormPdf().length == 0) {
-            throw new ResourceNotFoundException("Online form template not found for pet, its gettin put down now (RIP): " + petId);
+            throw new ResourceNotFoundException("Online form template not found for pet: " + petId);
         }
         return adoptionDetails;
     }
 
     public AdoptionDetailsDTO uploadOnlineFormPdf(Long petId, MultipartFile file, User user) throws IOException {
-        AdoptionDetails adoptionDetails = adoptionDetailsRepository.findByPetId(petId).orElseThrow(() -> new ResourceNotFoundException("Adoption details not found for pet, it is now homeless: " + petId));
+        AdoptionDetails adoptionDetails = adoptionDetailsRepository.findByPetId(petId).orElseThrow(() -> new ResourceNotFoundException("Adoption details not found for pet: " + petId));
 
         Pets pet = adoptionDetails.getPet();
         if(user == null){
-            throw new IllegalArgumentException("User must be authenticated, STOP BREAKIN IN");
+            throw new IllegalArgumentException("User must be authenticated");
         }
 
         boolean isAdmin = user.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         boolean ownsPet = pet != null && pet.getUser() != null && pet.getUser().getId().equals(user.getId());
 
         if(!isAdmin && !ownsPet){
-            throw new IllegalArgumentException("You do not have access to upload an adoption form for this pet, this shouldnt even be possible");
+            throw new IllegalArgumentException("You do not have access to upload an adoption form for this pet");
         }
 
         validatePdfFile(file);
@@ -144,7 +144,7 @@ public class AdoptionDetailsService {
         }
 
         if(file.getSize() > 10 * 1024 * 1024){ // 10MB limit
-            throw new IllegalArgumentException("PDF file size exceeds maximum allowed (10MB), yo shi too big dawg");
+            throw new IllegalArgumentException("PDF file size exceeds maximum allowed (10MB)");
         }
 
         String contentType = file.getContentType();
@@ -152,7 +152,7 @@ public class AdoptionDetailsService {
         String originalFilename = originalFilenameValue == null ? "" : originalFilenameValue.toLowerCase();
 
         if(!Objects.equals("application/pdf", contentType) && !originalFilename.endsWith(".pdf")){
-            throw new IllegalArgumentException("File must be a PDF, we dont want no weird shi");
+            throw new IllegalArgumentException("File must be a PDF");
         }
     }
 }

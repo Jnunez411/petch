@@ -560,7 +560,7 @@ export default function CreatePetPage() {
         const adoptionFormData = new FormData();
         adoptionFormData.append('file', selectedAdoptionFormFile);
 
-        const adoptionTemplateResponse = await fetch(`/api/pets/${pet.id}/adoption-details/online-form-pdf`, {
+        const adoptionTemplateResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/adoption-details/online-form-pdf`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -579,7 +579,7 @@ export default function CreatePetPage() {
           const documentFormData = new FormData();
           documentFormData.append('file', file);
 
-          const documentResponse = await fetch(`/api/pets/${pet.id}/documents`, {
+          const documentResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/documents`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,

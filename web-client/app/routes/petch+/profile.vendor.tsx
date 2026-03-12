@@ -282,13 +282,6 @@ export default function VendorProfilePage() {
   };
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number } | null>(null);
-  /*if (!confirm('Are you sure you want to delete this pet? This action cannot be undone.')) {
-      return;
-    }
-    fetcher.submit(
-      { intent: 'delete-pet', petId: petId.toString() i},
-      { method: 'POST' }
-    );*/
   const handleDelete = (petId: number) => {
     setDeleteConfirm({ id: petId });
   };

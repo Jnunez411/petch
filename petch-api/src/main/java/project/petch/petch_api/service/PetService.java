@@ -94,13 +94,14 @@ public class PetService {
 
     @Transactional(readOnly = true)
     public Page<PetDTO> getFilteredPetDTOs(
+            String search,
             String species,
             Integer ageMin,
             Integer ageMax,
             Boolean fosterable,
             Boolean atRisk,
             Pageable pageable) {
-        return petsRepository.findFilteredPets(species, ageMin, ageMax, fosterable, atRisk, pageable)
+        return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, pageable)
                 .map(this::toDTO);
     }
 

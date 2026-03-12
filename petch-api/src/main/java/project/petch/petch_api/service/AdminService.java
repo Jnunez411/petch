@@ -16,6 +16,7 @@ import project.petch.petch_api.repositories.PetInteractionRepository;
 import project.petch.petch_api.repositories.PetsRepository;
 import project.petch.petch_api.repositories.ReportRepository;
 import project.petch.petch_api.repositories.UserRepository;
+import project.petch.petch_api.service.ImageService;
 
 import java.util.List;
 
@@ -32,6 +33,8 @@ public class AdminService {
     private final AdminAuditLogRepository auditLogRepository;
     private final ReportRepository reportRepository;
     private final PetInteractionRepository petInteractionRepository;
+    private final ImageService imageService;
+    private final PetDocumentsService petDocumentsService;
 
     /**
      * Get admin dashboard statistics using efficient count queries
@@ -110,6 +113,12 @@ public class AdminService {
         auditLog(currentUserEmail, "DELETE_PET", "PET", id, targetDetails);
 
         // Clean up related records before deleting the pet
+        try {
+            imageService.deleteImagesByPet(id);
+        } catch (java.io.IOException e) {
+            log.error("Failed to delete images for pet {}: {}", id, e.getMessage());
+        }
+        petDocumentsService.deleteDocumentsByPet(id);
         petInteractionRepository.deleteByPet_Id(id);
         reportRepository.deleteByPetId(id);
 

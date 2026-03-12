@@ -21,7 +21,6 @@ import project.petch.petch_api.models.PetInteraction;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.service.ImageService;
-import project.petch.petch_api.repositories.UserRepository;
 import project.petch.petch_api.service.PetDocumentsService;
 import project.petch.petch_api.service.PetService;
 import project.petch.petch_api.service.SecurityEventLogger;
@@ -41,7 +40,6 @@ public class PetController {
     private final PetService petService;
     private final ImageService imageService;
     private final PetDocumentsService petDocumentsService;
-    private final UserRepository userRepository;
     private final SecurityEventLogger securityEventLogger;
     private final HttpServletRequest httpServletRequest;
 

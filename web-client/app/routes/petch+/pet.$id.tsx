@@ -1,7 +1,6 @@
 import { useLoaderData, Link, redirect, useSearchParams, useFetcher } from "react-router";
 import type { Route } from "./+types/pet.$id";
-import { useRef, useState } from "react";
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Heart, Flag } from "lucide-react";
@@ -305,10 +304,7 @@ export default function PetDetail() {
   const [visibleSubmissions, setVisibleSubmissions] = useState(submissions);
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { pet, apiBaseUrl, isFavorited: initialFavorited } = useLoaderData<typeof loader>();
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [showAdoptionDetails, setShowAdoptionDetails] = useState(false);
-  const [isFavorited, setIsFavorited] = useState(initialFavorited);
+  const [isFavorited, setIsFavorited] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const fetcher = useFetcher();
 

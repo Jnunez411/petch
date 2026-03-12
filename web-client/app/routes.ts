@@ -11,14 +11,18 @@ export default [
   route("profile", "routes/petch+/profile.tsx"),
   route("profile/adopter", "routes/petch+/profile.adopter.tsx"),
   route("profile/vendor", "routes/petch+/profile.vendor.tsx"),
+  route("profile/vendor/adoption-preferences", "routes/petch+/profile.vendor.adoption-preferences.tsx"),
+  route("profile/vendor/submissions", "routes/petch+/profile.vendor.submissions.tsx"),
   route("pets", "routes/petch+/pets.tsx"),
   route("pets/create", "routes/petch+/createListing.tsx"),
   route("pets/:id", "routes/petch+/pet.$id.tsx"),
   route("discover", "routes/petch+/discover.tsx"),
+  route("favorites", "routes/petch+/favorites.tsx"),
   route("admin", "routes/petch+/admin.tsx", [
     index("routes/petch+/admin._index.tsx"),
     route("users", "routes/petch+/admin.users.tsx"),
     route("pets", "routes/petch+/admin.pets.tsx"),
     route("listings", "routes/petch+/admin.listings.tsx"),
+    route("reports", "routes/petch+/admin.reports.tsx"),
   ]),
 ] satisfies RouteConfig;

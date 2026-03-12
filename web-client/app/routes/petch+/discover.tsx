@@ -4,12 +4,13 @@ import type { Route } from './+types/discover';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Card, CardContent } from '~/components/ui/card';
-import { Heart, X, Undo2, Eye, Sparkles, RotateCcw, AlertTriangle, Home as HomeIcon, Search } from 'lucide-react';
+import { Heart, X, Undo2, Eye, Sparkles, RotateCcw, AlertTriangle, Home as HomeIcon, Search, Flag } from 'lucide-react';
 import { getUserFromSession, getSession } from '~/services/auth';
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES, SWIPE_ANIMATION_DURATION } from '~/config/constants';
 import type { Pet, SwipeHistory } from '~/types/pet';
 import { uiLogger } from '~/utils/logger';
+import ReportModal from '~/components/ReportModal';
 
 const logger = uiLogger.child('Discover');
 
@@ -72,7 +73,7 @@ export async function action({ request }: Route.ActionArgs) {
     }
 
     const formData = await request.formData();
-    const actionType = formData.get('_action') as string;
+    const actionType = (formData.get('_action') || formData.get('intent')) as string;
     const petId = formData.get('petId') as string | null;
 
     try {
@@ -97,7 +98,11 @@ export async function action({ request }: Route.ActionArgs) {
             case 'undo':
             case 'unfavorite': {
                 if (!petId) return { error: 'Pet ID is required' };
-                const response = await fetch(`${API_BASE_URL}/api/pets/${petId}/interact`, {
+                const interactionType = formData.get('type') as string || '';
+                const deleteUrl = interactionType
+                    ? `${API_BASE_URL}/api/pets/${petId}/interact?type=${interactionType}`
+                    : `${API_BASE_URL}/api/pets/${petId}/interact`;
+                const response = await fetch(deleteUrl, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -148,6 +153,35 @@ export async function action({ request }: Route.ActionArgs) {
                 return { success: true, action: 'reload', pets, likedPets };
             }
 
+            case 'report': {
+                if (!petId) return { error: 'Pet ID is required' };
+                const reasons = formData.get('reasons') as string;
+                const additionalDetails = formData.get('additionalDetails') as string;
+                if (!reasons) {
+                    return { error: 'At least one reason is required' };
+                }
+                const parsedReasons = JSON.parse(reasons);
+                const response = await fetch(`${API_BASE_URL}/api/reports`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        petId: Number(petId),
+                        reasons: parsedReasons,
+                        additionalDetails: additionalDetails || null,
+                    }),
+                });
+                if (response.status === 409) {
+                    return { error: 'You have already reported this listing' };
+                }
+                if (!response.ok) {
+                    return { error: 'Failed to submit report' };
+                }
+                return { success: true, action: 'report' as any, petId: Number(petId) };
+            }
+
             default:
                 return { error: `Unknown action: ${actionType}` };
         }
@@ -191,6 +225,7 @@ export default function DiscoverPage() {
     const [history, setHistory] = useState<SwipeHistory[]>([]);
 
     const [error, setError] = useState<string | null>(loadError || null);
+    const [reportingPet, setReportingPet] = useState<{ id: number; name: string } | null>(null);
 
     // Handle fetcher results (action responses)
     useEffect(() => {
@@ -318,7 +353,7 @@ export default function DiscoverPage() {
 
         // Submit to server action
         fetcher.submit(
-            { _action: 'undo', petId: String(lastInteraction.pet.id) },
+            { _action: 'undo', petId: String(lastInteraction.pet.id), type: lastInteraction.direction === 'right' ? 'LIKE' : 'PASS' },
             { method: 'POST' }
         );
 
@@ -382,7 +417,7 @@ export default function DiscoverPage() {
     const handleUnfavorite = useCallback((petId: number) => {
         // Submit to server action
         fetcher.submit(
-            { _action: 'unfavorite', petId: String(petId) },
+            { _action: 'unfavorite', petId: String(petId), type: 'LIKE' },
             { method: 'POST' }
         );
 
@@ -651,6 +686,15 @@ export default function DiscoverPage() {
                             )}
                         </div>
 
+                        {/* Report Button */}
+                        <button
+                            onClick={() => setReportingPet({ id: currentPet.id, name: currentPet.name })}
+                            className="absolute top-4 right-4 z-10 size-9 rounded-full bg-black/40 hover:bg-amber-500 backdrop-blur-sm shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200"
+                            title="Report this listing"
+                        >
+                            <Flag className="w-4 h-4 text-white" />
+                        </button>
+
                         {/* Swipe indicators */}
                         <div className={`absolute top-1/3 left-8 transform -rotate-12 transition-opacity duration-200 ${swipeDirection === 'left' ? 'opacity-100' : 'opacity-0'
                             }`}>
@@ -759,6 +803,14 @@ export default function DiscoverPage() {
                     <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono ml-1">→</kbd> to like
                 </p>
             </div>
+
+            {/* Report Modal */}
+            <ReportModal
+                petId={reportingPet?.id ?? 0}
+                petName={reportingPet?.name ?? ''}
+                isOpen={reportingPet !== null}
+                onClose={() => setReportingPet(null)}
+            />
         </div>
     );
 }

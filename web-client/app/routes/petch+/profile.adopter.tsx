@@ -5,6 +5,7 @@ import { getSession } from '~/services/session.server';
 import { authenticatedFetch } from '~/utils/api';
 import { getAdopterProfile, createAdopterProfile, updateAdopterProfile } from '~/services/profile.server';
 import type { AdopterProfile, HomeType } from '~/types/adopter';
+import type { AdoptionFormSubmission } from '~/types/pet';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
@@ -13,10 +14,13 @@ import {
   Save,
   Loader2,
   ChevronDown,
+  Download,
+  FileText,
   Trash2
 } from 'lucide-react';
 import { useState } from 'react';
 import { createLogger } from '~/utils/logger';
+import { API_BASE_URL } from '~/config/api-config';
 
 const logger = createLogger('AdopterProfile');
 
@@ -50,7 +54,22 @@ export async function loader({ request }: Route.LoaderArgs) {
     logger.error('Failed to fetch adopter profile', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
-  return { user, adopterProfile };
+  let submissions: AdoptionFormSubmission[] = [];
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/adopter/submissions/me`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+    });
+
+    if (response.ok) {
+      submissions = await response.json();
+    }
+  } catch (error) {
+    logger.error('Failed to fetch adopter submissions', { error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+
+  return { user, adopterProfile, submissions, token };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -168,7 +187,7 @@ function ToggleCheckbox({
 }
 
 export default function AdopterProfilePage() {
-  const { user, adopterProfile } = useLoaderData<typeof loader>();
+  const { user, adopterProfile, submissions, token } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const deleteFetcher = useFetcher();
@@ -187,6 +206,32 @@ export default function AdopterProfilePage() {
       { method: 'POST' }
     );
     setShowDeleteAccountModal(false);
+  };
+
+  const handleDownloadSubmission = async (submission: AdoptionFormSubmission) => {
+    if (!token) {
+      return;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/adopter/submissions/me/${submission.id}/download`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = submission.fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
   };
 
   return (
@@ -397,6 +442,49 @@ export default function AdopterProfilePage() {
                     )}
                   </Button>
                 </Form>
+              </div>
+            </div>
+
+            <div className="mt-8 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+              <div className="bg-zinc-50 dark:bg-zinc-800/50 px-6 py-5 border-b border-zinc-200 dark:border-zinc-700 flex items-center gap-3">
+                <FileText className="size-5 text-coral" />
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Submitted Adoption Forms</h2>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Download the PDF forms you have already submitted.</p>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {submissions.length === 0 ? (
+                  <p className="text-zinc-500 dark:text-zinc-400">You have not uploaded any adoption forms yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {submissions.map((submission) => (
+                      <div
+                        key={submission.id}
+                        className="flex flex-col gap-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-4 md:flex-row md:items-center md:justify-between"
+                      >
+                        <div>
+                          <p className="font-semibold text-zinc-900 dark:text-zinc-50">{submission.petName || `Pet #${submission.petId}`}</p>
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">{submission.fileName}</p>
+                          <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+                            Submitted {new Date(submission.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-xl"
+                          onClick={() => handleDownloadSubmission(submission)}
+                        >
+                          <Download className="size-4 mr-2" />
+                          Download
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

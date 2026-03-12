@@ -1,18 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, redirect, useLoaderData } from 'react-router';
+import { Link, redirect, useLoaderData, useFetcher } from 'react-router';
 import type { Route } from './+types/discover';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Card, CardContent } from '~/components/ui/card';
 import { Heart, X, Undo2, Eye, Sparkles, RotateCcw, AlertTriangle, Home as HomeIcon, Search } from 'lucide-react';
 import { getUserFromSession, getSession } from '~/services/auth';
-import {
-    discoverPets,
-    recordInteraction,
-    fetchLikedPets,
-    type UserPreferences,
-    undoInteraction
-} from '~/services/pet-match-algorithm';
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES, SWIPE_ANIMATION_DURATION } from '~/config/constants';
 import type { Pet, SwipeHistory } from '~/types/pet';
@@ -27,6 +20,9 @@ export function meta({ }: Route.MetaArgs) {
     ];
 }
 
+// ===========================
+// Server-side loader: fetch initial data
+// ===========================
 export async function loader({ request }: Route.LoaderArgs) {
     const user = await getUserFromSession(request);
     const session = await getSession(request.headers.get('Cookie'));
@@ -35,14 +31,157 @@ export async function loader({ request }: Route.LoaderArgs) {
     if (!user || !token) {
         return redirect('/login');
     }
-    return { user, token };
+
+    // Fetch discover pets and liked pets on the server (where API_BASE_URL is reachable)
+    let initialPets: Pet[] = [];
+    let initialLikedPets: Pet[] = [];
+    let loadError: string | null = null;
+
+    try {
+        const [discoverRes, likedRes] = await Promise.all([
+            fetch(`${API_BASE_URL}/api/pets/discover`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            }),
+            fetch(`${API_BASE_URL}/api/pets/liked`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            }),
+        ]);
+
+        if (discoverRes.ok) {
+            initialPets = await discoverRes.json();
+        }
+        if (likedRes.ok) {
+            initialLikedPets = await likedRes.json();
+        }
+    } catch (error) {
+        loadError = 'Failed to connect to the server. Please check your connection and try again.';
+    }
+
+    return { user, initialPets, initialLikedPets, loadError };
 }
 
+// ===========================
+// Server-side action: proxy all API interactions
+// ===========================
+export async function action({ request }: Route.ActionArgs) {
+    const session = await getSession(request.headers.get('Cookie'));
+    const token = session.get('token');
+
+    if (!token) {
+        return { error: 'Not authenticated' };
+    }
+
+    const formData = await request.formData();
+    const actionType = formData.get('_action') as string;
+    const petId = formData.get('petId') as string | null;
+
+    try {
+        switch (actionType) {
+            case 'like':
+            case 'pass': {
+                if (!petId) return { error: 'Pet ID is required' };
+                const response = await fetch(`${API_BASE_URL}/api/pets/${petId}/interact`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ type: actionType.toUpperCase() }),
+                });
+                if (!response.ok) {
+                    return { error: `Failed to record ${actionType}`, status: response.status };
+                }
+                return { success: true, action: actionType, petId: Number(petId) };
+            }
+
+            case 'undo':
+            case 'unfavorite': {
+                if (!petId) return { error: 'Pet ID is required' };
+                const response = await fetch(`${API_BASE_URL}/api/pets/${petId}/interact`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                if (!response.ok) {
+                    return { error: `Failed to ${actionType}`, status: response.status };
+                }
+                return { success: true, action: actionType, petId: Number(petId) };
+            }
+
+            case 'reset': {
+                const resetRes = await fetch(`${API_BASE_URL}/api/pets/discover/reset`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                if (!resetRes.ok) {
+                    return { error: 'Failed to reset discovery', status: resetRes.status };
+                }
+                // Refetch data after reset
+                const [discoverRes, likedRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/pets/discover`, {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                    }),
+                    fetch(`${API_BASE_URL}/api/pets/liked`, {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                    }),
+                ]);
+                const pets = discoverRes.ok ? await discoverRes.json() : [];
+                const likedPets = likedRes.ok ? await likedRes.json() : [];
+                return { success: true, action: 'reset', pets, likedPets };
+            }
+
+            case 'reload': {
+                // Reload discover + liked pets (used for retry after error)
+                const [discoverRes, likedRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/pets/discover`, {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                    }),
+                    fetch(`${API_BASE_URL}/api/pets/liked`, {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                    }),
+                ]);
+                const pets = discoverRes.ok ? await discoverRes.json() : [];
+                const likedPets = likedRes.ok ? await likedRes.json() : [];
+                return { success: true, action: 'reload', pets, likedPets };
+            }
+
+            default:
+                return { error: `Unknown action: ${actionType}` };
+        }
+    } catch (error) {
+        return { error: `Server error during ${actionType}` };
+    }
+}
+
+// ===========================
+// Types for action results
+// ===========================
+type ActionResult =
+    | { success: true; action: 'like' | 'pass'; petId: number }
+    | { success: true; action: 'undo' | 'unfavorite'; petId: number }
+    | { success: true; action: 'reset'; pets: Pet[]; likedPets: Pet[] }
+    | { success: true; action: 'reload'; pets: Pet[]; likedPets: Pet[] }
+    | { error: string; status?: number };
+
+// ===========================
+// Client component
+// ===========================
 export default function DiscoverPage() {
-    const { user, token } = useLoaderData<typeof loader>();
-    const [preferences, setPreferences] = useState<UserPreferences>({ likedPetIds: [], passedPetIds: [], totalSwipes: 0 });
-    const [petQueue, setPetQueue] = useState<Pet[]>([]);
-    const [likedPetsList, setLikedPetsList] = useState<Pet[]>([]);
+    const { user, initialPets, initialLikedPets, loadError } = useLoaderData<typeof loader>();
+    const fetcher = useFetcher<ActionResult>();
+
+    type UserPreferences = { likedPetIds: number[]; passedPetIds: number[]; totalSwipes: number };
+
+    const [preferences, setPreferences] = useState<UserPreferences>({
+        likedPetIds: initialLikedPets.map(p => p.id),
+        passedPetIds: [],
+        totalSwipes: 0,
+    });
+    const [petQueue, setPetQueue] = useState<Pet[]>(initialPets);
+    const [likedPetsList, setLikedPetsList] = useState<Pet[]>(initialLikedPets);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | 'undo-start' | 'undo-end' | 'instant-left' | 'instant-right' | 'undo-from-left' | 'undo-from-right' | 'undo-enter' | null>(null);
     const [showFavorites, setShowFavorites] = useState(false);
@@ -51,37 +190,39 @@ export default function DiscoverPage() {
     const [isResetting, setIsResetting] = useState(false);
     const [history, setHistory] = useState<SwipeHistory[]>([]);
 
-    const [error, setError] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(loadError || null);
 
-    const load = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            // Load both discover pets and liked pets in parallel
-            const [pets, likedPets] = await Promise.all([
-                discoverPets(token),
-                fetchLikedPets(token)
-            ]);
-            setPetQueue(pets);
-            setLikedPetsList(likedPets);
-            // Update preferences with liked pet IDs from backend
-            setPreferences(prev => ({
-                ...prev,
-                likedPetIds: likedPets.map((p) => p.id)
-            }));
-        } catch (error) {
-            logger.error('Failed to load pets', { error: error instanceof Error ? error.message : 'Unknown error' });
-            setError('Failed to connect to the server. Please check your connection and try again.');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [token]);
-
-    // Initial load from API
+    // Handle fetcher results (action responses)
     useEffect(() => {
-        load();
-    }, [load]);
+        if (!fetcher.data) return;
+        const result = fetcher.data;
+
+        if ('error' in result) {
+            logger.error('Action failed', { error: result.error });
+            // On interaction errors, just reset animation state
+            setSwipeDirection(null);
+            setIsAnimating(false);
+            return;
+        }
+
+        switch (result.action) {
+            case 'reset':
+            case 'reload':
+                setPetQueue(result.pets);
+                setLikedPetsList(result.likedPets);
+                setCurrentIndex(0);
+                setHistory([]);
+                setPreferences({
+                    likedPetIds: result.likedPets.map((p: Pet) => p.id),
+                    passedPetIds: [],
+                    totalSwipes: 0,
+                });
+                setError(null);
+                setIsResetting(false);
+                break;
+            // like/pass/undo/unfavorite are handled optimistically — no extra state update needed
+        }
+    }, [fetcher.data]);
 
     const currentPet = petQueue[currentIndex];
     const hasMorePets = currentIndex < petQueue.length;
@@ -101,147 +242,114 @@ export default function DiscoverPage() {
         return pet.adoptionDetails?.priceEstimate || 0;
     };
 
-    // Handle like action
-    const handleLike = useCallback(async () => {
+    // Handle like action (optimistic UI + server action)
+    const handleLike = useCallback(() => {
         if (!currentPet || isAnimating) return;
 
         setIsAnimating(true);
         setSwipeDirection('right');
 
-        try {
-            await recordInteraction(currentPet.id, 'LIKE', token);
-            // PERFORMANCE: Limit history to last 20 swipes to prevent memory growth
-            setHistory(prev => [...prev.slice(-19), { pet: currentPet, direction: 'right' }]);
-            setPreferences(prev => ({
-                ...prev,
-                likedPetIds: [...prev.likedPetIds, currentPet.id],
-                totalSwipes: prev.totalSwipes + 1
-            }));
+        // Submit to server action
+        fetcher.submit(
+            { _action: 'like', petId: String(currentPet.id) },
+            { method: 'POST' }
+        );
 
-            setTimeout(() => {
-                setCurrentIndex(prev => prev + 1);
-                setSwipeDirection(null);
-                setIsAnimating(false);
-            }, SWIPE_ANIMATION_DURATION);
-        } catch (error) {
-            logger.error('Failed to record like', { petId: currentPet?.id, error: error instanceof Error ? error.message : 'Unknown error' });
+        // Optimistic UI update
+        // PERFORMANCE: Limit history to last 20 swipes to prevent memory growth
+        setHistory(prev => [...prev.slice(-19), { pet: currentPet, direction: 'right' }]);
+        setPreferences(prev => ({
+            ...prev,
+            likedPetIds: [...prev.likedPetIds, currentPet.id],
+            totalSwipes: prev.totalSwipes + 1
+        }));
+
+        setTimeout(() => {
+            setCurrentIndex(prev => prev + 1);
             setSwipeDirection(null);
             setIsAnimating(false);
-        }
-    }, [currentPet, token, isAnimating]);
+        }, SWIPE_ANIMATION_DURATION);
+    }, [currentPet, isAnimating, fetcher]);
 
-    // Handle pass action
-    const handlePass = useCallback(async () => {
+    // Handle pass action (optimistic UI + server action)
+    const handlePass = useCallback(() => {
         if (!currentPet || isAnimating) return;
 
         setIsAnimating(true);
         setSwipeDirection('left');
 
-        try {
-            await recordInteraction(currentPet.id, 'PASS', token);
-            // PERFORMANCE: Limit history to last 20 swipes to prevent memory growth
-            setHistory(prev => [...prev.slice(-19), { pet: currentPet, direction: 'left' }]);
-            setPreferences(prev => ({
-                ...prev,
-                passedPetIds: [...prev.passedPetIds, currentPet.id],
-                totalSwipes: prev.totalSwipes + 1
-            }));
+        // Submit to server action
+        fetcher.submit(
+            { _action: 'pass', petId: String(currentPet.id) },
+            { method: 'POST' }
+        );
 
-            setTimeout(() => {
-                setCurrentIndex(prev => prev + 1);
-                setSwipeDirection(null);
-                setIsAnimating(false);
-            }, SWIPE_ANIMATION_DURATION);
-        } catch (error) {
-            logger.error('Failed to record pass', { petId: currentPet?.id, error: error instanceof Error ? error.message : 'Unknown error' });
+        // Optimistic UI update
+        // PERFORMANCE: Limit history to last 20 swipes to prevent memory growth
+        setHistory(prev => [...prev.slice(-19), { pet: currentPet, direction: 'left' }]);
+        setPreferences(prev => ({
+            ...prev,
+            passedPetIds: [...prev.passedPetIds, currentPet.id],
+            totalSwipes: prev.totalSwipes + 1
+        }));
+
+        setTimeout(() => {
+            setCurrentIndex(prev => prev + 1);
             setSwipeDirection(null);
             setIsAnimating(false);
-        }
-    }, [currentPet, token, isAnimating]);
+        }, SWIPE_ANIMATION_DURATION);
+    }, [currentPet, isAnimating, fetcher]);
 
     // Discovery reset: clearing interactions in the backend and refreshing state
-    const handleReset = async () => {
+    const handleReset = () => {
         setIsResetting(true);
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/pets/discover/reset`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (response.ok) {
-                // Refetch data instead of reloading the page
-                const [pets, likedPets] = await Promise.all([
-                    discoverPets(token),
-                    fetchLikedPets(token)
-                ]);
-                setPetQueue(pets);
-                setLikedPetsList(likedPets);
-                setCurrentIndex(0);
-                setHistory([]);
-                setPreferences({
-                    likedPetIds: likedPets.map((p) => p.id),
-                    passedPetIds: [],
-                    totalSwipes: 0
-                });
-            } else {
-                logger.error('Failed to reset discovery', { status: response.status });
-            }
-        } catch (error) {
-            logger.error('Error resetting discovery', { error: error instanceof Error ? error.message : 'Unknown error' });
-        } finally {
-            setIsResetting(false);
-        }
+        fetcher.submit(
+            { _action: 'reset' },
+            { method: 'POST' }
+        );
     };
 
-
-
-    // Undo action
-    const handleUndo = useCallback(async () => {
+    // Undo action (optimistic UI + server action)
+    const handleUndo = useCallback(() => {
         if (history.length === 0 || isAnimating) return;
 
         const lastInteraction = history[history.length - 1];
         setIsAnimating(true);
 
-        try {
-            // Call backend to remove interaction
-            await undoInteraction(lastInteraction.pet.id, token);
+        // Submit to server action
+        fetcher.submit(
+            { _action: 'undo', petId: String(lastInteraction.pet.id) },
+            { method: 'POST' }
+        );
 
-            // Update UI state
-            setHistory(prev => prev.slice(0, -1));
+        // Optimistic UI update
+        setHistory(prev => prev.slice(0, -1));
+        setPreferences(prev => ({
+            ...prev,
+            likedPetIds: prev.likedPetIds.filter(id => id !== lastInteraction.pet.id),
+            passedPetIds: prev.passedPetIds.filter(id => id !== lastInteraction.pet.id),
+            totalSwipes: Math.max(0, prev.totalSwipes - 1)
+        }));
 
-            // Remove from liked pets if it was there
-            setPreferences(prev => ({
-                ...prev,
-                likedPetIds: prev.likedPetIds.filter(id => id !== lastInteraction.pet.id),
-                passedPetIds: prev.passedPetIds.filter(id => id !== lastInteraction.pet.id),
-                totalSwipes: Math.max(0, prev.totalSwipes - 1)
-            }));
+        // Seamless undo animation sequence:
+        // 1. Position card off-screen instantly (no transition)
+        const dir = lastInteraction.direction || 'left';
+        setSwipeDirection(`undo-from-${dir}` as 'undo-from-left' | 'undo-from-right');
+        setCurrentIndex(prev => Math.max(0, prev - 1));
 
-            // Seamless undo animation sequence:
-            // 1. Position card off-screen instantly (no transition)
-            const dir = lastInteraction.direction || 'left';
-            setSwipeDirection(`undo-from-${dir}` as 'undo-from-left' | 'undo-from-right');
-            setCurrentIndex(prev => Math.max(0, prev - 1));
-
-            // 2. After a single frame, trigger the slide-in animation
+        // 2. After a single frame, trigger the slide-in animation
+        requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    setSwipeDirection('undo-enter');
+                setSwipeDirection('undo-enter');
 
-                    // 3. Clean up after animation completes (400ms for bounce effect)
-                    setTimeout(() => {
-                        setSwipeDirection(null);
-                        setIsAnimating(false);
-                    }, 400);
-                });
+                // 3. Clean up after animation completes (400ms for bounce effect)
+                setTimeout(() => {
+                    setSwipeDirection(null);
+                    setIsAnimating(false);
+                }, 400);
             });
-
-        } catch (error) {
-            logger.error('Failed to undo', { error: error instanceof Error ? error.message : 'Unknown error' });
-            setIsAnimating(false);
-        }
-    }, [history, token, isAnimating]);
+        });
+    }, [history, isAnimating, fetcher]);
 
     // Keyboard navigation
     useEffect(() => {
@@ -271,19 +379,20 @@ export default function DiscoverPage() {
     }, [handleLike, handlePass, handleUndo, showFavorites]);
 
     // Handle unfavoriting a pet from the favorites view
-    const handleUnfavorite = useCallback(async (petId: number) => {
-        try {
-            await undoInteraction(petId, token);
-            // Update local state
-            setLikedPetsList(prev => prev.filter(p => p.id !== petId));
-            setPreferences(prev => ({
-                ...prev,
-                likedPetIds: prev.likedPetIds.filter(id => id !== petId),
-            }));
-        } catch (error) {
-            logger.error('Failed to unfavorite pet', { petId, error: error instanceof Error ? error.message : 'Unknown error' });
-        }
-    }, [token]);
+    const handleUnfavorite = useCallback((petId: number) => {
+        // Submit to server action
+        fetcher.submit(
+            { _action: 'unfavorite', petId: String(petId) },
+            { method: 'POST' }
+        );
+
+        // Optimistic UI update
+        setLikedPetsList(prev => prev.filter(p => p.id !== petId));
+        setPreferences(prev => ({
+            ...prev,
+            likedPetIds: prev.likedPetIds.filter(id => id !== petId),
+        }));
+    }, [fetcher]);
 
     // PERFORMANCE: Memoize liked pets computation to avoid recalculating on every render
     // NOTE: This must be before any early returns to satisfy React's rules of hooks
@@ -299,7 +408,14 @@ export default function DiscoverPage() {
                 <AlertTriangle className="w-12 h-12 text-destructive mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Connection Error</h3>
                 <p className="text-muted-foreground mb-6 max-w-md">{error}</p>
-                <Button onClick={load} variant="default" className="gap-2">
+                <Button
+                    onClick={() => {
+                        setError(null);
+                        fetcher.submit({ _action: 'reload' }, { method: 'POST' });
+                    }}
+                    variant="default"
+                    className="gap-2"
+                >
                     <RotateCcw className="w-4 h-4" />
                     Try Again
                 </Button>
@@ -307,8 +423,8 @@ export default function DiscoverPage() {
         );
     }
 
-    // Loading state
-    if (isLoading) {
+    // Loading state (only on initial server load, not on fetcher actions)
+    if (petQueue.length === 0 && likedPetsList.length === 0 && fetcher.state === 'loading') {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="animate-pulse text-muted-foreground flex flex-col items-center gap-4">

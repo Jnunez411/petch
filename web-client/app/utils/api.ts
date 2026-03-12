@@ -27,6 +27,11 @@ export async function authenticatedFetch(
   };
 
   if (!isFormData && !headers['Content-Type']) {
+    ...(options.headers as Record<string, string>),
+  };
+
+  // Only set Content-Type for non-FormData bodies
+  if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
 

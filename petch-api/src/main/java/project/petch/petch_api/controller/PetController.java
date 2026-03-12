@@ -20,7 +20,6 @@ import project.petch.petch_api.models.PetDocumentFile;
 import project.petch.petch_api.models.PetInteraction;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
-import project.petch.petch_api.repositories.UserRepository;
 import project.petch.petch_api.service.ImageService;
 import project.petch.petch_api.service.PetDocumentsService;
 import project.petch.petch_api.service.PetService;
@@ -63,6 +62,36 @@ public class PetController {
         return ResponseEntity.ok(petService.getLikedPetDTOs(user));
     }
 
+    // GET /api/pets/favorites - Get user's favorited pets
+    @GetMapping("/favorites")
+    public ResponseEntity<List<Pets>> getFavoritePets(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(petService.getFavoritePets(user));
+    }
+
+    // GET /api/pets/favorites/ids - Get IDs of favorited pets (for UI state)
+    @GetMapping("/favorites/ids")
+    public ResponseEntity<List<Long>> getFavoriteIds(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(petService.getFavoriteIds(user));
+    }
+
+    // POST /api/pets/{id}/favorite - Toggle favorite status
+    @PostMapping("/{id}/favorite")
+    public ResponseEntity<Map<String, Boolean>> toggleFavorite(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        boolean isFavorited = petService.toggleFavorite(user, id);
+        return ResponseEntity.ok(Map.of("favorited", isFavorited));
+    }
+
     // POST /api/pets/{id}/interact
     @PostMapping("/{id}/interact")
     public ResponseEntity<Void> interactWithPet(
@@ -73,9 +102,16 @@ public class PetController {
             return ResponseEntity.status(401).build();
         }
         String type = body.get("type");
-        PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
-        petService.recordInteraction(user, id, interactionType);
-        return ResponseEntity.ok().build();
+        if (type == null || type.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
+            petService.recordInteraction(user, id, interactionType);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     // DELETE /api/pets/{id}/interact
@@ -100,11 +136,12 @@ public class PetController {
         return ResponseEntity.ok().build();
     }
 
-    // get all pets with optional filtering
+    // get all pets with optional filtering and search
     // GET
-    // /api/pets?species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&page=0&size=12
+    // /api/pets?search=Max&species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&page=0&size=12
     @GetMapping
-    public ResponseEntity<Page<PetDTO>> getFilteredPets(
+    public ResponseEntity<Page<Pets>> getFilteredPets(
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) String species,
             @RequestParam(required = false) Integer ageMin,
             @RequestParam(required = false) Integer ageMax,
@@ -114,7 +151,7 @@ public class PetController {
             @RequestParam(defaultValue = "12") int size) {
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<PetDTO> pets = petService.getFilteredPetDTOs(species, ageMin, ageMax, fosterable, atRisk, pageable);
+        Page<Pets> pets = petService.getFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, pageable);
         return ResponseEntity.ok(pets);
     }
 
@@ -151,14 +188,13 @@ public class PetController {
     // create pet
     // POST /api/pets
     @PostMapping
-    public ResponseEntity<Pets> createPet(@Valid @RequestBody PetDTO dto) {
-        log.info("Creating new pet: name={}, species={}, breed={}", dto.getName(), dto.getSpecies(), dto.getBreed());
+    public ResponseEntity<Pets> createPet(@Valid @RequestBody PetDTO dto, @AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        log.info("Creating new pet: name={}, species={}, breed={}, userId={}", dto.getName(), dto.getSpecies(),
+                dto.getBreed(), user.getId());
         try {
-            User user = null;
-            if (dto.getUserId() != null) {
-                user = userRepository.findById(dto.getUserId()).orElse(null);
-            }
-
             Pets pet = Pets.builder()
                     .name(dto.getName())
                     .species(dto.getSpecies())

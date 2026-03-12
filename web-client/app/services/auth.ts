@@ -21,13 +21,23 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Registration failed' }));
+
+    // Extract field-level validation errors from GlobalExceptionHandler format
+    let errorMessage = error.message || 'Registration failed';
+    if (error.errors && typeof error.errors === 'object') {
+      const fieldErrors = Object.values(error.errors) as string[];
+      if (fieldErrors.length > 0) {
+        errorMessage = fieldErrors.join('. ');
+      }
+    }
+
     authLogger.error('Registration failed', {
       email: data.email,
       status: response.status,
-      error: error.message,
+      error: errorMessage,
       duration: `${duration}ms`
     });
-    throw new Error(error.message || 'Registration failed');
+    throw new Error(errorMessage);
   }
 
   authLogger.info('Registration successful', { email: data.email, duration: `${duration}ms` });
@@ -60,6 +70,40 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
   }
 
   authLogger.info('Login successful', { email: data.email, duration: `${duration}ms` });
+  return response.json();
+}
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  authLogger.info('Forgot password request', { email });
+
+  const response = await fetch(`${AUTH_URL}/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    throw new Error(error.message || 'Failed to send reset email');
+  }
+
+  return response.json();
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  authLogger.info('Password reset attempt');
+
+  const response = await fetch(`${AUTH_URL}/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Reset failed' }));
+    throw new Error(error.message || 'Failed to reset password');
+  }
+
   return response.json();
 }
 

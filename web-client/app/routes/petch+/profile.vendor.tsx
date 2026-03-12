@@ -1,6 +1,6 @@
 import { useLoaderData, Link, redirect, Form, useActionData, useNavigation, useFetcher } from 'react-router';
 import type { Route } from './+types/profile.vendor';
-import { getUserFromSession } from '~/services/auth';
+import { getUserFromSession, logout } from '~/services/auth';
 import { getSession } from '~/services/session.server';
 import { authenticatedFetch } from '~/utils/api';
 import { getVendorProfile, createVendorProfile, updateVendorProfile } from '~/services/profile.server';
@@ -9,6 +9,7 @@ import type { VendorProfile } from '~/types/vendor';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { ChangePasswordSection } from '~/components/blocks/ChangePasswordSection';
 import {
   Building2,
   Plus,
@@ -103,6 +104,81 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get('intent');
 
+  if (intent === 'upload-image') {
+    const session = await getSession(request.headers.get('Cookie'));
+    const token = session.get('token');
+    if (!token) {
+      return { error: 'Not authenticated' };
+    }
+
+    const file = formData.get('file') as File;
+    if (!file) {
+      return { error: 'No file provided' };
+    }
+
+    try {
+      const uploadForm = new FormData();
+      uploadForm.append('file', file);
+
+      const { API_BASE_URL } = await import('~/config/api-config');
+      const response = await fetch(`${API_BASE_URL}/api/v1/vendor/profile/me/image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: uploadForm,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      return { success: true, message: 'Profile image updated!' };
+    } catch (error) {
+      logger.error('Failed to upload profile image', { error: error instanceof Error ? error.message : 'Unknown error' });
+      return { error: error instanceof Error ? error.message : 'Failed to upload profile image' };
+    }
+  }
+
+  if (intent === 'delete-account') {
+    try {
+      const response = await authenticatedFetch(request, '/api/users/me', {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete account: ${response.status}`);
+      }
+
+      return await logout(request);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to delete account' };
+    }
+  }
+
+  if (intent === 'change-password') {
+    const currentPassword = formData.get('currentPassword') as string;
+    const newPassword = formData.get('newPassword') as string;
+
+    try {
+      const response = await authenticatedFetch(request, '/api/users/me/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { error: data.message || 'Failed to change password' };
+      }
+      return { success: true };
+    } catch (error) {
+      if (error instanceof Response) {
+        return { error: 'Your session has expired. Please log in again.' };
+      }
+      return { error: error instanceof Error ? error.message : 'Failed to change password' };
+    }
+  }
+
   if (intent === 'delete-pet') {
     const petId = formData.get('petId');
     if (!petId) {
@@ -162,11 +238,13 @@ export default function VendorProfilePage() {
   const { user, vendorProfile, vendorPets, submissionCount } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const fetcher = useFetcher();
+  const deleteFetcher = useFetcher();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
   const [isEditing, setIsEditing] = useState(!vendorProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -178,31 +256,29 @@ export default function VendorProfilePage() {
       };
       reader.readAsDataURL(file);
 
-      // Upload to backend
+      // Upload via server action (so the auth token is attached)
       const formData = new FormData();
+      formData.append('intent', 'upload-image');
       formData.append('file', file);
-
-      try {
-        const response = await fetch('/api/v1/vendor/profile/me/image', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error('Upload failed');
-        }
-
-        // Revalidate by reloading the page to get fresh data
-        // Alternatively we can just trust the optimistic UI, but better to sync.
-        // For now, we just let the optimistic UI hold.
-      } catch (error) {
-        logger.error('Failed to upload profile image', { error: error instanceof Error ? error.message : 'Unknown error' });
-        alert('Failed to upload profile image.');
-      }
-
-      // We should probably revalidate.
-
+      fetcher.submit(formData, {
+        method: 'POST',
+        encType: 'multipart/form-data',
+      });
     }
+  };
+
+  const isDeletingAccount = deleteFetcher.state !== 'idle';
+
+  const handleDeleteAccount = () => {
+    setShowDeleteAccountModal(true);
+  };
+
+  const confirmDeleteAccount = () => {
+    deleteFetcher.submit(
+      { intent: 'delete-account' },
+      { method: 'POST' }
+    );
+    setShowDeleteAccountModal(false);
   };
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number } | null>(null);
@@ -250,7 +326,7 @@ export default function VendorProfilePage() {
                 Cancel
               </Button>
               <Button variant="destructive" className="flex-1" onClick={() => {
-                if(audioRef.current){
+                if (audioRef.current) {
                   audioRef.current.currentTime = 0;
                   audioRef.current.play();
                   setTimeout(() => {
@@ -260,7 +336,7 @@ export default function VendorProfilePage() {
                     );
                     setDeleteConfirm(null);
                   }, 250);
-                }else{
+                } else {
                   fetcher.submit(
                     { intent: 'delete-pet', petId: deleteConfirm.id.toString() },
                     { method: 'POST' }
@@ -353,6 +429,15 @@ export default function VendorProfilePage() {
                     {submissionCount}
                   </span>
                 </Link>
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
+                onClick={handleDeleteAccount}
+                disabled={isDeletingAccount}
+              >
+                <Trash2 className="size-4 mr-2" />
+                {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
               </Button>
               <Button
                 variant="outline"
@@ -502,6 +587,11 @@ export default function VendorProfilePage() {
                 </Form>
               </div>
             </div>
+
+            {/* Change Password */}
+            <div className="mt-6">
+              <ChangePasswordSection />
+            </div>
           </div>
 
           {/* Pet Listings */}
@@ -600,6 +690,25 @@ export default function VendorProfilePage() {
           </div>
         </div>
       </div>
-    </div >
+      {/* Delete Account Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold mb-2">Delete Account</h3>
+            <p className="text-muted-foreground mb-4">
+              Are you sure you want to delete your account? This action cannot be undone and all your data, including pet listings, will be permanently removed.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowDeleteAccountModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDeleteAccount}>
+                Delete Account
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

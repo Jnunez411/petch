@@ -1,8 +1,9 @@
-import { useLoaderData, Link, redirect, useSearchParams } from "react-router";
+import { useLoaderData, Link, redirect, useSearchParams, useFetcher } from "react-router";
 import type { Route } from "./+types/pet.$id";
 import { useRef, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import { Heart } from "lucide-react";
 import { getUserFromSession } from "~/services/auth";
 import { getSession } from "~/services/session.server";
 import { FAKE_PETS, type FakePet } from '~/data/fake-pets';
@@ -210,9 +211,51 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     }
 
     return { pet, apiBaseUrl: API_BASE_URL, token, sessionUser: user, onlineFormTemplate, submissions, petDocuments };
+    // Check if this pet is favorited
+    let isFavorited = false;
+    if (token) {
+      try {
+        const favIdsRes = await fetch(`${API_BASE_URL}/api/pets/favorites/ids`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (favIdsRes.ok) {
+          const favIds: number[] = await favIdsRes.json();
+          isFavorited = favIds.includes(pet.id);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return { pet, apiBaseUrl: API_BASE_URL, isFavorited };
   } catch (error) {
     throw new Response("Pet not found", { status: 404 });
   }
+}
+
+export async function action({ request, params }: Route.ActionArgs) {
+  const session = await getSession(request.headers.get('Cookie'));
+  const token = session.get('token');
+  if (!token) return { error: 'Not authenticated' };
+
+  const formData = await request.formData();
+  const intent = formData.get('intent');
+
+  if (intent === 'favorite') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/pets/${params.id}/favorite`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const result = await res.json();
+        return { success: true, favorited: result.favorited };
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return { error: 'Unknown action' };
 }
 
 export default function PetDetail() {
@@ -226,6 +269,16 @@ export default function PetDetail() {
   const [visibleSubmissions, setVisibleSubmissions] = useState(submissions);
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { pet, apiBaseUrl, isFavorited: initialFavorited } = useLoaderData<typeof loader>();
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showAdoptionDetails, setShowAdoptionDetails] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(initialFavorited);
+  const fetcher = useFetcher();
+
+  const handleToggleFavorite = () => {
+    setIsFavorited(prev => !prev);
+    fetcher.submit({ intent: 'favorite' }, { method: 'POST' });
+  };
 
   const mainImage = pet.images?.[selectedImageIndex];
   const isVendorOwner = sessionUser?.userType === 'VENDOR' && pet.user?.email === sessionUser.email;
@@ -582,6 +635,18 @@ export default function PetDetail() {
                 className="flex-1 bg-coral hover:bg-coral-dark text-white py-3 text-lg font-semibold"
               >
                 {showAdoptionDetails ? 'Hide Adoption Details' : 'View Adoption Details'}
+              </Button>
+              <Button
+                onClick={handleToggleFavorite}
+                variant="outline"
+                className={`py-3 px-5 text-lg font-semibold transition-all duration-200 ${isFavorited
+                    ? 'border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100'
+                    : 'border-border hover:border-rose-300 hover:text-rose-500'
+                  }`}
+              >
+                <Heart className={`w-5 h-5 mr-2 transition-all duration-200 ${isFavorited ? 'fill-rose-500 text-rose-500' : ''
+                  }`} />
+                {isFavorited ? 'Favorited' : 'Favorite'}
               </Button>
             </div>
 

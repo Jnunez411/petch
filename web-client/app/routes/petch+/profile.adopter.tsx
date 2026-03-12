@@ -1,20 +1,24 @@
-import { useLoaderData, Link, redirect, Form, useActionData, useNavigation } from 'react-router';
+import { useLoaderData, Link, redirect, Form, useActionData, useNavigation, useFetcher } from 'react-router';
 import type { Route } from './+types/profile.adopter';
-import { getUserFromSession } from '~/services/auth';
+import { getUserFromSession, logout } from '~/services/auth';
 import { getSession } from '~/services/session.server';
+import { authenticatedFetch } from '~/utils/api';
 import { getAdopterProfile, createAdopterProfile, updateAdopterProfile } from '~/services/profile.server';
 import type { AdopterProfile, HomeType } from '~/types/adopter';
 import type { AdoptionFormSubmission } from '~/types/pet';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { ChangePasswordSection } from '~/components/blocks/ChangePasswordSection';
 import {
   Save,
   Loader2,
   ChevronDown,
   Download,
   FileText
+  Trash2
 } from 'lucide-react';
+import { useState } from 'react';
 import { createLogger } from '~/utils/logger';
 import { API_BASE_URL } from '~/config/api-config';
 
@@ -69,11 +73,52 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData();
+  const intent = formData.get('intent');
+
+  if (intent === 'change-password') {
+    const currentPassword = formData.get('currentPassword') as string;
+    const newPassword = formData.get('newPassword') as string;
+
+    try {
+      const response = await authenticatedFetch(request, '/api/users/me/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { error: data.message || 'Failed to change password' };
+      }
+      return { success: true };
+    } catch (error) {
+      if (error instanceof Response) {
+        return { error: 'Your session has expired. Please log in again.' };
+      }
+      return { error: error instanceof Error ? error.message : 'Failed to change password' };
+    }
+  }
+
+  if (intent === 'delete-account') {
+    try {
+      const response = await authenticatedFetch(request, '/api/users/me', {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete account: ${response.status}`);
+      }
+
+      return await logout(request);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to delete account' };
+    }
+  }
+
   if (request.method !== 'POST') {
     return { error: 'Method not allowed' };
   }
 
-  const formData = await request.formData();
   const homeTypeValue = formData.get('homeType');
   const additionalNotesValue = formData.get('additionalNotes');
 
@@ -145,8 +190,23 @@ export default function AdopterProfilePage() {
   const { user, adopterProfile, submissions, token } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
+  const deleteFetcher = useFetcher();
 
   const isSubmitting = navigation.state === 'submitting';
+  const isDeleting = deleteFetcher.state !== 'idle';
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+
+  const handleDeleteAccount = () => {
+    setShowDeleteAccountModal(true);
+  };
+
+  const confirmDeleteAccount = () => {
+    deleteFetcher.submit(
+      { intent: 'delete-account' },
+      { method: 'POST' }
+    );
+    setShowDeleteAccountModal(false);
+  };
 
   const handleDownloadSubmission = async (submission: AdoptionFormSubmission) => {
     if (!token) {
@@ -190,8 +250,8 @@ export default function AdopterProfilePage() {
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="grid lg:grid-cols-3 gap-8">
 
-          {/* Sidebar - Account Info Card */}
-          <div className="lg:col-span-1">
+          {/* Sidebar - Account Info & Change Password */}
+          <div className="lg:col-span-1 space-y-6">
             <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden">
               {/* Card Header with Accent */}
               <div className="bg-coral/5 dark:bg-coral/10 px-6 py-5 border-b border-coral/10">
@@ -222,8 +282,24 @@ export default function AdopterProfilePage() {
                     Adopter
                   </span>
                 </div>
+
+                {/* Delete Account */}
+                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    {isDeleting ? 'Deleting...' : 'Delete Account'}
+                  </Button>
+                </div>
               </div>
             </div>
+
+            {/* Change Password */}
+            <ChangePasswordSection />
           </div>
 
           {/* Main Form Card */}
@@ -414,6 +490,26 @@ export default function AdopterProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Account Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold mb-2">Delete Account</h3>
+            <p className="text-muted-foreground mb-4">
+              Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowDeleteAccountModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDeleteAccount}>
+                Delete Account
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

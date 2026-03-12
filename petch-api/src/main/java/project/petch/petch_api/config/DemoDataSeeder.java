@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import project.petch.petch_api.models.Images;
@@ -18,6 +19,7 @@ import project.petch.petch_api.repositories.UserRepository;
 
 @Configuration
 @Slf4j
+@Profile({ "dev", "demo", "default" })
 public class DemoDataSeeder {
 
         @Bean
@@ -61,13 +63,15 @@ public class DemoDataSeeder {
                                 log.info("Created admin user: admin@petch.com / adminpass123");
                         }
 
-                        if (repository.count() >= 200) {
-                                log.info("Database already has {} pets. Skipping seed.", repository.count());
+                        // Calculate how many more pets we need to add (don't delete existing — FK
+                        // constraints may exist)
+                        long existingCount = repository.count();
+                        int petsToAdd = (int) (500 - existingCount);
+                        if (petsToAdd <= 0) {
+                                log.info("Database already has {} pets. Skipping seed.", existingCount);
                                 return;
                         }
-
-                        // Clear existing data to ensure we get exactly what we want if we're under 200
-                        repository.deleteAll();
+                        log.info("Database has {} pets. Adding {} more to reach 500.", existingCount, petsToAdd);
 
                         String[] names = {
                                         "Max", "Luna", "Buddy", "Bella", "Charlie", "Molly", "Rocky", "Lucy", "Cooper",
@@ -104,7 +108,7 @@ public class DemoDataSeeder {
                         java.util.Random random = new java.util.Random();
                         List<Pets> petsToSave = new java.util.ArrayList<>();
 
-                        for (int i = 0; i < 200; i++) {
+                        for (int i = 0; i < petsToAdd; i++) {
                                 String name = names[random.nextInt(names.length)];
                                 String species = speciesList[random.nextInt(speciesList.length)];
                                 String breed;

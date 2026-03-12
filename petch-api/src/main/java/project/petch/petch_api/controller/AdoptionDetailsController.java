@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import project.petch.petch_api.dto.pet.AdoptionDetailsDTO;
@@ -31,6 +32,7 @@ public class AdoptionDetailsController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('VENDOR')")
     public ResponseEntity<AdoptionDetailsDTO> createAdoptionDetails(@PathVariable Long petId,
             @RequestBody AdoptionDetailsDTO dto) {
         log.info("Creating adoption details for petId={}", petId);
@@ -40,6 +42,7 @@ public class AdoptionDetailsController {
     }
 
     @PutMapping
+    @PreAuthorize("hasRole('VENDOR')")
     public ResponseEntity<AdoptionDetailsDTO> updateAdoptionDetails(@PathVariable Long petId,
             @RequestBody AdoptionDetailsDTO dto) {
         log.info("Updating adoption details for petId={}", petId);
@@ -49,6 +52,7 @@ public class AdoptionDetailsController {
     }
 
     @DeleteMapping
+    @PreAuthorize("hasRole('VENDOR')")
     public ResponseEntity<Void> deleteAdoptionDetails(@PathVariable Long petId) {
         log.warn("Deleting adoption details for petId={}", petId);
         adoptionDetailsService.deleteAdoptionDetails(petId);

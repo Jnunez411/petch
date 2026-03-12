@@ -57,10 +57,13 @@ export async function action({ request }: Route.ActionArgs) {
 
     if (intent === 'unfavorite' && petId) {
         try {
-            await fetch(`${API_BASE_URL}/api/pets/${petId}/favorite`, {
+            const response = await fetch(`${API_BASE_URL}/api/pets/${petId}/favorite`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
             });
+            if (!response.ok) {
+                return { error: 'Failed to unfavorite' };
+            }
             return { success: true, unfavoritedId: Number(petId) };
         } catch {
             return { error: 'Failed to unfavorite' };
@@ -83,12 +86,15 @@ export default function FavoritesPage() {
     const [favorites, setFavorites] = useState<Pet[]>(initialFavorites);
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Handle optimistic UI updates
+    // Handle server responses: rollback on error, confirm on success
     useEffect(() => {
-        if (fetcher.data && 'unfavoritedId' in fetcher.data) {
-            setFavorites(prev => prev.filter(p => p.id !== fetcher.data.unfavoritedId));
+        if (fetcher.state !== 'idle' || !fetcher.data) return;
+        const data = fetcher.data as { success?: boolean; error?: string; unfavoritedId?: number };
+        if (data.error) {
+            // Rollback: re-add the pet from the initial data
+            setFavorites(initialFavorites);
         }
-    }, [fetcher.data]);
+    }, [fetcher.state, fetcher.data, initialFavorites]);
 
     const handleUnfavorite = (petId: number) => {
         // Optimistic UI

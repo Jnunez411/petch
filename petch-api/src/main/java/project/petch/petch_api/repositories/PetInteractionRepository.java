@@ -22,4 +22,6 @@ public interface PetInteractionRepository extends JpaRepository<PetInteraction, 
 
     java.util.Optional<PetInteraction> findByUserAndPet_IdAndInteractionType(User user, Long petId,
             PetInteraction.InteractionType interactionType);
+
+    void deleteByPet_Id(Long petId);
 }

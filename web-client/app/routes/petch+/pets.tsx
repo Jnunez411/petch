@@ -8,11 +8,12 @@ import { Label } from '~/components/ui/label';
 import { useState, useEffect } from 'react';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
-import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2, Dog } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2, Dog, Flag } from 'lucide-react';
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES } from '~/config/constants';
 import type { Pet } from '~/types/pet';
 import { createLogger } from '~/utils/logger';
+import ReportModal from '~/components/ReportModal';
 
 const logger = createLogger('PetsPage');
 
@@ -164,6 +165,39 @@ export async function action({ request }: Route.ActionArgs) {
     return { error: 'Not authenticated' };
   }
 
+  // Handle report submission
+  if (intent === 'report') {
+    const reasons = formData.get('reasons') as string;
+    const additionalDetails = formData.get('additionalDetails') as string;
+    if (!reasons) {
+      return { error: 'At least one reason is required' };
+    }
+    try {
+      const parsedReasons = JSON.parse(reasons);
+      const response = await fetch(`${API_BASE_URL}/api/reports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          petId: Number(petId),
+          reasons: parsedReasons,
+          additionalDetails: additionalDetails || null,
+        }),
+      });
+      if (response.status === 409) {
+        return { error: 'You have already reported this listing' };
+      }
+      if (!response.ok) {
+        return { error: 'Failed to submit report' };
+      }
+      return { success: true, intent: 'report' };
+    } catch {
+      return { error: 'Failed to submit report' };
+    }
+  }
+
   // Handle favorite toggle
   if (intent === 'favorite') {
     try {
@@ -218,6 +252,7 @@ export default function PetsPage() {
   const [filterAtRisk, setFilterAtRisk] = useState<boolean>(filters.atRisk);
   const [searchQuery, setSearchQuery] = useState<string>(filters.search || '');
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set(initialFavoriteIds || []));
+  const [reportingPet, setReportingPet] = useState<{ id: number; name: string } | null>(null);
 
   // Favorite toggle handler
   const handleToggleFavorite = (petId: number) => {
@@ -236,6 +271,38 @@ export default function PetsPage() {
       { method: 'POST' }
     );
   };
+
+  // Rollback optimistic favorite toggle on server error
+  useEffect(() => {
+    if (fetcher.state === 'idle' && fetcher.data) {
+      const data = fetcher.data as { error?: string; intent?: string; petId?: number; favorited?: boolean };
+      if (data.intent === 'favorite' && data.petId) {
+        if (data.error) {
+          // Rollback: reverse the optimistic toggle
+          setFavoriteIds(prev => {
+            const next = new Set(prev);
+            if (next.has(data.petId!)) {
+              next.delete(data.petId!);
+            } else {
+              next.add(data.petId!);
+            }
+            return next;
+          });
+        } else if (typeof data.favorited === 'boolean') {
+          // Sync with server truth
+          setFavoriteIds(prev => {
+            const next = new Set(prev);
+            if (data.favorited) {
+              next.add(data.petId!);
+            } else {
+              next.delete(data.petId!);
+            }
+            return next;
+          });
+        }
+      }
+    }
+  }, [fetcher.state, fetcher.data]);
 
   // Build return URL from current filter state (preserves filters when navigating to pet details)
   const buildReturnUrl = () => {
@@ -567,6 +634,16 @@ export default function PetsPage() {
                           }`} />
                       </button>
                     )}
+                    {/* Report Flag Button */}
+                    {user && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); setReportingPet({ id: pet.id, name: pet.name }); }}
+                        className="absolute bottom-3 right-3 z-10 size-8 rounded-full bg-black/40 hover:bg-amber-500 backdrop-blur-sm shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200"
+                        title="Report this listing"
+                      >
+                        <Flag className="w-4 h-4 text-white" />
+                      </button>
+                    )}
                   </div>
 
                   <CardHeader className="pb-2 pt-4">
@@ -728,6 +805,14 @@ export default function PetsPage() {
           </>
         )}
       </div>
+
+      {/* Report Modal */}
+      <ReportModal
+        petId={reportingPet?.id ?? 0}
+        petName={reportingPet?.name ?? ''}
+        isOpen={reportingPet !== null}
+        onClose={() => setReportingPet(null)}
+      />
     </div>
   );
 }

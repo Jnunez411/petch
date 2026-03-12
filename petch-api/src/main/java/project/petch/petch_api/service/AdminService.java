@@ -10,8 +10,11 @@ import project.petch.petch_api.dto.user.UserType;
 import project.petch.petch_api.models.AdminAuditLog;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
+import project.petch.petch_api.models.ReportStatus;
 import project.petch.petch_api.repositories.AdminAuditLogRepository;
+import project.petch.petch_api.repositories.PetInteractionRepository;
 import project.petch.petch_api.repositories.PetsRepository;
+import project.petch.petch_api.repositories.ReportRepository;
 import project.petch.petch_api.repositories.UserRepository;
 
 import java.util.List;
@@ -27,6 +30,8 @@ public class AdminService {
     private final UserRepository userRepository;
     private final PetsRepository petsRepository;
     private final AdminAuditLogRepository auditLogRepository;
+    private final ReportRepository reportRepository;
+    private final PetInteractionRepository petInteractionRepository;
 
     /**
      * Get admin dashboard statistics using efficient count queries
@@ -36,12 +41,14 @@ public class AdminService {
         long totalPets = petsRepository.count();
         long totalAdopters = userRepository.countByUserType(UserType.ADOPTER);
         long totalVendors = userRepository.countByUserType(UserType.VENDOR);
+        long pendingReports = reportRepository.countByStatus(ReportStatus.PENDING);
 
         return AdminStatsDto.builder()
                 .totalUsers(totalUsers)
                 .totalPets(totalPets)
                 .totalAdopters(totalAdopters)
                 .totalVendors(totalVendors)
+                .pendingReports(pendingReports)
                 .build();
     }
 
@@ -101,6 +108,10 @@ public class AdminService {
                 petToDelete.getAge());
 
         auditLog(currentUserEmail, "DELETE_PET", "PET", id, targetDetails);
+
+        // Clean up related records before deleting the pet
+        petInteractionRepository.deleteByPet_Id(id);
+        reportRepository.deleteByPetId(id);
 
         log.info("Admin {} deleted pet: {}", currentUserEmail, targetDetails);
         petsRepository.deleteById(id);

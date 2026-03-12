@@ -21,13 +21,23 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Registration failed' }));
+
+    // Extract field-level validation errors from GlobalExceptionHandler format
+    let errorMessage = error.message || 'Registration failed';
+    if (error.errors && typeof error.errors === 'object') {
+      const fieldErrors = Object.values(error.errors) as string[];
+      if (fieldErrors.length > 0) {
+        errorMessage = fieldErrors.join('. ');
+      }
+    }
+
     authLogger.error('Registration failed', {
       email: data.email,
       status: response.status,
-      error: error.message,
+      error: errorMessage,
       duration: `${duration}ms`
     });
-    throw new Error(error.message || 'Registration failed');
+    throw new Error(errorMessage);
   }
 
   authLogger.info('Registration successful', { email: data.email, duration: `${duration}ms` });

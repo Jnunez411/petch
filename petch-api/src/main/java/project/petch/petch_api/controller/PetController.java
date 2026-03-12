@@ -15,7 +15,6 @@ import project.petch.petch_api.dto.pet.PetDTO;
 import project.petch.petch_api.models.PetInteraction;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
-import project.petch.petch_api.repositories.UserRepository;
 import project.petch.petch_api.service.ImageService;
 import project.petch.petch_api.service.PetService;
 import project.petch.petch_api.service.SecurityEventLogger;
@@ -33,7 +32,6 @@ import java.util.Map;
 public class PetController {
     private final PetService petService;
     private final ImageService imageService;
-    private final UserRepository userRepository;
     private final SecurityEventLogger securityEventLogger;
     private final HttpServletRequest httpServletRequest;
 
@@ -65,9 +63,16 @@ public class PetController {
             return ResponseEntity.status(401).build();
         }
         String type = body.get("type");
-        PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
-        petService.recordInteraction(user, id, interactionType);
-        return ResponseEntity.ok().build();
+        if (type == null || type.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
+            petService.recordInteraction(user, id, interactionType);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     // DELETE /api/pets/{id}/interact
@@ -144,14 +149,13 @@ public class PetController {
     // create pet
     // POST /api/pets
     @PostMapping
-    public ResponseEntity<Pets> createPet(@Valid @RequestBody PetDTO dto) {
-        log.info("Creating new pet: name={}, species={}, breed={}", dto.getName(), dto.getSpecies(), dto.getBreed());
+    public ResponseEntity<Pets> createPet(@Valid @RequestBody PetDTO dto, @AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        log.info("Creating new pet: name={}, species={}, breed={}, userId={}", dto.getName(), dto.getSpecies(),
+                dto.getBreed(), user.getId());
         try {
-            User user = null;
-            if (dto.getUserId() != null) {
-                user = userRepository.findById(dto.getUserId()).orElse(null);
-            }
-
             Pets pet = Pets.builder()
                     .name(dto.getName())
                     .species(dto.getSpecies())

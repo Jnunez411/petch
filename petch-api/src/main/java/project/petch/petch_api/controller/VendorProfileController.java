@@ -30,6 +30,9 @@ public class VendorProfileController {
 
     private final VendorProfileService vendorProfileService;
 
+    @Value("${app.upload-dir:uploads}")
+    private String uploadDir;
+
     @GetMapping("/me")
     public ResponseEntity<VendorProfileDTO> getMyVendorProfile(Authentication authentication) {
         User user = (User) authentication.getPrincipal();
@@ -104,7 +107,7 @@ public class VendorProfileController {
         // Save file
         String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
         // Use standard upload dir or fallback
-        Path uploadPath = Paths.get("uploads/vendors").toAbsolutePath().normalize();
+        Path uploadPath = Paths.get(uploadDir, "vendors").toAbsolutePath().normalize();
         Files.createDirectories(uploadPath);
         Path filePath = uploadPath.resolve(filename);
         file.transferTo(filePath.toFile());

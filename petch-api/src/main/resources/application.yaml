@@ -56,6 +56,13 @@ app:
     token-expiry-minutes: ${PASSWORD_RESET_EXPIRY:30}
     frontend-url: ${FRONTEND_URL:http://localhost:3000}
 
+# Stripe Configuration
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  success-url: ${STRIPE_SUCCESS_URL:http://localhost:3000/payment-success}
+  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:3000/checkout}
+
 # Logging Configuration
 logging:
   level:

@@ -1,6 +1,11 @@
 import { authenticatedFetch } from '~/utils/api';
 import type { AdopterProfileRequest, AdopterProfileResponse } from '~/types/adopter';
-import type { VendorProfileRequest, VendorProfileResponse } from '~/types/vendor';
+import type {
+  VendorAdoptionPreferencesRequest,
+  VendorAdoptionPreferencesResponse,
+  VendorProfileRequest,
+  VendorProfileResponse,
+} from '~/types/vendor';
 
 // Adopter Profile Functions
 
@@ -141,6 +146,89 @@ export async function updateVendorProfile(
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({ message: 'Failed to update vendor profile' }));
     throw new Error(errorBody.message || 'Failed to update vendor profile');
+  }
+
+  return await response.json();
+}
+
+/**
+ * Fetch vendor adoption preferences for the authenticated user.
+ * Returns null if preferences do not exist yet.
+ */
+export async function getVendorAdoptionPreferences(
+  request: Request
+): Promise<VendorAdoptionPreferencesResponse | null> {
+  try {
+    const response = await authenticatedFetch(request, '/api/v1/vendor/adoption-preferences/me');
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to load vendor adoption preferences (status: ${response.status})`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('404')) {
+      return null;
+    }
+    throw new Error('Failed to load vendor adoption preferences');
+  }
+}
+
+export async function createVendorAdoptionPreferences(
+  request: Request,
+  data: VendorAdoptionPreferencesRequest
+): Promise<VendorAdoptionPreferencesResponse> {
+  const response = await authenticatedFetch(request, '/api/v1/vendor/adoption-preferences/me', {
+    method: 'POST',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ message: 'Failed to create vendor adoption preferences' }));
+    throw new Error(errorBody.message || 'Failed to create vendor adoption preferences');
+  }
+
+  return await response.json();
+}
+
+export async function updateVendorAdoptionPreferences(
+  request: Request,
+  data: VendorAdoptionPreferencesRequest
+): Promise<VendorAdoptionPreferencesResponse> {
+  const response = await authenticatedFetch(request, '/api/v1/vendor/adoption-preferences/me', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ message: 'Failed to update vendor adoption preferences' }));
+    throw new Error(errorBody.message || 'Failed to update vendor adoption preferences');
+  }
+
+  return await response.json();
+}
+
+export async function uploadVendorAdoptionPreferencesPdf(
+  request: Request,
+  file: File
+): Promise<VendorAdoptionPreferencesResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await authenticatedFetch(request, '/api/v1/vendor/adoption-preferences/me/online-form-pdf', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ message: 'Failed to upload online form PDF' }));
+    throw new Error(errorBody.message || 'Failed to upload online form PDF');
   }
 
   return await response.json();

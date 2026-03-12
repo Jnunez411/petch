@@ -7,7 +7,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import project.petch.petch_api.dto.pet.AdoptionDetailsDTO;
+import project.petch.petch_api.dto.pet.ImageDTO;
 import project.petch.petch_api.dto.pet.PetDTO;
+import project.petch.petch_api.dto.pet.PetOwnerDTO;
+import project.petch.petch_api.models.AdoptionDetails;
+import project.petch.petch_api.models.Images;
 import project.petch.petch_api.models.PetInteraction;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
@@ -52,6 +58,11 @@ public class PetService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<PetDTO> discoverPetDTOs(User user) {
+        return discoverPets(user).stream().map(this::toDTO).toList();
+    }
+
     /**
      * Get all pets the user has liked.
      */
@@ -60,6 +71,11 @@ public class PetService {
                 .stream()
                 .map(PetInteraction::getPet)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PetDTO> getLikedPetDTOs(User user) {
+        return getLikedPets(user).stream().map(this::toDTO).toList();
     }
 
     /**
@@ -75,11 +91,28 @@ public class PetService {
         return petsRepository.findFilteredPets(species, ageMin, ageMax, fosterable, atRisk, pageable);
     }
 
+    @Transactional(readOnly = true)
+    public Page<PetDTO> getFilteredPetDTOs(
+            String species,
+            Integer ageMin,
+            Integer ageMax,
+            Boolean fosterable,
+            Boolean atRisk,
+            Pageable pageable) {
+        return petsRepository.findFilteredPets(species, ageMin, ageMax, fosterable, atRisk, pageable)
+                .map(this::toDTO);
+    }
+
     /**
      * Get all pets with eager-loaded images and adoption details.
      */
     public List<Pets> getAllPetsWithDetails() {
         return petsRepository.findAllWithDetails();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PetDTO> getAllPetDTOsWithDetails() {
+        return petsRepository.findAllWithDetails().stream().map(this::toDTO).toList();
     }
 
     private double calculateMatchScore(Pets pet, UserPreference prefs) {
@@ -161,8 +194,18 @@ public class PetService {
         return petsRepository.findByUserId(userId);
     }
 
+    @Transactional(readOnly = true)
+    public List<PetDTO> getPetDTOsByUserId(Long userId) {
+        return petsRepository.findByUserId(userId).stream().map(this::toDTO).toList();
+    }
+
     public Optional<Pets> getPetById(Long id) {
         return petsRepository.findByIdWithDetails(id);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<PetDTO> getPetDTOById(Long id) {
+        return petsRepository.findByIdWithDetails(id).map(this::toDTO);
     }
 
     public void resetDiscovery(User user) {
@@ -216,6 +259,74 @@ public class PetService {
             pet.setFosterable(dto.getFosterable() != null ? dto.getFosterable() : false);
             return petsRepository.save(pet);
         }).orElseThrow(() -> new RuntimeException("Pet not found with id " + id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PetDTO> getTrendingPetDTOs(int count) {
+        return petsRepository.findTrendingPets(Pageable.ofSize(count)).stream().map(this::toDTO).toList();
+    }
+
+    private PetDTO toDTO(Pets pet) {
+        return PetDTO.builder()
+                .id(pet.getId())
+                .name(pet.getName())
+                .species(pet.getSpecies())
+                .breed(pet.getBreed())
+                .age(pet.getAge())
+                .description(pet.getDescription())
+                .atRisk(pet.getAtRisk())
+                .fosterable(pet.getFosterable())
+                .userId(pet.getUser() != null ? pet.getUser().getId() : null)
+                .images(pet.getImages().stream().map(this::toImageDTO).toList())
+                .viewCount(pet.getViewCount())
+                .latitude(pet.getLatitude())
+                .longitude(pet.getLongitude())
+                .adoptionDetails(toAdoptionDetailsDTO(pet.getAdoptionDetails()))
+                .user(toOwnerDTO(pet.getUser()))
+                .build();
+    }
+
+    private ImageDTO toImageDTO(Images image) {
+        return ImageDTO.builder()
+                .id(image.getId())
+                .filePath(image.getFilePath())
+                .altText(image.getAltText())
+                .fileSize(image.getFileSize())
+                .createdAt(image.getCreatedAt())
+                .build();
+    }
+
+    private AdoptionDetailsDTO toAdoptionDetailsDTO(AdoptionDetails adoptionDetails) {
+        if (adoptionDetails == null) {
+            return null;
+        }
+
+        return AdoptionDetailsDTO.builder()
+                .id(adoptionDetails.getId())
+                .isDirect(adoptionDetails.getIsDirect())
+                .priceEstimate(adoptionDetails.getPriceEstimate())
+                .stepsDescription(adoptionDetails.getStepsDescription())
+                .redirectLink(adoptionDetails.getRedirectLink())
+                .phoneNumber(adoptionDetails.getPhoneNumber())
+                .email(adoptionDetails.getEmail())
+                .hasOnlineFormPdf(adoptionDetails.getOnlineFormPdf() != null && adoptionDetails.getOnlineFormPdf().length > 0)
+                .onlineFormFileName(adoptionDetails.getOnlineFormFileName())
+                .onlineFormContentType(adoptionDetails.getOnlineFormContentType())
+                .build();
+    }
+
+    private PetOwnerDTO toOwnerDTO(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        return PetOwnerDTO.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .userType(user.getUserType() != null ? user.getUserType().name() : null)
+                .build();
     }
 
     public List<Pets> findPetsBySpecies(String species) {

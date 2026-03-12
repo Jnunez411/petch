@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -15,6 +16,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
@@ -57,6 +59,17 @@ public class AdoptionDetails {
 
     @Column(name = "email", length = 100)
     private String email;
+
+    @JsonIgnore
+    @Lob
+    @Column(name = "online_form_pdf")
+    private byte[] onlineFormPdf;
+
+    @Column(name = "online_form_file_name", length = 255)
+    private String onlineFormFileName;
+
+    @Column(name = "online_form_content_type", length = 100)
+    private String onlineFormContentType;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

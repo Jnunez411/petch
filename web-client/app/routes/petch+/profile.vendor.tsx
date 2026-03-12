@@ -18,7 +18,9 @@ import {
   CheckCircle,
   User,
   Camera,
-  AlertCircle
+  AlertCircle,
+  SlidersHorizontal,
+  FileText
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { getImageUrl } from '~/config/api-config';
@@ -68,6 +70,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   let vendorPets: Pet[] = [];
   let backendUserId: number | null = null;
+  let submissionCount = 0;
   try {
     const userResponse = await authenticatedFetch(request, '/api/users/me');
     if (userResponse.ok) {
@@ -83,7 +86,17 @@ export async function loader({ request }: Route.LoaderArgs) {
     logger.error('Failed to fetch vendor pets', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
-  return { user, vendorProfile, vendorPets, backendUserId };
+  try {
+    const submissionsResponse = await authenticatedFetch(request, '/api/v1/vendor/submissions/me');
+    if (submissionsResponse.ok) {
+      const submissions = await submissionsResponse.json();
+      submissionCount = Array.isArray(submissions) ? submissions.length : 0;
+    }
+  } catch (error) {
+    logger.error('Failed to fetch vendor submission count', { error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+
+  return { user, vendorProfile, vendorPets, backendUserId, submissionCount };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -146,7 +159,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function VendorProfilePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { user, vendorProfile, vendorPets } = useLoaderData<typeof loader>();
+  const { user, vendorProfile, vendorPets, submissionCount } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const fetcher = useFetcher();
   const navigation = useNavigation();
@@ -326,6 +339,21 @@ export default function VendorProfilePage() {
 
             {/* Quick Actions */}
             <div className="flex gap-3">
+              <Button asChild variant="outline" className="rounded-xl border-coral/30 text-coral hover:bg-coral/10 hover:text-coral-dark">
+                <Link to="/profile/vendor/adoption-preferences">
+                  <SlidersHorizontal className="size-4 mr-2" />
+                  Adoption Preferences
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-xl border-teal/30 text-teal hover:bg-teal/10 hover:text-teal">
+                <Link to="/profile/vendor/submissions" className="inline-flex items-center gap-2">
+                  <FileText className="size-4" />
+                  Submission Forms
+                  <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-teal px-2 py-0.5 text-xs font-semibold text-white">
+                    {submissionCount}
+                  </span>
+                </Link>
+              </Button>
               <Button
                 variant="outline"
                 className="rounded-xl"

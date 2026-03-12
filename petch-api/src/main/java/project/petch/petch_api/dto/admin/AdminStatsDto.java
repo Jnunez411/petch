@@ -14,4 +14,5 @@ public class AdminStatsDto {
     private long totalPets;
     private long totalAdopters;
     private long totalVendors;
+    private long pendingReports;
 }

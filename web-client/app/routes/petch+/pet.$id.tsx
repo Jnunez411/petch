@@ -1,13 +1,15 @@
 import { useLoaderData, Link, redirect, useSearchParams, useFetcher } from "react-router";
 import type { Route } from "./+types/pet.$id";
 import { useRef, useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import { Heart } from "lucide-react";
+import { Heart, Flag } from "lucide-react";
 import { getUserFromSession } from "~/services/auth";
 import { getSession } from "~/services/session.server";
 import { FAKE_PETS, type FakePet } from '~/data/fake-pets';
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
+import ReportModal from '~/components/ReportModal';
 
 interface Image {
   id: number;
@@ -251,10 +253,44 @@ export async function action({ request, params }: Route.ActionArgs) {
         const result = await res.json();
         return { success: true, favorited: result.favorited };
       }
+      return { error: 'Failed to toggle favorite' };
     } catch {
-      // ignore
+      return { error: 'Failed to toggle favorite' };
     }
   }
+
+  if (intent === 'report') {
+    const reasons = formData.get('reasons') as string;
+    const additionalDetails = formData.get('additionalDetails') as string;
+    if (!reasons) {
+      return { error: 'At least one reason is required' };
+    }
+    try {
+      const parsedReasons = JSON.parse(reasons);
+      const res = await fetch(`${API_BASE_URL}/api/reports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          petId: Number(formData.get('petId')),
+          reasons: parsedReasons,
+          additionalDetails: additionalDetails || null,
+        }),
+      });
+      if (res.status === 409) {
+        return { error: 'You have already reported this listing' };
+      }
+      if (res.ok) {
+        return { success: true, intent: 'report' };
+      }
+      return { error: 'Failed to submit report' };
+    } catch {
+      return { error: 'Failed to submit report' };
+    }
+  }
+
   return { error: 'Unknown action' };
 }
 
@@ -273,12 +309,25 @@ export default function PetDetail() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAdoptionDetails, setShowAdoptionDetails] = useState(false);
   const [isFavorited, setIsFavorited] = useState(initialFavorited);
+  const [showReportModal, setShowReportModal] = useState(false);
   const fetcher = useFetcher();
 
   const handleToggleFavorite = () => {
     setIsFavorited(prev => !prev);
     fetcher.submit({ intent: 'favorite' }, { method: 'POST' });
   };
+
+  // Rollback optimistic favorite toggle on server error
+  useEffect(() => {
+    if (fetcher.state === 'idle' && fetcher.data) {
+      const data = fetcher.data as { error?: string; favorited?: boolean };
+      if (data.error) {
+        setIsFavorited(prev => !prev);
+      } else if (typeof data.favorited === 'boolean') {
+        setIsFavorited(data.favorited);
+      }
+    }
+  }, [fetcher.state, fetcher.data]);
 
   const mainImage = pet.images?.[selectedImageIndex];
   const isVendorOwner = sessionUser?.userType === 'VENDOR' && pet.user?.email === sessionUser.email;
@@ -464,6 +513,9 @@ export default function PetDetail() {
     } else if (origin === 'admin') {
       backLink = '/admin/pets';
       backText = '← Back to Admin Listings';
+    } else if (origin === 'reports') {
+      backLink = '/admin/reports';
+      backText = '← Back to Reports';
     }
   }
 
@@ -648,6 +700,14 @@ export default function PetDetail() {
                   }`} />
                 {isFavorited ? 'Favorited' : 'Favorite'}
               </Button>
+              <Button
+                onClick={() => setShowReportModal(true)}
+                variant="outline"
+                className="py-3 px-5 text-lg font-semibold border-amber-300 text-amber-600 hover:bg-amber-50 hover:border-amber-400 transition-all duration-200"
+              >
+                <Flag className="w-5 h-5 mr-2" />
+                Report
+              </Button>
             </div>
 
             {/* Adoption Details */}
@@ -818,6 +878,14 @@ export default function PetDetail() {
           </div>
         </div>
       </div>
+
+      {/* Report Modal */}
+      <ReportModal
+        petId={pet.id}
+        petName={pet.name}
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+      />
     </div>
   );
 }

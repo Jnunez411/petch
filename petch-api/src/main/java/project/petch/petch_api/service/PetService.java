@@ -405,20 +405,28 @@ public class PetService {
 
     /**
      * Delete an interaction (Undo) and reverse learned preferences.
+     * If type is provided, deletes only the interaction of that type.
      */
-    public void deleteInteraction(User user, Long petId) {
-        PetInteraction interaction = petInteractionRepository.findByUserAndPet_Id(user, petId)
-                .orElseThrow(() -> new RuntimeException("Interaction not found"));
+    public void deleteInteraction(User user, Long petId, String type) {
+        PetInteraction interaction;
+        if (type != null && !type.isBlank()) {
+            PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
+            interaction = petInteractionRepository.findByUserAndPet_IdAndInteractionType(user, petId, interactionType)
+                    .orElseThrow(() -> new RuntimeException("Interaction not found"));
+        } else {
+            interaction = petInteractionRepository.findByUserAndPet_Id(user, petId)
+                    .orElseThrow(() -> new RuntimeException("Interaction not found"));
+        }
 
         Pets pet = interaction.getPet();
-        PetInteraction.InteractionType type = interaction.getInteractionType();
+        PetInteraction.InteractionType actualType = interaction.getInteractionType();
 
         petInteractionRepository.delete(interaction);
 
         // Reverse preference learning and decrement total swipes
         userPreferenceRepository.findByUser(user).ifPresent(prefs -> {
             // Reverse the learning rate that was applied
-            double reverseLearningRate = type == PetInteraction.InteractionType.LIKE ? -0.5 : 0.2;
+            double reverseLearningRate = actualType == PetInteraction.InteractionType.LIKE ? -0.5 : 0.2;
             String species = pet.getSpecies().toLowerCase();
             String breed = pet.getBreed().toLowerCase();
 

@@ -118,11 +118,12 @@ public class PetController {
     @DeleteMapping("/{id}/interact")
     public ResponseEntity<Void> deleteInteraction(
             @PathVariable Long id,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal User user,
+            @RequestParam(required = false) String type) {
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
-        petService.deleteInteraction(user, id);
+        petService.deleteInteraction(user, id, type);
         return ResponseEntity.noContent().build();
     }
 

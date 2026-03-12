@@ -2,7 +2,6 @@ package project.petch.petch_api.config;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,8 +38,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private final Map<String, BucketEntry> buckets = new ConcurrentHashMap<>();
 
     // Configuration constants
-    private static final int AUTH_REQUESTS_PER_MINUTE = 5;
-    private static final int UPLOAD_REQUESTS_PER_MINUTE = 5;
+    private static final int AUTH_REQUESTS_PER_MINUTE = 20;
+    private static final int UPLOAD_REQUESTS_PER_MINUTE = 10;
     private static final long BUCKET_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
     private SecurityEventLogger securityEventLogger;
@@ -119,9 +118,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
      * @param requestsPerMinute number of requests allowed per minute
      */
     private Bucket createNewBucket(int requestsPerMinute) {
-        Bandwidth limit = Bandwidth.classic(
-                requestsPerMinute,
-                Refill.greedy(requestsPerMinute, Duration.ofMinutes(1)));
+        Bandwidth limit = Bandwidth.builder()
+                .capacity(requestsPerMinute)
+                .refillGreedy(requestsPerMinute, Duration.ofMinutes(1))
+                .build();
         return Bucket.builder().addLimit(limit).build();
     }
 

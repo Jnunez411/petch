@@ -119,6 +119,6 @@ public class UserController {
 
         userRepository.deleteById(currentUser.getId());
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 }

@@ -14,6 +14,7 @@ import {
   ImageIcon, X, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { createLogger } from '~/utils/logger';
+import { API_BASE_URL } from '~/config/api-config';
 
 const logger = createLogger('CreateListing');
 
@@ -306,7 +307,7 @@ export default function CreatePetPage() {
     setError(null);
 
     try {
-      const userResponse = await fetch('/api/users/me', {
+      const userResponse = await fetch(`${API_BASE_URL}/api/users/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -329,7 +330,7 @@ export default function CreatePetPage() {
         userId: fullUser.id,
       };
 
-      const petResponse = await fetch('/api/pets', {
+      const petResponse = await fetch(`${API_BASE_URL}/api/pets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -355,7 +356,7 @@ export default function CreatePetPage() {
           imageFormData.append('altText', formData.name);
 
           const imageResponse = await fetch(
-            `/api/pets/${pet.id}/upload-image`,
+            `${API_BASE_URL}/api/pets/${pet.id}/upload-image`,
             {
               method: 'POST',
               headers: {
@@ -384,7 +385,7 @@ export default function CreatePetPage() {
         redirectLink: adoptionDetails.isDirect ? null : adoptionDetails.redirectLink,
       };
 
-      const adoptionResponse = await fetch(`/api/pets/${pet.id}/adoption-details`, {
+      const adoptionResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/adoption-details`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -4,7 +4,7 @@ import { register, createUserSession, getUserFromSession } from '~/services/auth
 import type { UserType } from '~/types/auth';
 import { SignupForm } from '~/components/blocks';
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: 'Sign Up - Petch' },
     { name: 'description', content: 'Create your Petch account' },
@@ -28,12 +28,12 @@ export async function action({ request }: Route.ActionArgs) {
   const phoneNumber = formData.get('phoneNumber') as string;
   const userType = formData.get('userType') as UserType;
 
-  if (password.length < 8) {
-    return { error: 'Password must be at least 8 characters long' };
+  if (!email || !password || !firstName || !lastName || !userType) {
+    return { error: 'Please fill in all required fields' };
   }
 
-  if (!email || !firstName || !lastName || !userType) {
-    return { error: 'Please fill in all required fields' };
+  if (password.length < 8) {
+    return { error: 'Password must be at least 8 characters long' };
   }
 
   try {
@@ -59,7 +59,7 @@ export default function Signup() {
   const isSubmitting = navigation.state === 'submitting';
 
   return (
-    <SignupForm 
+    <SignupForm
       error={actionData?.error}
       isSubmitting={isSubmitting}
     />

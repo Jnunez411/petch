@@ -43,7 +43,7 @@ export async function loader({ request }: Route.LoaderArgs) {
             fetch(`${API_BASE_URL}/api/pets/discover`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             }),
-            fetch(`${API_BASE_URL}/api/pets/liked`, {
+            fetch(`${API_BASE_URL}/api/pets/favorites`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             }),
         ]);
@@ -144,7 +144,7 @@ export async function action({ request }: Route.ActionArgs) {
                     fetch(`${API_BASE_URL}/api/pets/discover`, {
                         headers: { 'Authorization': `Bearer ${token}` },
                     }),
-                    fetch(`${API_BASE_URL}/api/pets/liked`, {
+                    fetch(`${API_BASE_URL}/api/pets/favorites`, {
                         headers: { 'Authorization': `Bearer ${token}` },
                     }),
                 ]);
@@ -351,9 +351,9 @@ export default function DiscoverPage() {
         const lastInteraction = history[history.length - 1];
         setIsAnimating(true);
 
-        // Submit to server action
+        // Submit to server action (Note: we use unfavorite now per the unified backend logic)
         fetcher.submit(
-            { _action: 'undo', petId: String(lastInteraction.pet.id), type: lastInteraction.direction === 'right' ? 'LIKE' : 'PASS' },
+            { _action: 'unfavorite', petId: String(lastInteraction.pet.id), type: lastInteraction.direction === 'right' ? 'FAVORITE' : 'PASS' },
             { method: 'POST' }
         );
 

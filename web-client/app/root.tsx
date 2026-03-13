@@ -74,12 +74,12 @@ export default function App() {
   const { user } = useLoaderData<typeof loader>();
   const location = useLocation();
 
-  // Hide main header on admin routes (admin has its own header)
+  // Hide main header on admin routes
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   return (
     <>
-      {!isAdminRoute && <Header user={user} />}
+      {(!isAdminRoute) && <Header user={user} />}
       <Outlet />
     </>
   );

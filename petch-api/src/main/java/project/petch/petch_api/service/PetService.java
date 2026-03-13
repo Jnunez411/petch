@@ -67,7 +67,7 @@ public class PetService {
      * Get all pets the user has liked.
      */
     public List<Pets> getLikedPets(User user) {
-        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.LIKE)
+        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.FAVORITE)
                 .stream()
                 .map(PetInteraction::getPet)
                 .collect(Collectors.toList());
@@ -412,6 +412,12 @@ public class PetService {
         PetInteraction interaction;
         if (type != null && !type.isBlank()) {
             PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
+            
+            // Map Discover "LIKE" or "UNDO" requests to "FAVORITE" when trying to delete
+            if (interactionType == PetInteraction.InteractionType.LIKE) {
+                interactionType = PetInteraction.InteractionType.FAVORITE;
+            }
+
             interaction = petInteractionRepository.findByUserAndPet_IdAndInteractionType(user, petId, interactionType)
                     .orElseThrow(() -> new RuntimeException("Interaction not found"));
         } else {
@@ -426,8 +432,8 @@ public class PetService {
 
         // Reverse preference learning and decrement total swipes
         userPreferenceRepository.findByUser(user).ifPresent(prefs -> {
-            // Reverse the learning rate that was applied
-            double reverseLearningRate = actualType == PetInteraction.InteractionType.LIKE ? -0.5 : 0.2;
+            // Reverse the learning rate that was applied (Using FAVORITE now)
+            double reverseLearningRate = (actualType == PetInteraction.InteractionType.LIKE || actualType == PetInteraction.InteractionType.FAVORITE) ? -0.5 : 0.2;
             String species = pet.getSpecies().toLowerCase();
             String breed = pet.getBreed().toLowerCase();
 

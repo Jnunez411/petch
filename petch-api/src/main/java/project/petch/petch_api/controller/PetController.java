@@ -106,6 +106,12 @@ public class PetController {
         }
         try {
             PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
+            
+            // Map Discover "LIKE" swipes directly to "FAVORITE" interactions
+            if (interactionType == PetInteraction.InteractionType.LIKE) {
+                interactionType = PetInteraction.InteractionType.FAVORITE;
+            }
+            
             petService.recordInteraction(user, id, interactionType);
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {

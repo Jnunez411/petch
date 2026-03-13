@@ -632,9 +632,9 @@ export default function CreatePetPage() {
     <div className="min-h-screen bg-page-alt">
       {/* Confirmation Modal */}
       {showConfirmation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-page-alt">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <audio ref={audioRef} src="/chime.mp3" preload="auto" />
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
             <CheckCircle className="w-12 h-12 text-green-500 mb-4" />
             <h2 className="text-xl font-bold mb-2">Pet Listing Successfully Published!</h2>
             <p className="mb-6 text-center">Thank you for helping pets find a home!</p>

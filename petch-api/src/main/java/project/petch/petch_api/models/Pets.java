@@ -88,6 +88,21 @@ public class Pets {
     @OneToOne(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private PetDocuments petDocuments;
 
+    @Builder.Default
+    @JsonIgnore
+    @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<PetInteraction> interactions = new ArrayList<>();
+
+    @Builder.Default
+    @JsonIgnore
+    @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<Report> reports = new ArrayList<>();
+
+    @Builder.Default
+    @JsonIgnore
+    @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<AdoptionFormSubmission> adoptionFormSubmissions = new ArrayList<>();
+
     // Must add realationship to shelter
     // @ManyToOne(fetch = FetchType.LAZY)
     // @JoinColumn(name = "shelter_id", nullable = false)

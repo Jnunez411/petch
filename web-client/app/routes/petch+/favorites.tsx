@@ -172,7 +172,7 @@ export default function FavoritesPage() {
                             <Card key={pet.id} className="group overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 bg-card/50 hover:bg-card">
                                 {/* Image */}
                                 <div className="aspect-[4/3] relative overflow-hidden">
-                                    <Link to={`/pets/${pet.id}`}>
+                                    <Link to={`/pets/${pet.id}?origin=favorites`}>
                                         <img
                                             src={getPetImageUrl(pet)}
                                             alt={pet.name}
@@ -204,7 +204,7 @@ export default function FavoritesPage() {
                                 <CardContent className="p-4 space-y-3">
                                     <div>
                                         <h3 className="font-bold text-lg tracking-tight">
-                                            <Link to={`/pets/${pet.id}`} className="hover:text-coral transition-colors">
+                                            <Link to={`/pets/${pet.id}?origin=favorites`} className="hover:text-coral transition-colors">
                                                 {pet.name}
                                             </Link>
                                         </h3>
@@ -241,7 +241,7 @@ export default function FavoritesPage() {
                                             className="w-full group/btn border-coral/20 text-coral hover:bg-coral hover:text-white hover:border-coral transition-all duration-300"
                                             asChild
                                         >
-                                            <Link to={`/pets/${pet.id}`}>
+                                            <Link to={`/pets/${pet.id}?origin=favorites`}>
                                                 Meet {pet.name} →
                                             </Link>
                                         </Button>

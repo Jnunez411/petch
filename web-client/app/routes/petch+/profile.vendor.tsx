@@ -306,9 +306,9 @@ export default function VendorProfilePage() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       {/* Custom Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-page-alt">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <audio ref={audioRef} src="/chime2.mp3" preload="auto" />
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
             <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
             <h2 className="text-xl font-bold mb-2">Confirm Delete</h2>
             <p className="mb-6 text-center text-muted-foreground">
@@ -422,15 +422,6 @@ export default function VendorProfilePage() {
                     {submissionCount}
                   </span>
                 </Link>
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
-                onClick={handleDeleteAccount}
-                disabled={isDeletingAccount}
-              >
-                <Trash2 className="size-4 mr-2" />
-                {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
               </Button>
               <Button
                 variant="outline"
@@ -581,9 +572,34 @@ export default function VendorProfilePage() {
               </div>
             </div>
 
-            {/* Change Password */}
-            <div className="mt-6">
+            {/* Change Password & Account Status */}
+            <div className="mt-6 space-y-6">
               <ChangePasswordSection />
+              
+              {/* Dangerous Area */}
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-red-100 dark:border-red-900/30 overflow-hidden">
+                <div className="bg-red-50/50 dark:bg-red-950/10 px-6 py-4 border-b border-red-100 dark:border-red-900/30">
+                  <h3 className="text-sm font-semibold text-red-800 dark:text-red-300">Account Status</h3>
+                </div>
+                <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Disable Account</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Taking a break? Disable your account temporarily. You can reactivate it anytime.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-400 dark:hover:border-red-600 hover:text-red-700 dark:hover:text-red-300"
+                    onClick={handleDeleteAccount}
+                    disabled={isDeletingAccount}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    {isDeletingAccount ? 'Disabling...' : 'Disable Account'}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -656,7 +672,7 @@ export default function VendorProfilePage() {
                       <span className="text-sm text-muted-foreground">{pet.species}</span>
                       <div className="flex gap-2">
                         <Button asChild variant="ghost" size="sm" className="rounded-lg">
-                          <Link to={`/pets/${pet.id}`}>
+                          <Link to={`/pets/${pet.id}?origin=profile`}>
                             <ExternalLink className="size-4" />
                           </Link>
                         </Button>
@@ -683,20 +699,35 @@ export default function VendorProfilePage() {
           </div>
         </div>
       </div>
-      {/* Delete Account Modal */}
+      {/* Disable Account Modal */}
       {showDeleteAccountModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold mb-2">Delete Account</h3>
-            <p className="text-muted-foreground mb-4">
-              Are you sure you want to delete your account? This action cannot be undone and all your data, including pet listings, will be permanently removed.
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl border border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center gap-3 mb-4 text-red-600">
+              <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
+                <AlertCircle className="size-6" />
+              </div>
+              <h3 className="text-xl font-bold">Disable Account?</h3>
+            </div>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to disable your vendor account? Your pet listings will be hidden from public view until you reactivate your account.
             </p>
             <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setShowDeleteAccountModal(false)}>
+              <Button 
+                variant="outline" 
+                className="rounded-xl flex-1 h-11"
+                onClick={() => setShowDeleteAccountModal(false)}
+                disabled={isDeletingAccount}
+              >
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={confirmDeleteAccount}>
-                Delete Account
+              <Button 
+                variant="destructive" 
+                className="rounded-xl flex-1 h-11 bg-red-600 hover:bg-red-700"
+                onClick={confirmDeleteAccount}
+                disabled={isDeletingAccount}
+              >
+                {isDeletingAccount ? 'Disabling...' : 'Disable Account'}
               </Button>
             </div>
           </div>

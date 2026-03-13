@@ -98,8 +98,8 @@ export function Header(props: HeaderProps) {
 
           {/* Right side actions */}
           <div className="flex items-center gap-3">
-            {/* Theme Toggle - Desktop */}
-            <ThemeToggle />
+            {/* Theme Toggle - Desktop (Authenticated Only) */}
+            {props.user && <ThemeToggle />}
 
             {/* Desktop Logout */}
             {props.user && (
@@ -174,15 +174,17 @@ export function Header(props: HeaderProps) {
                 );
               })}
 
-              {/* Theme Toggle - Mobile */}
-              <div className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-                <div className="flex items-center gap-3">
-                  <Sun className="size-5 text-muted-foreground dark:hidden" />
-                  <Moon className="size-5 text-muted-foreground hidden dark:block" />
-                  <span>Dark Mode</span>
+              {/* Theme Toggle - Mobile (Authenticated Only) */}
+              {props.user && (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Sun className="size-5 text-muted-foreground dark:hidden" />
+                    <Moon className="size-5 text-muted-foreground hidden dark:block" />
+                    <span>Dark Mode</span>
+                  </div>
+                  <ThemeToggle />
                 </div>
-                <ThemeToggle />
-              </div>
+              )}
 
               {/* Mobile Logout */}
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">

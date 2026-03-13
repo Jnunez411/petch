@@ -115,9 +115,10 @@ public class UserController {
     public ResponseEntity<Void> deleteCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
-        log.info("User account deletion requested: userId={}", currentUser.getId());
+        log.info("User account disabling requested: userId={}", currentUser.getId());
 
-        userRepository.deleteById(currentUser.getId());
+        currentUser.setActive(false);
+        userRepository.save(currentUser);
 
         return ResponseEntity.noContent().build();
     }

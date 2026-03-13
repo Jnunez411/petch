@@ -513,6 +513,12 @@ export default function PetDetail() {
     } else if (origin === 'reports') {
       backLink = '/admin/reports';
       backText = '← Back to Reports';
+    } else if (origin === 'profile') {
+      backLink = '/profile';
+      backText = '← Back to Profile';
+    } else if (origin === 'favorites') {
+      backLink = '/favorites';
+      backText = '← Back to Favorites';
     }
   }
 

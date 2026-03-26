@@ -8,6 +8,7 @@ import { getUserFromSession } from "~/services/auth";
 import { getSession } from "~/services/session.server";
 import { FAKE_PETS, type FakePet } from '~/data/fake-pets';
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
+import { PLACEHOLDER_IMAGES } from '~/config/constants';
 import ReportModal from '~/components/ReportModal';
 
 interface Image {
@@ -544,9 +545,11 @@ export default function PetDetail() {
                   className="w-full h-96 object-cover"
                 />
               ) : (
-                <div className="w-full h-96 bg-muted flex items-center justify-center">
-                  <span className="text-muted-foreground">No image available</span>
-                </div>
+                <img
+                  src={PLACEHOLDER_IMAGES[pet.species] || PLACEHOLDER_IMAGES.default}
+                  alt={pet.name}
+                  className="w-full h-96 object-cover"
+                />
               )}
             </Card>
 

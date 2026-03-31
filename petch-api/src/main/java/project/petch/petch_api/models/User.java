@@ -70,6 +70,10 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // Email notification preference
+    @Column(name = "email_notifications_enabled")
+    private Boolean emailNotificationsEnabled = true;
+
     // Account lockout fields
     @Column(name = "failed_login_attempts")
     private Integer failedLoginAttempts = 0;

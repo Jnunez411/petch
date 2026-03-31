@@ -59,6 +59,7 @@ public class UserController {
         response.put("lastName", currentUser.getLastName());
         response.put("userType", currentUser.getUserType().name());
         response.put("phoneNumber", currentUser.getPhoneNumber());
+        response.put("emailNotificationsEnabled", currentUser.getEmailNotificationsEnabled());
         response.put("createdAt", currentUser.getCreatedAt());
 
         return ResponseEntity.ok(response);
@@ -104,6 +105,31 @@ public class UserController {
 
         log.info("Password changed for userId={}", currentUser.getId());
         return ResponseEntity.ok(Map.of("message", "Password updated successfully."));
+    }
+
+    /**
+     * Toggle email notifications for the current user
+     * PUT /api/users/me/notifications
+     */
+    @PutMapping("/me/notifications")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateEmailNotifications(
+            @RequestBody Map<String, Boolean> request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) authentication.getPrincipal();
+
+        Boolean enabled = request.get("emailNotificationsEnabled");
+        if (enabled == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "emailNotificationsEnabled is required."));
+        }
+
+        currentUser.setEmailNotificationsEnabled(enabled);
+        userRepository.save(currentUser);
+
+        log.info("Email notifications {} for userId={}", enabled ? "enabled" : "disabled", currentUser.getId());
+        return ResponseEntity.ok(Map.of(
+                "message", "Email notification preferences updated.",
+                "emailNotificationsEnabled", enabled));
     }
 
     /**

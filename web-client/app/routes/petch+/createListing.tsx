@@ -104,6 +104,55 @@ export default function CreatePetPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 3;
+
+  const nextStep = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTouched({
+      name: true, species: true, breed: true, age: true,
+      priceEstimate: true, stepsDescription: true,
+      phoneNumber: true, email: true,
+      redirectLink: true, redirectPhoneNumber: true, redirectEmail: true,
+    });
+
+    if (currentStep === 1) {
+      if (validateName(formData.name) || validateSpecies(formData.species) || validateBreed(formData.breed) || validateAge(formData.age)) {
+        setError("Please fix the errors above before continuing.");
+        return;
+      }
+    } else if (currentStep === 2) {
+      if (validateSteps(adoptionDetails.stepsDescription)) {
+        setError("Please fix the errors above before continuing.");
+        return;
+      }
+      if (adoptionDetails.method === 'DIRECT' && (validatePhone(adoptionDetails.phoneNumber) || validateEmail(adoptionDetails.email))) {
+        setError("Please fix the contact details before continuing.");
+        return;
+      }
+      if (adoptionDetails.method === 'REDIRECT' && (validateUrl(adoptionDetails.redirectLink) || validatePhone(adoptionDetails.redirectPhoneNumber) || validateEmail(adoptionDetails.redirectEmail))) {
+        setError("Please fix the redirect details before continuing.");
+        return;
+      }
+      if (adoptionDetails.method === 'ONLINE_FORM' && !vendorPreferences?.hasOnlineFormPdf && !selectedAdoptionFormFile) {
+        // Edit flow might have existing template, but standard creation needs this
+        // Actually, let it slide on editing if there already is a document attached or template exists
+        if (!(window.location.pathname.includes('/edit'))) {
+            setError("Upload a PDF adoption form for this listing.");
+            return;
+        }
+      }
+    }
+    setError(null);
+    setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
+  };
+  
+  const prevStep = () => {
+    setError(null);
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
 
   const [formData, setFormData] = useState({
     name: '',
@@ -689,7 +738,19 @@ export default function CreatePetPage() {
               </div>
             )}
 
+            
+            {/* Progress Bar */}
+            <div className="mb-8 mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-sm font-medium ${currentStep >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>1. Details</span>
+                <span className={`text-sm font-medium ${currentStep >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>2. Adoption</span>
+                <span className={`text-sm font-medium ${currentStep >= 3 ? 'text-primary' : 'text-muted-foreground'}`}>3. Media</span>
+              </div>
+              <Progress value={(currentStep / totalSteps) * 100} className="h-2" />
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-6">
+{currentStep === 1 && (<>
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">
                   Pet Details
@@ -830,6 +891,9 @@ export default function CreatePetPage() {
                 </div>
               </div>
 
+
+</>)}
+{currentStep === 2 && (<>
               <div className="space-y-4 border-t pt-6">
                 <h3 className="font-semibold text-lg">
                   Adoption Details
@@ -1074,6 +1138,9 @@ export default function CreatePetPage() {
                 </div>
               </div>
 
+
+</>)}
+{currentStep === 3 && (<>
               <div className="space-y-4 border-t pt-6">
                 <h3 className="font-semibold text-lg">
                   Pet Images
@@ -1252,25 +1319,39 @@ export default function CreatePetPage() {
                 )}
               </div>
 
+
+</>)}
+
               <div className="flex gap-4 border-t pt-6">
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1"
-                >
-                  {loading ? 'Creating listing...' : 'Create Pet Listing'}
-                </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate('/pets')}
+                  onClick={currentStep === 1 ? () => navigate('/pets') : prevStep}
                   disabled={loading}
-                  className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-700"
+                  className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-700 w-32"
                 >
-                  Cancel
+                  {currentStep === 1 ? 'Cancel' : '← Back'}
                 </Button>
+                
+                {currentStep < totalSteps ? (
+                  <Button
+                    type="button"
+                    onClick={nextStep}
+                    className="flex-1"
+                  >
+                    Next Step →
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1"
+                  >
+                    {loading ? 'Saving...' : 'Publish Listing'}
+                  </Button>
+                )}
               </div>
-            </form>
+</form>
           </CardContent>
         </Card>
       </div>

@@ -67,6 +67,10 @@ public class Pets {
     @Column(name = "fosterable", nullable = false)
     private Boolean fosterable;
 
+    @Builder.Default
+    @Column(name = "is_adopted", nullable = false, columnDefinition = "boolean default false")
+    private Boolean isAdopted = false;
+
     // Image Realationship
     @Builder.Default
     @JsonManagedReference

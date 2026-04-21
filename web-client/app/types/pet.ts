@@ -54,6 +54,7 @@ export interface Pet {
     description?: string;
     atRisk: boolean;
     fosterable: boolean;
+    isAdopted?: boolean;
     images: PetImage[];
     adoptionDetails?: AdoptionDetails;
     userId?: number;

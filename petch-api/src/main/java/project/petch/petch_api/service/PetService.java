@@ -278,6 +278,7 @@ public class PetService {
                 .description(pet.getDescription())
                 .atRisk(pet.getAtRisk())
                 .fosterable(pet.getFosterable())
+                .isAdopted(pet.getIsAdopted())
                 .userId(pet.getUser() != null ? pet.getUser().getId() : null)
                 .images(pet.getImages().stream().map(this::toImageDTO).toList())
                 .viewCount(pet.getViewCount())
@@ -286,6 +287,14 @@ public class PetService {
                 .adoptionDetails(toAdoptionDetailsDTO(pet.getAdoptionDetails()))
                 .user(toOwnerDTO(pet.getUser()))
                 .build();
+    }
+
+    @Transactional
+    public Pets markAdopted(Long petId, boolean adopted) {
+        return petsRepository.findById(petId).map(pet -> {
+            pet.setIsAdopted(adopted);
+            return petsRepository.save(pet);
+        }).orElseThrow(() -> new RuntimeException("Pet not found with id " + petId));
     }
 
     private ImageDTO toImageDTO(Images image) {
@@ -332,19 +341,19 @@ public class PetService {
     }
 
     public List<Pets> findPetsBySpecies(String species) {
-        return petsRepository.findBySpeciesIgnoreCase(species);
+        return petsRepository.findBySpeciesIgnoreCaseAndIsAdoptedFalse(species);
     }
 
     public List<Pets> findPetsByBreed(String breed) {
-        return petsRepository.findByBreedIgnoreCase(breed);
+        return petsRepository.findByBreedIgnoreCaseAndIsAdoptedFalse(breed);
     }
 
     public List<Pets> findPetsByAgeRange(Integer minAge, Integer maxAge) {
-        return petsRepository.findByAgeBetween(minAge, maxAge);
+        return petsRepository.findByAgeBetweenAndIsAdoptedFalse(minAge, maxAge);
     }
 
     public List<Pets> searchPetsByName(String name) {
-        return petsRepository.findByNameContainingIgnoreCase(name);
+        return petsRepository.findByNameContainingIgnoreCaseAndIsAdoptedFalse(name);
     }
 
     public List<Pets> findSpecificPetsByRace(String species, String breed) {
@@ -352,11 +361,11 @@ public class PetService {
     }
 
     public List<Pets> findAtRiskPets() {
-        return petsRepository.findByAtRiskTrue();
+        return petsRepository.findByAtRiskTrueAndIsAdoptedFalse();
     }
 
     public List<Pets> findFosterablePets() {
-        return petsRepository.findByFosterableTrue();
+        return petsRepository.findByFosterableTrueAndIsAdoptedFalse();
     }
 
     public long countFosterablePets() {

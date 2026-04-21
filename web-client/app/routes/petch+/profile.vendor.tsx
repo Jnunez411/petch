@@ -46,6 +46,7 @@ interface Pet {
   images?: { filePath: string }[];
   atRisk?: boolean;
   fosterable?: boolean;
+  isAdopted?: boolean;
   viewCount?: number;
 }
 
@@ -200,6 +201,29 @@ export async function action({ request }: Route.ActionArgs) {
     }
   }
 
+  if (intent === 'toggle-adopted') {
+    const petId = formData.get('petId');
+    const isAdopted = formData.get('isAdopted') === 'true';
+    if (!petId) {
+      return { error: 'Pet ID is required' };
+    }
+
+    try {
+      const response = await authenticatedFetch(request, `/api/pets/${petId}/adoption-status`, {
+        method: 'PUT',
+        body: JSON.stringify({ isAdopted }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update adoption status: ${response.status}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to update adoption status' };
+    }
+  }
+
   if (request.method !== 'POST') {
     return { error: 'Method not allowed' };
   }
@@ -279,6 +303,16 @@ export default function VendorProfilePage() {
       { method: 'POST' }
     );
     setShowDeleteAccountModal(false);
+  };
+
+  const adoptFetcher = useFetcher();
+
+  const isTogglingAdoption = (petId: number) => {
+    return (
+      adoptFetcher.state !== 'idle' &&
+      adoptFetcher.formData?.get('intent') === 'toggle-adopted' &&
+      adoptFetcher.formData?.get('petId') === petId.toString()
+    );
   };
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number } | null>(null);
@@ -658,6 +692,11 @@ export default function VendorProfilePage() {
                             Fosterable
                           </span>
                         )}
+                        {pet.isAdopted && (
+                          <span className="px-2 py-1 rounded-full bg-purple-500 text-white text-xs font-semibold">
+                            Adopted
+                          </span>
+                        )}
                       </div>
 
                       {/* Pet Name */}
@@ -680,6 +719,19 @@ export default function VendorProfilePage() {
                           <Link to={`/pets/${pet.id}/edit`}>
                             <Edit3 className="size-4" />
                           </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`rounded-lg ${pet.isAdopted ? 'text-purple-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/20' : 'text-muted-foreground hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/20'}`}
+                          title={pet.isAdopted ? 'Mark as Available' : 'Mark as Adopted'}
+                          onClick={() => adoptFetcher.submit(
+                            { intent: 'toggle-adopted', petId: pet.id.toString(), isAdopted: (!pet.isAdopted).toString() },
+                            { method: 'POST' }
+                          )}
+                          disabled={isTogglingAdoption(pet.id)}
+                        >
+                          <CheckCircle className="size-4" />
                         </Button>
                         <Button
                           variant="ghost"

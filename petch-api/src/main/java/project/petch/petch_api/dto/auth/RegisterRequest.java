@@ -18,5 +18,7 @@ public record RegisterRequest(
 
         @Size(max = 20, message = "Phone number must not exceed 20 characters") @Pattern(regexp = "^[0-9\\-\\+\\s\\(\\)]*$", message = "Phone number contains invalid characters") String phoneNumber,
 
-        @NotNull(message = "User type is required") UserType userType) {
+        @NotNull(message = "User type is required") UserType userType,
+
+        Boolean emailNotificationsEnabled) {
 }

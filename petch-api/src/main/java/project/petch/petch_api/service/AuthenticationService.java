@@ -51,6 +51,8 @@ public class AuthenticationService {
         user.setLastName(request.lastName());
         user.setPhoneNumber(request.phoneNumber());
         user.setUserType(request.userType());
+        user.setEmailNotificationsEnabled(
+                request.emailNotificationsEnabled() != null ? request.emailNotificationsEnabled() : true);
 
         // Save user to database
         userRepository.save(user);

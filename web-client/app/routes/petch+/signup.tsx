@@ -27,6 +27,7 @@ export async function action({ request }: Route.ActionArgs) {
   const lastName = formData.get('lastName') as string;
   const phoneNumber = formData.get('phoneNumber') as string;
   const userType = formData.get('userType') as UserType;
+  const emailNotificationsEnabled = formData.get('emailNotificationsEnabled') === 'true';
 
   if (!email || !password || !firstName || !lastName || !userType) {
     return { error: 'Please fill in all required fields' };
@@ -44,6 +45,7 @@ export async function action({ request }: Route.ActionArgs) {
       lastName,
       phoneNumber: phoneNumber || undefined,
       userType,
+      emailNotificationsEnabled,
     });
     return await createUserSession(request, response, '/');
   } catch (error) {

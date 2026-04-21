@@ -74,6 +74,13 @@ public class User implements UserDetails {
     @Column(name = "email_notifications_enabled")
     private Boolean emailNotificationsEnabled = true;
 
+    // Account deletion request
+    @Column(name = "deletion_requested")
+    private Boolean deletionRequested = false;
+
+    @Column(name = "deletion_requested_at")
+    private LocalDateTime deletionRequestedAt;
+
     // Account lockout fields
     @Column(name = "failed_login_attempts")
     private Integer failedLoginAttempts = 0;

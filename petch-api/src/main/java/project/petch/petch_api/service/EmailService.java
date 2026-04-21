@@ -23,6 +23,9 @@ public class EmailService {
     @Value("${spring.mail.username:noreply@petch.com}")
     private String fromEmail;
 
+    @Value("${app.password-reset.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
     public void sendPasswordResetEmail(String toEmail, String resetLink) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -53,7 +56,7 @@ public class EmailService {
 
             mailSender.send(mimeMessage);
             log.info("Welcome email sent to: {}", toEmail.replaceAll("(?<=.{3}).(?=.*@)", "*"));
-        } catch (MessagingException e) {
+        } catch (Exception e) {
             log.error("Failed to send welcome email: {}", e.getMessage());
             // Don't throw - welcome email failure shouldn't block registration
         }
@@ -161,15 +164,17 @@ public class EmailService {
     private String buildPetMatchEmailHtml(String firstName, List<Pets> pets) {
         StringBuilder petCards = new StringBuilder();
         for (Pets pet : pets) {
+            String petLink = frontendUrl + "/petch/pet/" + pet.getId();
             petCards.append("""
                     <tr>
                       <td style="background-color: #fef2f2; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
                         <p style="margin: 0 0 4px; color: #18181b; font-size: 16px; font-weight: 600;">%s</p>
-                        <p style="margin: 0; color: #52525b; font-size: 14px;">%s &middot; %s &middot; %d year(s) old</p>
+                        <p style="margin: 0 0 8px; color: #52525b; font-size: 14px;">%s &middot; %s &middot; %d year(s) old</p>
+                        <a href="%s" style="display: inline-block; background-color: #FF6B6B; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600; padding: 8px 20px; border-radius: 6px;">View Pet</a>
                       </td>
                     </tr>
                     <tr><td style="height: 8px;"></td></tr>
-                    """.formatted(pet.getName(), pet.getSpecies(), pet.getBreed(), pet.getAge()));
+                    """.formatted(pet.getName(), pet.getSpecies(), pet.getBreed(), pet.getAge(), petLink));
         }
 
         return """

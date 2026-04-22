@@ -47,6 +47,7 @@ interface Pet {
   images?: { filePath: string }[];
   atRisk?: boolean;
   fosterable?: boolean;
+  isAdopted?: boolean;
   viewCount?: number;
 }
 
@@ -205,6 +206,29 @@ export async function action({ request }: Route.ActionArgs) {
     }
   }
 
+  if (intent === 'toggle-adopted') {
+    const petId = formData.get('petId');
+    const isAdopted = formData.get('isAdopted') === 'true';
+    if (!petId) {
+      return { error: 'Pet ID is required' };
+    }
+
+    try {
+      const response = await authenticatedFetch(request, `/api/pets/${petId}/adoption-status`, {
+        method: 'PUT',
+        body: JSON.stringify({ isAdopted }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update adoption status: ${response.status}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to update adoption status' };
+    }
+  }
+
   if (request.method !== 'POST') {
     return { error: 'Method not allowed' };
   }
@@ -309,6 +333,16 @@ export default function VendorProfilePage() {
     setShowDeleteRequestModal(false);
   };
 
+  const adoptFetcher = useFetcher();
+
+  const isTogglingAdoption = (petId: number) => {
+    return (
+      adoptFetcher.state !== 'idle' &&
+      adoptFetcher.formData?.get('intent') === 'toggle-adopted' &&
+      adoptFetcher.formData?.get('petId') === petId.toString()
+    );
+  };
+
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number } | null>(null);
   const handleDelete = (petId: number) => {
     setDeleteConfirm({ id: petId });
@@ -334,9 +368,9 @@ export default function VendorProfilePage() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       {/* Custom Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-page-alt">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <audio ref={audioRef} src="/chime2.mp3" preload="auto" />
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
             <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
             <h2 className="text-xl font-bold mb-2">Confirm Delete</h2>
             <p className="mb-6 text-center text-muted-foreground">
@@ -630,9 +664,40 @@ export default function VendorProfilePage() {
               </div>
             </div>
 
-            {/* Change Password */}
-            <div className="mt-6">
+            {/* Change Password & Account Status */}
+            <div className="mt-6 space-y-6">
               <ChangePasswordSection />
+              
+              {/* Account Status */}
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-red-100 dark:border-red-900/30 overflow-hidden">
+                <div className="bg-red-50/50 dark:bg-red-950/10 px-6 py-4 border-b border-red-100 dark:border-red-900/30">
+                  <h3 className="text-sm font-semibold text-red-800 dark:text-red-300">Account Status</h3>
+                </div>
+                <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Request Account Deletion</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Request account removal. An admin will review and process your request.
+                    </p>
+                  </div>
+                  {hasPendingDeletion ? (
+                    <span className="inline-flex items-center px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
+                      Deletion Requested
+                    </span>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-400 dark:hover:border-red-600 hover:text-red-700 dark:hover:text-red-300"
+                      onClick={handleRequestDeletion}
+                      disabled={isRequesting}
+                    >
+                      <Trash2 className="size-4 mr-2" />
+                      {isRequesting ? 'Submitting...' : 'Request Deletion'}
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -691,6 +756,11 @@ export default function VendorProfilePage() {
                             Fosterable
                           </span>
                         )}
+                        {pet.isAdopted && (
+                          <span className="px-2 py-1 rounded-full bg-purple-500 text-white text-xs font-semibold">
+                            Adopted
+                          </span>
+                        )}
                       </div>
 
                       {/* Pet Name */}
@@ -705,7 +775,7 @@ export default function VendorProfilePage() {
                       <span className="text-sm text-muted-foreground">{pet.species}</span>
                       <div className="flex gap-2">
                         <Button asChild variant="ghost" size="sm" className="rounded-lg">
-                          <Link to={`/pets/${pet.id}`}>
+                          <Link to={`/pets/${pet.id}?origin=profile`}>
                             <ExternalLink className="size-4" />
                           </Link>
                         </Button>
@@ -713,6 +783,19 @@ export default function VendorProfilePage() {
                           <Link to={`/pets/${pet.id}/edit`}>
                             <Edit3 className="size-4" />
                           </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`rounded-lg ${pet.isAdopted ? 'text-purple-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/20' : 'text-muted-foreground hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/20'}`}
+                          title={pet.isAdopted ? 'Mark as Available' : 'Mark as Adopted'}
+                          onClick={() => adoptFetcher.submit(
+                            { intent: 'toggle-adopted', petId: pet.id.toString(), isAdopted: (!pet.isAdopted).toString() },
+                            { method: 'POST' }
+                          )}
+                          disabled={isTogglingAdoption(pet.id)}
+                        >
+                          <CheckCircle className="size-4" />
                         </Button>
                         <Button
                           variant="ghost"

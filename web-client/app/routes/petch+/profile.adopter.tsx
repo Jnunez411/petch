@@ -16,7 +16,8 @@ import {
   ChevronDown,
   Download,
   FileText,
-  Trash2
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createLogger } from '~/utils/logger';

@@ -60,7 +60,7 @@ public class PetService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PetDTO> discoverPetDTOs(User user) {
         return discoverPets(user).stream().map(this::toDTO).toList();
     }
@@ -69,7 +69,7 @@ public class PetService {
      * Get all pets the user has liked.
      */
     public List<Pets> getLikedPets(User user) {
-        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.LIKE)
+        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.FAVORITE)
                 .stream()
                 .map(PetInteraction::getPet)
                 .collect(Collectors.toList());
@@ -317,6 +317,7 @@ public class PetService {
                 .description(pet.getDescription())
                 .atRisk(pet.getAtRisk())
                 .fosterable(pet.getFosterable())
+                .isAdopted(pet.getIsAdopted())
                 .userId(pet.getUser() != null ? pet.getUser().getId() : null)
                 .images(pet.getImages().stream().map(this::toImageDTO).toList())
                 .viewCount(pet.getViewCount())
@@ -325,6 +326,14 @@ public class PetService {
                 .adoptionDetails(toAdoptionDetailsDTO(pet.getAdoptionDetails()))
                 .user(toOwnerDTO(pet.getUser()))
                 .build();
+    }
+
+    @Transactional
+    public Pets markAdopted(Long petId, boolean adopted) {
+        return petsRepository.findById(petId).map(pet -> {
+            pet.setIsAdopted(adopted);
+            return petsRepository.save(pet);
+        }).orElseThrow(() -> new RuntimeException("Pet not found with id " + petId));
     }
 
     private ImageDTO toImageDTO(Images image) {
@@ -371,19 +380,19 @@ public class PetService {
     }
 
     public List<Pets> findPetsBySpecies(String species) {
-        return petsRepository.findBySpeciesIgnoreCase(species);
+        return petsRepository.findBySpeciesIgnoreCaseAndIsAdoptedFalse(species);
     }
 
     public List<Pets> findPetsByBreed(String breed) {
-        return petsRepository.findByBreedIgnoreCase(breed);
+        return petsRepository.findByBreedIgnoreCaseAndIsAdoptedFalse(breed);
     }
 
     public List<Pets> findPetsByAgeRange(Integer minAge, Integer maxAge) {
-        return petsRepository.findByAgeBetween(minAge, maxAge);
+        return petsRepository.findByAgeBetweenAndIsAdoptedFalse(minAge, maxAge);
     }
 
     public List<Pets> searchPetsByName(String name) {
-        return petsRepository.findByNameContainingIgnoreCase(name);
+        return petsRepository.findByNameContainingIgnoreCaseAndIsAdoptedFalse(name);
     }
 
     public List<Pets> findSpecificPetsByRace(String species, String breed) {
@@ -391,11 +400,11 @@ public class PetService {
     }
 
     public List<Pets> findAtRiskPets() {
-        return petsRepository.findByAtRiskTrue();
+        return petsRepository.findByAtRiskTrueAndIsAdoptedFalse();
     }
 
     public List<Pets> findFosterablePets() {
-        return petsRepository.findByFosterableTrue();
+        return petsRepository.findByFosterableTrueAndIsAdoptedFalse();
     }
 
     public long countFosterablePets() {
@@ -451,6 +460,12 @@ public class PetService {
         PetInteraction interaction;
         if (type != null && !type.isBlank()) {
             PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
+            
+            // Map Discover "LIKE" or "UNDO" requests to "FAVORITE" when trying to delete
+            if (interactionType == PetInteraction.InteractionType.LIKE) {
+                interactionType = PetInteraction.InteractionType.FAVORITE;
+            }
+
             interaction = petInteractionRepository.findByUserAndPet_IdAndInteractionType(user, petId, interactionType)
                     .orElseThrow(() -> new RuntimeException("Interaction not found"));
         } else {
@@ -465,8 +480,8 @@ public class PetService {
 
         // Reverse preference learning and decrement total swipes
         userPreferenceRepository.findByUser(user).ifPresent(prefs -> {
-            // Reverse the learning rate that was applied
-            double reverseLearningRate = actualType == PetInteraction.InteractionType.LIKE ? -0.5 : 0.2;
+            // Reverse the learning rate that was applied (Using FAVORITE now)
+            double reverseLearningRate = (actualType == PetInteraction.InteractionType.LIKE || actualType == PetInteraction.InteractionType.FAVORITE) ? -0.5 : 0.2;
             String species = pet.getSpecies().toLowerCase();
             String breed = pet.getBreed().toLowerCase();
 

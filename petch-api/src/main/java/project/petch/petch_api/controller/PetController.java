@@ -106,6 +106,12 @@ public class PetController {
         }
         try {
             PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
+            
+            // Map Discover "LIKE" swipes directly to "FAVORITE" interactions
+            if (interactionType == PetInteraction.InteractionType.LIKE) {
+                interactionType = PetInteraction.InteractionType.FAVORITE;
+            }
+            
             petService.recordInteraction(user, id, interactionType);
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
@@ -279,6 +285,34 @@ public class PetController {
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    // PUT /api/pets/{id}/adoption-status
+    @PutMapping("/{id}/adoption-status")
+    public ResponseEntity<Map<String, Boolean>> updateAdoptionStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body,
+            @AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        Boolean isAdopted = body.get("isAdopted");
+        if (isAdopted == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        Pets pet = petService.getPetById(id).orElse(null);
+        if (pet == null) {
+            return ResponseEntity.notFound().build();
+        }
+        boolean isAdmin = user.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin && (pet.getUser() == null || !pet.getUser().getId().equals(user.getId()))) {
+            securityEventLogger.logIdorAttempt(
+                    getClientIP(), user.getId().toString(), "pet-adoption-status", id);
+            return ResponseEntity.status(403).build();
+        }
+        petService.markAdopted(id, isAdopted);
+        return ResponseEntity.ok(Map.of("isAdopted", isAdopted));
     }
 
     // get all pets by species

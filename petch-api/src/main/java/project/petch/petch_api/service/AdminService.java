@@ -47,6 +47,7 @@ public class AdminService {
     public AdminStatsDto getStats() {
         long totalUsers = userRepository.count();
         long totalPets = petsRepository.count();
+        long totalAdoptedPets = petsRepository.countByIsAdoptedTrue();
         long totalAdopters = userRepository.countByUserType(UserType.ADOPTER);
         long totalVendors = userRepository.countByUserType(UserType.VENDOR);
         long pendingReports = reportRepository.countByStatus(ReportStatus.PENDING);
@@ -54,6 +55,7 @@ public class AdminService {
         return AdminStatsDto.builder()
                 .totalUsers(totalUsers)
                 .totalPets(totalPets)
+                .totalAdoptedPets(totalAdoptedPets)
                 .totalAdopters(totalAdopters)
                 .totalVendors(totalVendors)
                 .pendingReports(pendingReports)

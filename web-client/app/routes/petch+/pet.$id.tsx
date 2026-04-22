@@ -3,11 +3,12 @@ import type { Route } from "./+types/pet.$id";
 import { useRef, useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import { Heart, Flag, CreditCard } from "lucide-react";
+import { Heart, Flag, CreditCard, Download, FileText } from "lucide-react";
 import { getUserFromSession } from "~/services/auth";
 import { getSession } from "~/services/session.server";
 import { FAKE_PETS, type FakePet } from '~/data/fake-pets';
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
+import { PLACEHOLDER_IMAGES } from '~/config/constants';
 import ReportModal from '~/components/ReportModal';
 
 interface Image {
@@ -513,6 +514,12 @@ export default function PetDetail() {
     } else if (origin === 'reports') {
       backLink = '/admin/reports';
       backText = '← Back to Reports';
+    } else if (origin === 'profile') {
+      backLink = '/profile';
+      backText = '← Back to Profile';
+    } else if (origin === 'favorites') {
+      backLink = '/favorites';
+      backText = '← Back to Favorites';
     }
   }
 
@@ -538,9 +545,11 @@ export default function PetDetail() {
                   className="w-full h-96 object-cover"
                 />
               ) : (
-                <div className="w-full h-96 bg-muted flex items-center justify-center">
-                  <span className="text-muted-foreground">No image available</span>
-                </div>
+                <img
+                  src={PLACEHOLDER_IMAGES[pet.species] || PLACEHOLDER_IMAGES.default}
+                  alt={pet.name}
+                  className="w-full h-96 object-cover"
+                />
               )}
             </Card>
 
@@ -825,6 +834,38 @@ export default function PetDetail() {
 
                       {submissionSuccess && (
                         <p className="text-sm text-green-700">{submissionSuccess}</p>
+                      )}
+
+                      {visibleSubmissions.length > 0 && (
+                        <div className="mt-4 space-y-3">
+                          <h4 className="text-sm font-semibold text-blue-900">Submitted Forms</h4>
+                          {visibleSubmissions.map((submission) => (
+                            <div
+                              key={submission.id}
+                              className="flex items-center justify-between rounded-lg border border-blue-200 bg-white p-3"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <FileText className="size-5 shrink-0 text-blue-600" />
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-blue-900">{submission.fileName}</p>
+                                  <p className="text-xs text-blue-600">
+                                    {submission.adopterName} &middot; {new Date(submission.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadSubmission(submission)}
+                                className="shrink-0 ml-2"
+                              >
+                                <Download className="size-4 mr-1" />
+                                Download
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
                       )}
 
                     </div>

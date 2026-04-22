@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import type { DragEvent } from 'react';
 import { useNavigate, Link, useLoaderData, redirect } from 'react-router';
-import type { Route } from './+types/createListing';
+import type { Route } from './+types/pet.$id.edit';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
@@ -24,31 +24,61 @@ type ListingAdoptionMethod = 'DIRECT' | 'REDIRECT' | 'ONLINE_FORM';
 
 export function meta({ }: Route.MetaArgs) {
   return [
-    { title: 'Create Pet Listing - Petch' },
-    { name: 'description', content: 'Create a new pet listing' },
+    { title: 'Edit Pet Listing - Petch' },
+    { name: 'description', content: 'Edit an existing pet listing' },
   ];
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request, params }: Route.LoaderArgs) {
   const session = await getSession(request.headers.get('Cookie'));
   const token = session.get('token');
   const user = await getUserFromSession(request);
 
   if (!token || !user) {
-    return redirect('/login?redirectTo=/pets/create');
+    return redirect(`/login?redirectTo=/pets/${params.id}/edit`);
   }
+
+  const petResponse = await fetch(`${API_BASE_URL}/api/pets/${params.id}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+
+  if (!petResponse.ok) {
+    throw new Response("Pet not found", { status: 404 });
+  }
+
+  const pet = await petResponse.json();
+
+  if (user.userType !== 'VENDOR' || pet.user?.email !== user.email) {
+    return redirect(`/pets/${params.id}`);
+  }
+
+  let adoptionDetailsData = null;
+  try {
+    const adRes = await fetch(`${API_BASE_URL}/api/pets/${params.id}/adoption-details`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (adRes.ok) adoptionDetailsData = await adRes.json();
+  } catch {}
+
+  let petDocuments = [];
+  try {
+    const docRes = await fetch(`${API_BASE_URL}/api/pets/${params.id}/documents`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (docRes.ok) {
+      const docPayload = await docRes.json();
+      petDocuments = Array.isArray(docPayload?.documents) ? docPayload.documents : [];
+    }
+  } catch {}
 
   let vendorPreferences: VendorAdoptionPreferencesResponse | null = null;
-
-  if (user.userType === 'VENDOR') {
-    try {
-      vendorPreferences = await getVendorAdoptionPreferences(request);
-    } catch {
-      vendorPreferences = null;
-    }
+  try {
+    vendorPreferences = await getVendorAdoptionPreferences(request);
+  } catch {
+    vendorPreferences = null;
   }
 
-  return { token, user, vendorPreferences };
+  return { token, user, vendorPreferences, pet, adoptionDetailsData, petDocuments };
 }
 
 function getInitialAdoptionDetails(
@@ -88,9 +118,9 @@ function getInitialAdoptionDetails(
   };
 }
 
-export default function CreatePetPage() {
+export default function EditPetPage() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { token, user, vendorPreferences } = useLoaderData<typeof loader>();
+  const { token, user, vendorPreferences, pet, adoptionDetailsData, petDocuments: existingDocuments } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,18 +185,29 @@ export default function CreatePetPage() {
 
 
   const [formData, setFormData] = useState({
-    name: '',
-    species: '',
-    breed: '',
-    age: 0,
-    description: '',
-    atRisk: false,
-    fosterable: false,
+    name: pet.name || '',
+    species: pet.species || '',
+    breed: pet.breed || '',
+    age: pet.age || 0,
+    description: pet.description || '',
+    atRisk: pet.atRisk || false,
+    fosterable: pet.fosterable || false,
   });
 
-  const [adoptionDetails, setAdoptionDetails] = useState(
-    getInitialAdoptionDetails(user?.email, vendorPreferences)
-  );
+  const defaultAdoptionMethod = adoptionDetailsData
+    ? (adoptionDetailsData.isDirect ? 'DIRECT' : (adoptionDetailsData.redirectLink ? 'REDIRECT' : 'ONLINE_FORM'))
+    : getInitialAdoptionDetails(user?.email, vendorPreferences).method;
+
+  const [adoptionDetails, setAdoptionDetails] = useState({
+    method: defaultAdoptionMethod as ListingAdoptionMethod,
+    priceEstimate: adoptionDetailsData?.priceEstimate ?? 0,
+    stepsDescription: adoptionDetailsData?.stepsDescription || getInitialAdoptionDetails(user?.email, vendorPreferences).stepsDescription,
+    phoneNumber: adoptionDetailsData?.phoneNumber || getInitialAdoptionDetails(user?.email, vendorPreferences).phoneNumber,
+    email: adoptionDetailsData?.email || getInitialAdoptionDetails(user?.email, vendorPreferences).email,
+    redirectLink: adoptionDetailsData?.redirectLink || getInitialAdoptionDetails(user?.email, vendorPreferences).redirectLink,
+    redirectPhoneNumber: adoptionDetailsData?.phoneNumber || getInitialAdoptionDetails(user?.email, vendorPreferences).redirectPhoneNumber,
+    redirectEmail: adoptionDetailsData?.email || getInitialAdoptionDetails(user?.email, vendorPreferences).redirectEmail,
+  });
 
   // Touched state for validation
   const [touched, setTouched] = useState({
@@ -529,8 +570,8 @@ export default function CreatePetPage() {
         userId: fullUser.id,
       };
 
-      const petResponse = await fetch(`${API_BASE_URL}/api/pets`, {
-        method: 'POST',
+      const petResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -540,11 +581,11 @@ export default function CreatePetPage() {
 
       if (!petResponse.ok) {
         const errorText = await petResponse.text();
-        logger.error('Pet creation failed', { status: petResponse.status, errorText });
-        throw new Error('Unable to create the pet listing. Please check your information and try again.');
+        logger.error('Pet update failed', { status: petResponse.status, errorText });
+        throw new Error('Unable to update the pet listing. Please check your information and try again.');
       }
 
-      const pet = await petResponse.json();
+      await petResponse.json();
 
       if (selectedFiles.length > 0) {
         setUploadProgress(10);
@@ -593,7 +634,7 @@ export default function CreatePetPage() {
       };
 
       const adoptionResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/adoption-details`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -685,7 +726,7 @@ export default function CreatePetPage() {
           <audio ref={audioRef} src="/chime.mp3" preload="auto" />
           <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
             <CheckCircle className="w-12 h-12 text-green-500 mb-4" />
-            <h2 className="text-xl font-bold mb-2">Pet Listing Successfully Published!</h2>
+            <h2 className="text-xl font-bold mb-2">Pet Listing Successfully Updated!</h2>
             <p className="mb-6 text-center">Thank you for helping pets find a home!</p>
             <div className="flex flex-col gap-3 w-full">
               <Button
@@ -710,7 +751,7 @@ export default function CreatePetPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold flex items-center gap-2">
-              Create Pet Listing
+              Edit Pet Listing
             </h1>
             <Button asChild variant="outline">
               <Link to="/profile/vendor">← Back to Profile</Link>
@@ -722,7 +763,7 @@ export default function CreatePetPage() {
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         <Card>
           <CardHeader>
-            <CardTitle>Add a New Pet</CardTitle>
+            <CardTitle>Edit Pet Details</CardTitle>
             <p className="text-sm text-muted-foreground">
               Fill in the details below to create a listing. Fields marked with * are required.
             </p>
@@ -1326,7 +1367,7 @@ export default function CreatePetPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={currentStep === 1 ? () => navigate('/pets') : prevStep}
+                  onClick={currentStep === 1 ? () => navigate(`/pets/${pet.id}`) : prevStep}
                   disabled={loading}
                   className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-700 w-32"
                 >

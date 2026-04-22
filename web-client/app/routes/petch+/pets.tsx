@@ -446,7 +446,7 @@ export default function PetsPage() {
 
       {/* Filters */}
       <div className="container mx-auto px-4 py-6">
-        <div className="w-full bg-white rounded-lg border shadow-sm p-4">
+        <div className="w-full bg-white dark:bg-zinc-900 rounded-lg border dark:border-zinc-800 shadow-sm p-4">
           <div className="flex flex-wrap items-center gap-6">
             {/* Search Input */}
             <div className="flex items-center gap-2 flex-1 min-w-[200px]">
@@ -571,7 +571,7 @@ export default function PetsPage() {
       {/* Loading Overlay */}
       {isFiltering && (
         <div className="fixed inset-0 bg-background/50 z-50 flex items-center justify-center">
-          <div className="flex items-center gap-2 bg-white p-4 rounded-lg shadow-lg">
+          <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border dark:border-zinc-800 p-4 rounded-lg shadow-lg">
             <Loader2 className="w-6 h-6 animate-spin text-coral" />
             <span>Filtering...</span>
           </div>

@@ -48,6 +48,9 @@ public class PetDTO{
     @Builder.Default
     private Boolean fosterable = false;
 
+    @Builder.Default
+    private Boolean isAdopted = false;
+
     private Long userId;
 
     private List<ImageDTO> images;

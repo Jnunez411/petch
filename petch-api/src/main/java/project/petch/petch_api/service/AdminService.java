@@ -6,15 +6,18 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.petch.petch_api.dto.admin.AdminStatsDto;
+import project.petch.petch_api.dto.admin.AdminUserDto;
 import project.petch.petch_api.dto.user.UserType;
 import project.petch.petch_api.models.AdminAuditLog;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.models.ReportStatus;
 import project.petch.petch_api.repositories.AdminAuditLogRepository;
+import project.petch.petch_api.repositories.PasswordResetTokenRepository;
 import project.petch.petch_api.repositories.PetInteractionRepository;
 import project.petch.petch_api.repositories.PetsRepository;
 import project.petch.petch_api.repositories.ReportRepository;
+import project.petch.petch_api.repositories.UserPreferenceRepository;
 import project.petch.petch_api.repositories.UserRepository;
 import project.petch.petch_api.service.ImageService;
 
@@ -33,6 +36,8 @@ public class AdminService {
     private final AdminAuditLogRepository auditLogRepository;
     private final ReportRepository reportRepository;
     private final PetInteractionRepository petInteractionRepository;
+    private final UserPreferenceRepository userPreferenceRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final ImageService imageService;
     private final PetDocumentsService petDocumentsService;
 
@@ -58,8 +63,22 @@ public class AdminService {
     }
 
     // PERFORMANCE: Added pagination to avoid loading all users at once
-    public Page<User> getAllUsers(Pageable pageable) {
-        return userRepository.findAll(pageable);
+    // Returns DTOs to avoid lazy-loading blob issues during JSON serialization
+    @Transactional(readOnly = true)
+    public Page<AdminUserDto> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable).map(user -> AdminUserDto.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .userType(user.getUserType())
+                .phoneNumber(user.getPhoneNumber())
+                .emailNotificationsEnabled(user.getEmailNotificationsEnabled())
+                .deletionRequested(user.getDeletionRequested())
+                .deletionRequestedAt(user.getDeletionRequestedAt())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build());
     }
 
     /**
@@ -85,6 +104,12 @@ public class AdminService {
                 userToDelete.getUserType());
 
         auditLog(currentUserEmail, "DELETE_USER", "USER", id, targetDetails);
+
+        // Clean up dependent rows that are not cascaded from User
+        petInteractionRepository.deleteByUser_Id(id);
+        petInteractionRepository.deleteByPet_User_Id(id);
+        userPreferenceRepository.deleteByUser_Id(id);
+        passwordResetTokenRepository.deleteByUserId(id);
 
         log.info("Admin {} deleted user: {}", currentUserEmail, targetDetails);
         userRepository.deleteById(id);

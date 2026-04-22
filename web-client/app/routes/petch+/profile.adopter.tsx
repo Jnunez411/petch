@@ -1,6 +1,6 @@
 import { useLoaderData, Link, redirect, Form, useActionData, useNavigation, useFetcher } from 'react-router';
 import type { Route } from './+types/profile.adopter';
-import { getUserFromSession, logout } from '~/services/auth';
+import { getUserFromSession } from '~/services/auth';
 import { getSession } from '~/services/session.server';
 import { authenticatedFetch } from '~/utils/api';
 import { getAdopterProfile, createAdopterProfile, updateAdopterProfile } from '~/services/profile.server';
@@ -19,9 +19,10 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createLogger } from '~/utils/logger';
 import { API_BASE_URL } from '~/config/api-config';
+import { Checkbox } from '~/components/ui/checkbox';
 
 const logger = createLogger('AdopterProfile');
 
@@ -55,6 +56,21 @@ export async function loader({ request }: Route.LoaderArgs) {
     logger.error('Failed to fetch adopter profile', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
+  let emailNotificationsEnabled = true;
+  let deletionRequested = false;
+  try {
+    const userResponse = await fetch(`${API_BASE_URL}/api/users/me`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (userResponse.ok) {
+      const userData = await userResponse.json();
+      emailNotificationsEnabled = userData.emailNotificationsEnabled ?? true;
+      deletionRequested = userData.deletionRequested ?? false;
+    }
+  } catch (error) {
+    logger.error('Failed to fetch user data', { error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+
   let submissions: AdoptionFormSubmission[] = [];
   try {
     const response = await fetch(`${API_BASE_URL}/api/v1/adopter/submissions/me`, {
@@ -70,7 +86,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     logger.error('Failed to fetch adopter submissions', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
-  return { user, adopterProfile, submissions, token };
+  return { user, adopterProfile, submissions, token, emailNotificationsEnabled, deletionRequested };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -100,19 +116,19 @@ export async function action({ request }: Route.ActionArgs) {
     }
   }
 
-  if (intent === 'delete-account') {
+  if (intent === 'request-deletion') {
     try {
-      const response = await authenticatedFetch(request, '/api/users/me', {
-        method: 'DELETE',
+      const response = await authenticatedFetch(request, '/api/users/me/request-deletion', {
+        method: 'PUT',
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to delete account: ${response.status}`);
+        throw new Error(`Failed to request account deletion: ${response.status}`);
       }
 
-      return await logout(request);
+      return { success: true, deletionRequested: true };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : 'Failed to delete account' };
+      return { error: error instanceof Error ? error.message : 'Failed to request account deletion' };
     }
   }
 
@@ -188,25 +204,49 @@ function ToggleCheckbox({
 }
 
 export default function AdopterProfilePage() {
-  const { user, adopterProfile, submissions, token } = useLoaderData<typeof loader>();
+  const { user, adopterProfile, submissions, token, emailNotificationsEnabled, deletionRequested } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const deleteFetcher = useFetcher();
 
   const isSubmitting = navigation.state === 'submitting';
-  const isDeleting = deleteFetcher.state !== 'idle';
-  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const isRequesting = deleteFetcher.state !== 'idle';
+  const [showDeleteRequestModal, setShowDeleteRequestModal] = useState(false);
+  const [hasPendingDeletion, setHasPendingDeletion] = useState(deletionRequested);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(emailNotificationsEnabled);
 
-  const handleDeleteAccount = () => {
-    setShowDeleteAccountModal(true);
+  useEffect(() => {
+    if (actionData?.deletionRequested) {
+      setHasPendingDeletion(true);
+    }
+  }, [actionData]);
+
+  const handleToggleNotifications = async (checked: boolean) => {
+    setNotificationsEnabled(checked);
+    try {
+      await fetch(`${API_BASE_URL}/api/users/me/notifications`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ emailNotificationsEnabled: checked }),
+      });
+    } catch (error) {
+      setNotificationsEnabled(!checked);
+    }
   };
 
-  const confirmDeleteAccount = () => {
+  const handleRequestDeletion = () => {
+    setShowDeleteRequestModal(true);
+  };
+
+  const confirmRequestDeletion = () => {
     deleteFetcher.submit(
-      { intent: 'delete-account' },
+      { intent: 'request-deletion' },
       { method: 'POST' }
     );
-    setShowDeleteAccountModal(false);
+    setShowDeleteRequestModal(false);
   };
 
   const handleDownloadSubmission = async (submission: AdoptionFormSubmission) => {
@@ -284,38 +324,44 @@ export default function AdopterProfilePage() {
                   </span>
                 </div>
 
-              </div>
-            </div>
-
-            {/* Change Password & Account Status */}
-            <div className="space-y-6 mt-6">
-              <ChangePasswordSection />
-
-              {/* Dangerous Area */}
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-red-100 dark:border-red-900/30 overflow-hidden">
-                <div className="bg-red-50/50 dark:bg-red-950/10 px-6 py-4 border-b border-red-100 dark:border-red-900/30">
-                  <h3 className="text-sm font-semibold text-red-800 dark:text-red-300">Account Status</h3>
-                </div>
-                <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Disable Account</h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Taking a break? Disable your account temporarily. You can reactivate it anytime.
-                    </p>
+                {/* Email Notifications */}
+                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                  <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2">Notifications</p>
+                  <div className="flex items-start space-x-2">
+                    <Checkbox
+                      id="emailNotifications"
+                      checked={notificationsEnabled}
+                      onCheckedChange={(checked) => handleToggleNotifications(checked as boolean)}
+                    />
+                    <label htmlFor="emailNotifications" className="text-sm text-zinc-700 dark:text-zinc-300 leading-tight cursor-pointer">
+                      Email me when new pets match my preferences
+                    </label>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-400 dark:hover:border-red-600 hover:text-red-700 dark:hover:text-red-300"
-                    onClick={handleDeleteAccount}
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="size-4 mr-2" />
-                    {isDeleting ? 'Disabling...' : 'Disable Account'}
-                  </Button>
+                </div>
+
+                {/* Request Account Deletion */}
+                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                  {hasPendingDeletion ? (
+                    <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+                      Account deletion has been requested. An admin will review your request.
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
+                      onClick={handleRequestDeletion}
+                      disabled={isRequesting}
+                    >
+                      <Trash2 className="size-4 mr-2" />
+                      {isRequesting ? 'Submitting...' : 'Request Account Deletion'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
+
+            {/* Change Password */}
+            <ChangePasswordSection />
           </div>
 
           {/* Main Form Card */}
@@ -507,35 +553,20 @@ export default function AdopterProfilePage() {
         </div>
       </div>
 
-      {/* Disable Account Modal */}
-      {showDeleteAccountModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl border border-zinc-200 dark:border-zinc-800">
-            <div className="flex items-center gap-3 mb-4 text-red-600">
-              <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                <AlertCircle className="size-6" />
-              </div>
-              <h3 className="text-xl font-bold">Disable Account?</h3>
-            </div>
-            <p className="text-muted-foreground mb-6">
-              Are you sure you want to disable your adopter account? You can reactivate it anytime by reaching out to support.
+      {/* Request Deletion Modal */}
+      {showDeleteRequestModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold mb-2">Request Account Deletion</h3>
+            <p className="text-muted-foreground mb-4">
+              Are you sure you want to request account deletion? An admin will review your request and permanently remove your account and all associated data.
             </p>
             <div className="flex gap-3 justify-end">
-              <Button 
-                variant="outline" 
-                className="rounded-xl flex-1 h-11"
-                onClick={() => setShowDeleteAccountModal(false)}
-                disabled={isDeleting}
-              >
+              <Button variant="outline" onClick={() => setShowDeleteRequestModal(false)}>
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
-                className="rounded-xl flex-1 h-11 bg-red-600 hover:bg-red-700"
-                onClick={confirmDeleteAccount}
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Disabling...' : 'Disable Account'}
+              <Button variant="destructive" onClick={confirmRequestDeletion}>
+                Request Deletion
               </Button>
             </div>
           </div>

@@ -163,7 +163,7 @@ export default function Home() {
                 </div>
 
                 {/* App Content */}
-                <div className="absolute inset-0 bg-zinc-950 pt-12 pb-8 px-4 flex flex-col items-center">
+                <div className="absolute inset-0 bg-zinc-950 pt-12 pb-8 px-4 flex flex-col items-center text-white">
                   {/* Cards Stack */}
                   <div className="relative w-full h-[400px] mt-4">
                     {[0, 1, 2].map((i) => {

@@ -1,8 +1,9 @@
 import type { User } from "~/types/auth";
 import { Button } from "./ui/button";
 import { Form, Link, useLocation } from "react-router";
-import { Dog, Menu, X, Home, Search, Heart, Star, User as UserIcon, Plus, LogOut, Info } from "lucide-react";
+import { Dog, Menu, X, Home, Search, Heart, Star, User as UserIcon, Plus, LogOut, Info, Sun, Moon } from "lucide-react";
 import { useState, useEffect } from "react";
+import { ThemeToggle } from "./ui/theme-toggle";
 
 interface HeaderProps {
   user?: User | null;
@@ -97,6 +98,9 @@ export function Header(props: HeaderProps) {
 
           {/* Right side actions */}
           <div className="flex items-center gap-3">
+            {/* Theme Toggle - Desktop (Authenticated Only) */}
+            {props.user && <ThemeToggle />}
+
             {/* Desktop Logout */}
             {props.user && (
               <Form method="post" action="/logout" className="hidden md:block">
@@ -169,6 +173,18 @@ export function Header(props: HeaderProps) {
                   </Link>
                 );
               })}
+
+              {/* Theme Toggle - Mobile (Authenticated Only) */}
+              {props.user && (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Sun className="size-5 text-muted-foreground dark:hidden" />
+                    <Moon className="size-5 text-muted-foreground hidden dark:block" />
+                    <span>Dark Mode</span>
+                  </div>
+                  <ThemeToggle />
+                </div>
+              )}
 
               {/* Mobile Logout */}
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">

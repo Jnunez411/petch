@@ -55,6 +55,7 @@ interface Pet {
   atRisk?: boolean;
   fosterable?: boolean;
   real?: boolean;
+  isAdopted?: boolean;
   viewCount?: number;
 }
 
@@ -218,6 +219,29 @@ export async function action({ request }: Route.ActionArgs) {
       return { success: true, message: 'Pet deleted successfully' };
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Failed to delete pet' };
+    }
+  }
+
+  if (intent === 'toggle-adopted') {
+    const petId = formData.get('petId');
+    const isAdopted = formData.get('isAdopted') === 'true';
+    if (!petId) {
+      return { error: 'Pet ID is required' };
+    }
+
+    try {
+      const response = await authenticatedFetch(request, `/api/pets/${petId}/adoption-status`, {
+        method: 'PUT',
+        body: JSON.stringify({ isAdopted }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update adoption status: ${response.status}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to update adoption status' };
     }
   }
 
@@ -388,14 +412,17 @@ export default function VendorProfilePage() {
     setShowDeleteAccountModal(false);
   };
 
+  const adoptFetcher = useFetcher();
+
+  const isTogglingAdoption = (petId: number) => {
+    return (
+      adoptFetcher.state !== 'idle' &&
+      adoptFetcher.formData?.get('intent') === 'toggle-adopted' &&
+      adoptFetcher.formData?.get('petId') === petId.toString()
+    );
+  };
+
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number } | null>(null);
-  /*if (!confirm('Are you sure you want to delete this pet? This action cannot be undone.')) {
-      return;
-    }
-    fetcher.submit(
-      { intent: 'delete-pet', petId: petId.toString() i},
-      { method: 'POST' }
-    );*/
   const handleDelete = (petId: number) => {
     setDeleteConfirm({ id: petId });
   };
@@ -651,9 +678,9 @@ export default function VendorProfilePage() {
 
       {/* Custom Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-page-alt">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <audio ref={audioRef} src="/chime2.mp3" preload="auto" />
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
             <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
             <h2 className="text-xl font-bold mb-2">Confirm Delete</h2>
             <p className="mb-6 text-center text-muted-foreground">
@@ -928,9 +955,34 @@ export default function VendorProfilePage() {
               </div>
             </div>
 
-            {/* Change Password */}
-            <div className="mt-6">
+            {/* Change Password & Account Status */}
+            <div className="mt-6 space-y-6">
               <ChangePasswordSection />
+              
+              {/* Dangerous Area */}
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-red-100 dark:border-red-900/30 overflow-hidden">
+                <div className="bg-red-50/50 dark:bg-red-950/10 px-6 py-4 border-b border-red-100 dark:border-red-900/30">
+                  <h3 className="text-sm font-semibold text-red-800 dark:text-red-300">Account Status</h3>
+                </div>
+                <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Disable Account</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Taking a break? Disable your account temporarily. You can reactivate it anytime.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-400 dark:hover:border-red-600 hover:text-red-700 dark:hover:text-red-300"
+                    onClick={handleDeleteAccount}
+                    disabled={isDeletingAccount}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    {isDeletingAccount ? 'Disabling...' : 'Disable Account'}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -992,6 +1044,9 @@ export default function VendorProfilePage() {
                         {pet.real && (
                           <span className="px-2 py-1 rounded-full bg-blue-500 text-white text-xs font-semibold">
                             Real
+                        {pet.isAdopted && (
+                          <span className="px-2 py-1 rounded-full bg-purple-500 text-white text-xs font-semibold">
+                            Adopted
                           </span>
                         )}
                       </div>
@@ -1008,7 +1063,7 @@ export default function VendorProfilePage() {
                       <span className="text-sm text-muted-foreground">{pet.species}</span>
                       <div className="flex gap-2">
                         <Button asChild variant="ghost" size="sm" className="rounded-lg">
-                          <Link to={`/pets/${pet.id}`}>
+                          <Link to={`/pets/${pet.id}?origin=profile`}>
                             <ExternalLink className="size-4" />
                           </Link>
                         </Button>
@@ -1016,6 +1071,19 @@ export default function VendorProfilePage() {
                           <Link to={`/pets/${pet.id}/edit`}>
                             <Edit3 className="size-4" />
                           </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`rounded-lg ${pet.isAdopted ? 'text-purple-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/20' : 'text-muted-foreground hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/20'}`}
+                          title={pet.isAdopted ? 'Mark as Available' : 'Mark as Adopted'}
+                          onClick={() => adoptFetcher.submit(
+                            { intent: 'toggle-adopted', petId: pet.id.toString(), isAdopted: (!pet.isAdopted).toString() },
+                            { method: 'POST' }
+                          )}
+                          disabled={isTogglingAdoption(pet.id)}
+                        >
+                          <CheckCircle className="size-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -1050,19 +1118,35 @@ export default function VendorProfilePage() {
       </div>
 
       {/* Delete Account Modal */}
+      {/* Disable Account Modal */}
       {showDeleteAccountModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold mb-2">Delete Account</h3>
-            <p className="text-muted-foreground mb-4">
-              Are you sure you want to delete your account? This action cannot be undone and all your data, including pet listings, will be permanently removed.
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl border border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center gap-3 mb-4 text-red-600">
+              <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
+                <AlertCircle className="size-6" />
+              </div>
+              <h3 className="text-xl font-bold">Disable Account?</h3>
+            </div>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to disable your vendor account? Your pet listings will be hidden from public view until you reactivate your account.
             </p>
             <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setShowDeleteAccountModal(false)}>
+              <Button 
+                variant="outline" 
+                className="rounded-xl flex-1 h-11"
+                onClick={() => setShowDeleteAccountModal(false)}
+                disabled={isDeletingAccount}
+              >
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={confirmDeleteAccount}>
-                Delete Account
+              <Button 
+                variant="destructive" 
+                className="rounded-xl flex-1 h-11 bg-red-600 hover:bg-red-700"
+                onClick={confirmDeleteAccount}
+                disabled={isDeletingAccount}
+              >
+                {isDeletingAccount ? 'Disabling...' : 'Disable Account'}
               </Button>
             </div>
           </div>

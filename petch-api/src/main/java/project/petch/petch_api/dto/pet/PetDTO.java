@@ -53,6 +53,7 @@ public class PetDTO{
 
     @Builder.Default
     private Boolean onHold = false;
+    private Boolean isAdopted = false;
 
     private Long userId;
 

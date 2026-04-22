@@ -1,181 +1,116 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import type { DragEvent } from 'react';
 import { useNavigate, Link, useLoaderData, redirect } from 'react-router';
-import type { Route } from './+types/createListing';
+import type { Route } from './+types/editListing.$id';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Checkbox } from '~/components/ui/checkbox';
-import { Progress } from '~/components/ui/progress';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
-import { getVendorAdoptionPreferences } from '~/services/profile.server';
-import type { VendorAdoptionPreferencesResponse } from '~/types/vendor';
-import {
-  ImageIcon, X, AlertCircle, CheckCircle, FileText
-} from 'lucide-react';
+import { ImageIcon, X, AlertCircle, CheckCircle, FileText } from 'lucide-react';
 import { createLogger } from '~/utils/logger';
-import { API_BASE_URL } from '~/config/api-config';
+import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 
-const logger = createLogger('CreateListing');
+const logger = createLogger('EditListing');
 
 type ListingAdoptionMethod = 'DIRECT' | 'REDIRECT' | 'ONLINE_FORM';
 
 export function meta({ }: Route.MetaArgs) {
   return [
-    { title: 'Create Pet Listing - Petch' },
-    { name: 'description', content: 'Create a new pet listing' },
+    { title: 'Edit Pet Listing - Petch' },
+    { name: 'description', content: 'Edit your pet listing' },
   ];
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request, params }: Route.LoaderArgs) {
   const session = await getSession(request.headers.get('Cookie'));
   const token = session.get('token');
   const user = await getUserFromSession(request);
 
   if (!token || !user) {
-    return redirect('/login?redirectTo=/pets/create');
+    return redirect(`/login?redirectTo=/pets/${params.id}/edit`);
   }
 
-  let vendorPreferences: VendorAdoptionPreferencesResponse | null = null;
+  const [userResponse, petResponse, documentsResponse] = await Promise.all([
+    fetch(`${API_BASE_URL}/api/users/me`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    }),
+    fetch(`${API_BASE_URL}/api/pets/${params.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    }),
+    fetch(`${API_BASE_URL}/api/pets/${params.id}/documents`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    }),
+  ]);
 
-  if (user.userType === 'VENDOR') {
-    try {
-      vendorPreferences = await getVendorAdoptionPreferences(request);
-    } catch {
-      vendorPreferences = null;
-    }
+  if (!userResponse.ok || !petResponse.ok) {
+    return redirect('/profile/vendor');
   }
 
-  return { token, user, vendorPreferences };
+  const fullUser = await userResponse.json();
+  const pet = await petResponse.json();
+  const documents = documentsResponse.ok ? await documentsResponse.json() : [];
+
+  // Verify ownership
+  if (pet.userId !== fullUser.id && user.userType !== 'ADMIN') {
+    return redirect('/profile/vendor');
+  }
+
+  return { token, user, pet, documents };
 }
 
-function getInitialAdoptionDetails(
-  email: string | undefined,
-  vendorPreferences: VendorAdoptionPreferencesResponse | null
-) {
-  if (!vendorPreferences) {
-    return {
-      method: 'DIRECT' as ListingAdoptionMethod,
-      priceEstimate: 0,
-      stepsDescription: '',
-      phoneNumber: '',
-      email: email || '',
-      redirectLink: '',
-      redirectPhoneNumber: '',
-      redirectEmail: '',
-    };
-  }
-
-  const contactMethod = vendorPreferences.contactMethod;
-  const primaryPhone = vendorPreferences.contactNumber || vendorPreferences.phoneNumber || '';
-  const primaryEmail = vendorPreferences.email || email || '';
-
-  return {
-    method: contactMethod === 'CONTACT_NUMBER'
-      ? 'DIRECT'
-      : contactMethod === 'ONLINE_FORM'
-        ? 'ONLINE_FORM'
-        : 'REDIRECT',
-    priceEstimate: 0,
-    stepsDescription: vendorPreferences.stepsDescription || '',
-    phoneNumber: contactMethod === 'CONTACT_NUMBER' ? primaryPhone : '',
-    email: contactMethod === 'CONTACT_NUMBER' ? primaryEmail : email || '',
-    redirectLink: contactMethod === 'DIRECT_LINK' ? vendorPreferences.directLinkUrl || '' : '',
-    redirectPhoneNumber: contactMethod !== 'CONTACT_NUMBER' ? primaryPhone : '',
-    redirectEmail: contactMethod !== 'CONTACT_NUMBER' ? primaryEmail : '',
-  };
+function determineMethod(adoptionDetails: any): ListingAdoptionMethod {
+  if (!adoptionDetails) return 'DIRECT';
+  if (adoptionDetails.isDirect) return 'DIRECT';
+  if (adoptionDetails.redirectLink) return 'REDIRECT';
+  if (adoptionDetails.hasOnlineFormPdf) return 'ONLINE_FORM';
+  return 'DIRECT';
 }
 
-export default function CreatePetPage() {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const { token, user, vendorPreferences } = useLoaderData<typeof loader>();
+export default function EditPetPage() {
+  const { token, pet, documents } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Image state
+  const [existingImages, setExistingImages] = useState<any[]>(pet.images || []);
+  const [imagesToDelete, setImagesToDelete] = useState<number[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Document state
+  const [existingDocuments, setExistingDocuments] = useState<any[]>(documents || []);
   const [selectedDocumentFiles, setSelectedDocumentFiles] = useState<File[]>([]);
   const [isDocumentDragging, setIsDocumentDragging] = useState(false);
-  const [selectedAdoptionFormFile, setSelectedAdoptionFormFile] = useState<File | null>(null);
-  const [showUploadInput, setShowUploadInput] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
-  const errorRef = useRef<HTMLDivElement>(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 3;
-
-  const nextStep = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTouched({
-      name: true, species: true, breed: true, age: true,
-      priceEstimate: true, stepsDescription: true,
-      phoneNumber: true, email: true,
-      redirectLink: true, redirectPhoneNumber: true, redirectEmail: true,
-    });
-
-    if (currentStep === 1) {
-      if (validateName(formData.name) || validateSpecies(formData.species) || validateBreed(formData.breed) || validateAge(formData.age)) {
-        setError("Please fix the errors above before continuing.");
-        return;
-      }
-    } else if (currentStep === 2) {
-      if (validateSteps(adoptionDetails.stepsDescription)) {
-        setError("Please fix the errors above before continuing.");
-        return;
-      }
-      if (adoptionDetails.method === 'DIRECT' && (validatePhone(adoptionDetails.phoneNumber) || validateEmail(adoptionDetails.email))) {
-        setError("Please fix the contact details before continuing.");
-        return;
-      }
-      if (adoptionDetails.method === 'REDIRECT' && (validateUrl(adoptionDetails.redirectLink) || validatePhone(adoptionDetails.redirectPhoneNumber) || validateEmail(adoptionDetails.redirectEmail))) {
-        setError("Please fix the redirect details before continuing.");
-        return;
-      }
-      if (adoptionDetails.method === 'ONLINE_FORM' && !vendorPreferences?.hasOnlineFormPdf && !selectedAdoptionFormFile) {
-        // Edit flow might have existing template, but standard creation needs this
-        // Actually, let it slide on editing if there already is a document attached or template exists
-        if (!(window.location.pathname.includes('/edit'))) {
-            setError("Upload a PDF adoption form for this listing.");
-            return;
-        }
-      }
-    }
-    setError(null);
-    setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
-  };
-  
-  const prevStep = () => {
-    setError(null);
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-
-  useEffect(() => {
-    if (error) {
-      errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [error]);
 
   const [formData, setFormData] = useState({
-    name: '',
-    species: '',
-    breed: '',
-    age: 0,
-    description: '',
-    atRisk: false,
-    fosterable: false,
-    real: false,
+    name: pet.name || '',
+    species: pet.species || '',
+    breed: pet.breed || '',
+    age: pet.age || 0,
+    description: pet.description || '',
+    atRisk: pet.atRisk || false,
+    fosterable: pet.fosterable || false,
   });
 
-  const [adoptionDetails, setAdoptionDetails] = useState(
-    getInitialAdoptionDetails(user?.email, vendorPreferences)
-  );
+  const ad = pet.adoptionDetails;
+  const initialMethod = determineMethod(ad);
+  const [adoptionDetails, setAdoptionDetails] = useState({
+    method: initialMethod,
+    priceEstimate: ad?.priceEstimate || 0,
+    stepsDescription: ad?.stepsDescription || '',
+    phoneNumber: initialMethod === 'DIRECT' ? (ad?.phoneNumber || '') : '',
+    email: initialMethod === 'DIRECT' ? (ad?.email || '') : '',
+    redirectLink: initialMethod === 'REDIRECT' ? (ad?.redirectLink || '') : '',
+    redirectPhoneNumber: initialMethod === 'REDIRECT' ? (ad?.phoneNumber || '') : '',
+    redirectEmail: initialMethod === 'REDIRECT' ? (ad?.email || '') : '',
+  });
 
   // Touched state for validation
   const [touched, setTouched] = useState({
@@ -192,23 +127,28 @@ export default function CreatePetPage() {
     redirectEmail: false,
   });
 
-  // Human-friendly validation functions
+  // Validation functions
   const validateName = (name: string) => {
     if (!name) return "What's this pet's name?";
     if (name.length < 2) return "Name should be at least 2 characters";
     if (name.length > 100) return "Name is too long (max 100 characters)";
+    if (!/^[a-zA-Z0-9\s\-']+$/.test(name)) return "Name can only contain letters, numbers, spaces, hyphens, and apostrophes";
     return null;
   };
 
   const validateSpecies = (species: string) => {
     if (!species) return "What type of animal is this? (e.g., Dog, Cat, Bird)";
     if (species.length < 2) return "Please enter a valid species name";
+    if (species.length > 50) return "Species name is too long (max 50 characters)";
+    if (!/^[a-zA-Z\s\-]+$/.test(species)) return "Species can only contain letters, spaces, and hyphens";
     return null;
   };
 
   const validateBreed = (breed: string) => {
     if (!breed) return "What breed is this pet? (e.g., Labrador, Siamese)";
     if (breed.length < 2) return "Please enter a valid breed name";
+    if (breed.length > 100) return "Breed name is too long (max 100 characters)";
+    if (!/^[a-zA-Z0-9\s\-']+$/.test(breed)) return "Breed can only contain letters, numbers, spaces, hyphens, and apostrophes";
     return null;
   };
 
@@ -278,12 +218,7 @@ export default function CreatePetPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    if (type === 'checkbox') {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: (e.target as HTMLInputElement).checked,
-      }));
-    } else if (type === 'number') {
+    if (type === 'number') {
       setFormData((prev) => ({
         ...prev,
         [name]: parseInt(value) || 0,
@@ -318,44 +253,7 @@ export default function CreatePetPage() {
     }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      processFiles(files);
-      e.target.value = '';
-    }
-  };
-
-  const removeImage = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const removeDocument = (index: number) => {
-    setSelectedDocumentFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const setAdoptionFormFile = (file: File | null) => {
-    if (!file) {
-      setSelectedAdoptionFormFile(null);
-      return;
-    }
-
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    if (!isPdf) {
-      setError('Please upload a PDF file for the adoption form.');
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setError('The adoption form PDF is too large. Please keep it under 10MB.');
-      return;
-    }
-
-    setError(null);
-    setSelectedAdoptionFormFile(file);
-  };
-
+  // Image handling
   const processFiles = (files: FileList | File[]) => {
     const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
     const newFiles: File[] = [];
@@ -385,22 +283,31 @@ export default function CreatePetPage() {
     });
   };
 
-  const handleDocumentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      processDocumentFiles(files);
+      processFiles(files);
       e.target.value = '';
     }
   };
 
+  const removeNewImage = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingImage = (imageId: number) => {
+    setImagesToDelete((prev) => [...prev, imageId]);
+    setExistingImages((prev) => prev.filter((img: any) => img.id !== imageId));
+  };
+
+  // Document handling
   const processDocumentFiles = (files: FileList | File[]) => {
     const allowedTypes = ['application/pdf'];
-
     const newFiles: File[] = [];
 
     Array.from(files).forEach((file) => {
       const allowedByExtension = /\.pdf$/i.test(file.name);
-
       if (!allowedTypes.includes(file.type) && !allowedByExtension) {
         setError('Please upload PDF files only for pet documents.');
         return;
@@ -420,6 +327,23 @@ export default function CreatePetPage() {
     }
   };
 
+  const handleDocumentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      processDocumentFiles(files);
+      e.target.value = '';
+    }
+  };
+
+  const removeNewDocument = (index: number) => {
+    setSelectedDocumentFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingDocument = (docId: number) => {
+    setExistingDocuments((prev) => prev.filter((doc: any) => doc.id !== docId));
+  };
+
+  // Drag handlers for images
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -436,13 +360,13 @@ export default function CreatePetPage() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       processFiles(files);
     }
   };
 
+  // Drag handlers for documents
   const handleDocumentDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -459,17 +383,35 @@ export default function CreatePetPage() {
     e.preventDefault();
     e.stopPropagation();
     setIsDocumentDragging(false);
-
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       processDocumentFiles(files);
     }
   };
 
+  // Helper component for field errors
+  const FieldError = ({ error }: { error: string | null }) => {
+    if (!error) return null;
+    return (
+      <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+        <AlertCircle className="w-3 h-3" />
+        {error}
+      </p>
+    );
+  };
+
+  // Helper component for valid field indicator
+  const FieldSuccess = ({ show }: { show: boolean }) => {
+    if (!show) return null;
+    return (
+      <CheckCircle className="w-4 h-4 text-green-500 absolute right-3 top-1/2 -translate-y-1/2" />
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Mark all fields as touched to show any validation errors
+    // Mark all fields as touched
     setTouched({
       name: true,
       species: true,
@@ -506,27 +448,11 @@ export default function CreatePetPage() {
       return;
     }
 
-    if (adoptionDetails.method === 'ONLINE_FORM' && !vendorPreferences?.hasOnlineFormPdf && !selectedAdoptionFormFile) {
-      setError('Upload a PDF adoption form for this listing or save one in Adoption Preferences first.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
-      const userResponse = await fetch(`${API_BASE_URL}/api/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!userResponse.ok) {
-        throw new Error('Unable to verify your account. Please try logging in again.');
-      }
-
-      const fullUser = await userResponse.json();
-
+      // 1. Update pet details
       const petPayload = {
         name: formData.name,
         species: formData.species,
@@ -535,12 +461,10 @@ export default function CreatePetPage() {
         description: formData.description,
         atRisk: formData.atRisk,
         fosterable: formData.fosterable,
-        real: formData.real,
-        userId: fullUser.id,
       };
 
-      const petResponse = await fetch(`${API_BASE_URL}/api/pets`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE_URL}/api/pets/${pet.id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -548,43 +472,22 @@ export default function CreatePetPage() {
         body: JSON.stringify(petPayload),
       });
 
-      if (!petResponse.ok) {
-        const errorText = await petResponse.text();
-        logger.error('Pet creation failed', { status: petResponse.status, errorText });
-        throw new Error('Unable to create the pet listing. Please check your information and try again.');
-      }
-
-      const pet = await petResponse.json();
-
-      if (selectedFiles.length > 0) {
-        setUploadProgress(10);
-        for (let i = 0; i < selectedFiles.length; i++) {
-          const file = selectedFiles[i];
-          const imageFormData = new FormData();
-          imageFormData.append('file', file);
-          imageFormData.append('altText', formData.name);
-
-          const imageResponse = await fetch(
-            `${API_BASE_URL}/api/pets/${pet.id}/upload-image`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
-              body: imageFormData,
-            }
-          );
-
-          if (!imageResponse.ok) {
-            throw new Error(`Failed to upload image ${i + 1}. The pet was created but some images may be missing.`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error('Pet update failed', { status: response.status, errorText });
+        let detail = '';
+        try {
+          const parsed = JSON.parse(errorText);
+          if (parsed.errors) {
+            detail = Object.entries(parsed.errors).map(([k, v]) => `${k}: ${v}`).join(', ');
+          } else if (parsed.message) {
+            detail = parsed.message;
           }
-          setUploadProgress(10 + ((i + 1) / selectedFiles.length) * 40);
-        }
+        } catch { /* not JSON */ }
+        throw new Error(detail || 'Unable to update the pet listing. Please check your information and try again.');
       }
 
-      setUploadProgress(60);
-
-      // Create adoption details
+      // 2. Update adoption details (try PUT, fall back to POST if not found)
       const adoptionPayload = {
         isDirect: adoptionDetails.method === 'DIRECT',
         priceEstimate: adoptionDetails.priceEstimate,
@@ -602,8 +505,8 @@ export default function CreatePetPage() {
         redirectLink: adoptionDetails.method === 'REDIRECT' ? adoptionDetails.redirectLink : null,
       };
 
-      const adoptionResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/adoption-details`, {
-        method: 'POST',
+      let adoptionResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/adoption-details`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -611,116 +514,91 @@ export default function CreatePetPage() {
         body: JSON.stringify(adoptionPayload),
       });
 
-      if (!adoptionResponse.ok) {
-        throw new Error('Pet created but unable to save adoption details. Please edit the listing to add them.');
-      }
-
-      if (adoptionDetails.method === 'ONLINE_FORM' && selectedAdoptionFormFile) {
-        const adoptionFormData = new FormData();
-        adoptionFormData.append('file', selectedAdoptionFormFile);
-
-        const adoptionTemplateResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/adoption-details/online-form-pdf`, {
+      // If adoption details don't exist yet, create them with POST
+      if (!adoptionResponse.ok && (adoptionResponse.status === 404 || adoptionResponse.status === 500)) {
+        logger.info('Adoption details not found, creating new ones');
+        adoptionResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/adoption-details`, {
           method: 'POST',
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: adoptionFormData,
+          body: JSON.stringify(adoptionPayload),
+        });
+      }
+
+      if (!adoptionResponse.ok) {
+        const errorText = await adoptionResponse.text();
+        logger.error('Adoption details update failed', { status: adoptionResponse.status, errorText });
+        throw new Error('Pet updated but unable to save adoption details.');
+      }
+
+      // 3. Delete removed images
+      for (const imageId of imagesToDelete) {
+        const deleteResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/images/${imageId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
         });
 
-        if (!adoptionTemplateResponse.ok) {
-          throw new Error('Pet created but failed to upload the listing adoption form PDF.');
+        if (!deleteResponse.ok) {
+          logger.error('Image delete failed', { imageId });
         }
       }
 
-      if (selectedDocumentFiles.length > 0) {
-        for (let i = 0; i < selectedDocumentFiles.length; i++) {
-          const file = selectedDocumentFiles[i];
-          const documentFormData = new FormData();
-          documentFormData.append('file', file);
+      // 4. Upload new images
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const imageFormData = new FormData();
+        imageFormData.append('file', file);
+        imageFormData.append('altText', formData.name);
 
-          const documentResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/documents`, {
+        const imageResponse = await fetch(
+          `${API_BASE_URL}/api/pets/${pet.id}/upload-image`,
+          {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            body: documentFormData,
-          });
-
-          if (!documentResponse.ok) {
-            throw new Error(`Pet created but failed to upload document ${i + 1}.`);
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: imageFormData,
           }
+        );
 
-          setUploadProgress(60 + ((i + 1) / selectedDocumentFiles.length) * 30);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to upload image ${i + 1}.`);
         }
       }
 
-      setUploadProgress(100);
-      setShowConfirmation(true);
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.play();
+      // 5. Upload new documents
+      for (let i = 0; i < selectedDocumentFiles.length; i++) {
+        const file = selectedDocumentFiles[i];
+        const documentFormData = new FormData();
+        documentFormData.append('file', file);
+
+        const documentResponse = await fetch(`${API_BASE_URL}/api/pets/${pet.id}/documents`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: documentFormData,
+        });
+
+        if (!documentResponse.ok) {
+          throw new Error(`Failed to upload document ${i + 1}.`);
         }
-      }, 100);
+      }
+
+      // 6. Navigate back
+      navigate('/profile/vendor');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setLoading(false);
-      setUploadProgress(0);
     }
-  };
-
-  // Helper component for field errors
-  const FieldError = ({ error }: { error: string | null }) => {
-    if (!error) return null;
-    return (
-      <p className="text-sm text-destructive flex items-center gap-1 mt-1">
-        <AlertCircle className="w-3 h-3" />
-        {error}
-      </p>
-    );
-  };
-
-  // Helper component for valid field indicator
-  const FieldSuccess = ({ show }: { show: boolean }) => {
-    if (!show) return null;
-    return (
-      <CheckCircle className="w-4 h-4 text-green-500 absolute right-3 top-1/2 -translate-y-1/2" />
-    );
   };
 
   return (
     <div className="min-h-screen bg-page-alt">
-      {/* Confirmation Modal */}
-      {showConfirmation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <audio ref={audioRef} src="/chime.mp3" preload="auto" />
-          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
-            <CheckCircle className="w-12 h-12 text-green-500 mb-4" />
-            <h2 className="text-xl font-bold mb-2">Pet Listing Successfully Published!</h2>
-            <p className="mb-6 text-center">Thank you for helping pets find a home!</p>
-            <div className="flex flex-col gap-3 w-full">
-              <Button
-                onClick={() => navigate('/pets?refresh=' + Date.now())}
-                className="w-full"
-              >
-                Go to Listings
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate('/profile/vendor')}
-                className="w-full"
-              >
-                Profile
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Main Content */}
+      {/* Header */}
       <div className="border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold flex items-center gap-2">
-              Create Pet Listing
+              Edit Pet Listing
             </h1>
             <Button asChild variant="outline">
               <Link to="/profile/vendor">← Back to Profile</Link>
@@ -732,14 +610,14 @@ export default function CreatePetPage() {
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         <Card>
           <CardHeader>
-            <CardTitle>Add a New Pet</CardTitle>
+            <CardTitle>Edit Pet Details</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Fill in the details below to create a listing. Fields marked with * are required.
+              Update the details below. Fields marked with * are required.
             </p>
           </CardHeader>
           <CardContent>
             {error && (
-              <div ref={errorRef} className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium text-red-800">Something went wrong</p>
@@ -748,19 +626,7 @@ export default function CreatePetPage() {
               </div>
             )}
 
-            
-            {/* Progress Bar */}
-            <div className="mb-8 mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-medium ${currentStep >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>1. Details</span>
-                <span className={`text-sm font-medium ${currentStep >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>2. Adoption</span>
-                <span className={`text-sm font-medium ${currentStep >= 3 ? 'text-primary' : 'text-muted-foreground'}`}>3. Media</span>
-              </div>
-              <Progress value={(currentStep / totalSteps) * 100} className="h-2" />
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-6">
-{currentStep === 1 && (<>
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">
                   Pet Details
@@ -849,9 +715,10 @@ export default function CreatePetPage() {
                     placeholder="Tell potential adopters about this pet's personality, habits, and what makes them special..."
                     className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                     rows={4}
+                    maxLength={1000}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    A good description helps pets find their forever homes faster!
+                    {formData.description.length}/1000 characters
                   </p>
                 </div>
 
@@ -898,33 +765,10 @@ export default function CreatePetPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="real"
-                      name="real"
-                      checked={formData.real}
-                      onCheckedChange={(checked) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          real: checked as boolean,
-                        }))
-                      }
-                    />
-                    <div>
-                      <Label htmlFor="real" className="cursor-pointer font-medium">
-                        Real
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        For innovation Day and Presentating real data
-                      </p>
-                    </div>
-                  </div>
                 </div>
               </div>
 
-
-</>)}
-{currentStep === 2 && (<>
+              {/* Adoption Details */}
               <div className="space-y-4 border-t pt-6">
                 <h3 className="font-semibold text-lg">
                   Adoption Details
@@ -1105,87 +949,54 @@ export default function CreatePetPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-3 pt-4 border-t">
-                      <p className="text-sm text-muted-foreground">
-                        Adopters will download this PDF, fill it out, and upload it from the pet page.
-                      </p>
-
-                      {selectedAdoptionFormFile ? (
-                        <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium">{selectedAdoptionFormFile.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {vendorPreferences?.hasOnlineFormPdf && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => { setSelectedAdoptionFormFile(null); setShowUploadInput(false); }}
-                                className="text-xs text-muted-foreground"
-                              >
-                                Use preset
-                              </Button>
-                            )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => { setSelectedAdoptionFormFile(null); setShowUploadInput(false); }}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                        <div className="flex items-start gap-3">
+                          <FileText className="mt-0.5 h-5 w-5 text-primary" />
+                          <div>
+                            <p className="font-medium text-foreground">PDF form submission</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Adopters will download your saved PDF form, fill it out, and upload it back from the pet page.
+                            </p>
                           </div>
                         </div>
-                      ) : vendorPreferences?.hasOnlineFormPdf ? (
-                        <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
-                          <p className="text-sm text-muted-foreground">
-                            Using preset: <span className="font-medium text-foreground">{vendorPreferences.onlineFormFileName || 'Saved PDF'}</span>
-                          </p>
-                          {!showUploadInput && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setShowUploadInput(true)}
-                              className="text-xs text-muted-foreground"
-                            >
-                              Upload instead
-                            </Button>
-                          )}
-                        </div>
-                      ) : null}
-
-                      {(!vendorPreferences?.hasOnlineFormPdf || showUploadInput) && (
-                        <div>
-                          <Label htmlFor="listingOnlineFormPdf" className="text-sm">
-                            {vendorPreferences?.hasOnlineFormPdf ? 'Upload a different PDF for this listing' : 'Upload adoption form PDF *'}
-                          </Label>
-                          <Input
-                            id="listingOnlineFormPdf"
-                            type="file"
-                            accept=".pdf,application/pdf"
-                            className="mt-1"
-                            onChange={(event) => setAdoptionFormFile(event.target.files?.[0] || null)}
-                          />
-                          {!vendorPreferences?.hasOnlineFormPdf && !selectedAdoptionFormFile && (
-                            <p className="text-xs text-amber-600 mt-1">No preset found — upload a PDF for this listing.</p>
-                          )}
-                        </div>
-                      )}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
 
-
-</>)}
-{currentStep === 3 && (<>
+              {/* Pet Images */}
               <div className="space-y-4 border-t pt-6">
                 <h3 className="font-semibold text-lg">
                   Pet Images
                 </h3>
+
+                {/* Existing Images */}
+                {existingImages.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">Current Images</p>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                      {existingImages.map((img: any) => (
+                        <div key={img.id} className="relative group aspect-square">
+                          <img
+                            src={getImageUrl(img.filePath)}
+                            alt={img.altText || 'Pet image'}
+                            className="w-full h-full object-cover rounded-lg border shadow-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExistingImage(img.id)}
+                            className="absolute -top-2 -right-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                            title="Remove image"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Drag and Drop Zone */}
                 <div
@@ -1235,23 +1046,12 @@ export default function CreatePetPage() {
                   </div>
                 </div>
 
-                {/* Upload Progress */}
-                {uploadProgress > 0 && uploadProgress < 100 && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Uploading...</span>
-                      <span>{Math.round(uploadProgress)}%</span>
-                    </div>
-                    <Progress value={uploadProgress} className="h-2" />
-                  </div>
-                )}
-
-                {/* Image Previews */}
+                {/* New Image Previews */}
                 {previewUrls.length > 0 && (
                   <div className="space-y-3">
                     <p className="text-sm font-medium flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      {previewUrls.length} image{previewUrls.length !== 1 ? 's' : ''} selected
+                      {previewUrls.length} new image{previewUrls.length !== 1 ? 's' : ''} to upload
                     </p>
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                       {previewUrls.map((url, index) => (
@@ -1265,18 +1065,13 @@ export default function CreatePetPage() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              removeImage(index);
+                              removeNewImage(index);
                             }}
                             className="absolute -top-2 -right-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
                             title="Remove image"
                           >
                             <X className="h-4 w-4" />
                           </button>
-                          {index === 0 && (
-                            <span className="absolute bottom-1 left-1 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">
-                              Main
-                            </span>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -1284,11 +1079,37 @@ export default function CreatePetPage() {
                 )}
               </div>
 
+              {/* Documents */}
               <div className="space-y-4 border-t pt-6">
                 <h3 className="font-semibold text-lg">Additional Pet Documents</h3>
                 <p className="text-sm text-muted-foreground">
                   Optional PDF documents such as medical records or vaccination paperwork can appear on the pet listing for download.
                 </p>
+
+                {/* Existing Documents */}
+                {existingDocuments.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">Current Documents</p>
+                    <div className="space-y-2">
+                      {existingDocuments.map((doc: any) => (
+                        <div key={doc.id} className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <p className="font-medium text-sm">{doc.fileName || doc.name || 'Document'}</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeExistingDocument(doc.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div
                   onDragOver={handleDocumentDragOver}
@@ -1333,7 +1154,7 @@ export default function CreatePetPage() {
                   <div className="space-y-3">
                     <p className="text-sm font-medium flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      {selectedDocumentFiles.length} document{selectedDocumentFiles.length !== 1 ? 's' : ''} selected
+                      {selectedDocumentFiles.length} new document{selectedDocumentFiles.length !== 1 ? 's' : ''} to upload
                     </p>
                     <div className="space-y-2">
                       {selectedDocumentFiles.map((file, index) => (
@@ -1348,7 +1169,7 @@ export default function CreatePetPage() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              removeDocument(index);
+                              removeNewDocument(index);
                             }}
                           >
                             <X className="h-4 w-4" />
@@ -1360,39 +1181,24 @@ export default function CreatePetPage() {
                 )}
               </div>
 
-
-</>)}
-
-              <div className="flex gap-4 border-t pt-6">
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1"
+                >
+                  {loading ? 'Saving Changes...' : 'Save Changes'}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={currentStep === 1 ? () => navigate('/pets') : prevStep}
+                  onClick={() => navigate('/profile/vendor')}
                   disabled={loading}
-                  className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-700 w-32"
                 >
-                  {currentStep === 1 ? 'Cancel' : '← Back'}
+                  Cancel
                 </Button>
-                
-                {currentStep < totalSteps ? (
-                  <Button
-                    type="button"
-                    onClick={nextStep}
-                    className="flex-1"
-                  >
-                    Next Step →
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1"
-                  >
-                    {loading ? 'Saving...' : 'Publish Listing'}
-                  </Button>
-                )}
               </div>
-</form>
+            </form>
           </CardContent>
         </Card>
       </div>

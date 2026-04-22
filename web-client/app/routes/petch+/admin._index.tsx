@@ -56,7 +56,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
                 <Card>
                     <CardHeader className="pb-2">
                         <span className="text-sm text-muted-foreground">Total Users</span>
@@ -72,6 +72,15 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                         <p className="text-4xl font-bold">{stats?.totalPets ?? 0}</p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-2">
+                        <span className="text-sm text-muted-foreground">Adopted Pets</span>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-4xl font-bold text-purple-500">{stats?.totalAdoptedPets ?? 0}</p>
                     </CardContent>
                 </Card>
 

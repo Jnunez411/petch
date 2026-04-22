@@ -74,6 +74,8 @@ public class Pets {
     @Builder.Default
     @Column(name = "on_hold")
     private Boolean onHold = false;
+    @Column(name = "is_adopted", nullable = false, columnDefinition = "boolean default false")
+    private Boolean isAdopted = false;
 
     // Image Realationship
     @Builder.Default
@@ -95,6 +97,21 @@ public class Pets {
     @JsonIgnore
     @OneToOne(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private PetDocuments petDocuments;
+
+    @Builder.Default
+    @JsonIgnore
+    @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<PetInteraction> interactions = new ArrayList<>();
+
+    @Builder.Default
+    @JsonIgnore
+    @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<Report> reports = new ArrayList<>();
+
+    @Builder.Default
+    @JsonIgnore
+    @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<AdoptionFormSubmission> adoptionFormSubmissions = new ArrayList<>();
 
     // Must add realationship to shelter
     // @ManyToOne(fetch = FetchType.LAZY)

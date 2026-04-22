@@ -16,9 +16,13 @@ export default [
   route("profile/vendor/appointments", "routes/petch+/profile.vendor.appointments.tsx"),
   route("pets", "routes/petch+/pets.tsx"),
   route("pets/create", "routes/petch+/createListing.tsx"),
+  route("pets/:id/edit", "routes/petch+/editListing.$id.tsx"),
   route("pets/:id", "routes/petch+/pet.$id.tsx"),
+  route("pets/:id/edit", "routes/petch+/pet.$id.edit.tsx"),
   route("discover", "routes/petch+/discover.tsx"),
   route("favorites", "routes/petch+/favorites.tsx"),
+  route("checkout", "routes/petch+/checkout.tsx"),
+  route("payment-success", "routes/petch+/payment-success.tsx"),
   route("admin", "routes/petch+/admin.tsx", [
     index("routes/petch+/admin._index.tsx"),
     route("users", "routes/petch+/admin.users.tsx"),

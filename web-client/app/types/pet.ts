@@ -80,6 +80,7 @@ export interface Pet {
     atRisk: boolean;
     fosterable: boolean;
     real: boolean;
+    isAdopted?: boolean;
     images: PetImage[];
     adoptionDetails?: AdoptionDetails;
     userId?: number;

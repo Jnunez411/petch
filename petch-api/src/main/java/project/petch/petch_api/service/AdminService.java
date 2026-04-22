@@ -16,6 +16,7 @@ import project.petch.petch_api.repositories.PetInteractionRepository;
 import project.petch.petch_api.repositories.PetsRepository;
 import project.petch.petch_api.repositories.ReportRepository;
 import project.petch.petch_api.repositories.UserRepository;
+import project.petch.petch_api.service.ImageService;
 
 import java.util.List;
 
@@ -32,6 +33,8 @@ public class AdminService {
     private final AdminAuditLogRepository auditLogRepository;
     private final ReportRepository reportRepository;
     private final PetInteractionRepository petInteractionRepository;
+    private final ImageService imageService;
+    private final PetDocumentsService petDocumentsService;
 
     /**
      * Get admin dashboard statistics using efficient count queries
@@ -39,6 +42,7 @@ public class AdminService {
     public AdminStatsDto getStats() {
         long totalUsers = userRepository.count();
         long totalPets = petsRepository.count();
+        long totalAdoptedPets = petsRepository.countByIsAdoptedTrue();
         long totalAdopters = userRepository.countByUserType(UserType.ADOPTER);
         long totalVendors = userRepository.countByUserType(UserType.VENDOR);
         long pendingReports = reportRepository.countByStatus(ReportStatus.PENDING);
@@ -46,6 +50,7 @@ public class AdminService {
         return AdminStatsDto.builder()
                 .totalUsers(totalUsers)
                 .totalPets(totalPets)
+                .totalAdoptedPets(totalAdoptedPets)
                 .totalAdopters(totalAdopters)
                 .totalVendors(totalVendors)
                 .pendingReports(pendingReports)
@@ -110,6 +115,12 @@ public class AdminService {
         auditLog(currentUserEmail, "DELETE_PET", "PET", id, targetDetails);
 
         // Clean up related records before deleting the pet
+        try {
+            imageService.deleteImagesByPet(id);
+        } catch (java.io.IOException e) {
+            log.error("Failed to delete images for pet {}: {}", id, e.getMessage());
+        }
+        petDocumentsService.deleteDocumentsByPet(id);
         petInteractionRepository.deleteByPet_Id(id);
         reportRepository.deleteByPetId(id);
 

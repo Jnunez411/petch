@@ -88,19 +88,22 @@ public class PetService {
             Integer ageMax,
             Boolean fosterable,
             Boolean atRisk,
+            Boolean real,
             Pageable pageable) {
-        return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, pageable);
+        return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, real, pageable);
     }
 
     @Transactional(readOnly = true)
     public Page<PetDTO> getFilteredPetDTOs(
+            String search,
             String species,
             Integer ageMin,
             Integer ageMax,
             Boolean fosterable,
             Boolean atRisk,
+            Boolean real,
             Pageable pageable) {
-        return petsRepository.findFilteredPets(species, ageMin, ageMax, fosterable, atRisk, pageable)
+        return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, real, pageable)
                 .map(this::toDTO);
     }
 
@@ -245,6 +248,7 @@ public class PetService {
             pet.setDescription(updatedPet.getDescription());
             pet.setAtRisk(updatedPet.getAtRisk());
             pet.setFosterable(updatedPet.getFosterable());
+            pet.setReal(updatedPet.getReal());
             return petsRepository.save(pet);
         }).orElseThrow(() -> new RuntimeException("Pet not found with id " + id));
     }
@@ -258,6 +262,7 @@ public class PetService {
             pet.setDescription(dto.getDescription());
             pet.setAtRisk(dto.getAtRisk() != null ? dto.getAtRisk() : false);
             pet.setFosterable(dto.getFosterable() != null ? dto.getFosterable() : false);
+            pet.setReal(dto.getReal() != null ? dto.getReal() : false);
             return petsRepository.save(pet);
         }).orElseThrow(() -> new RuntimeException("Pet not found with id " + id));
     }
@@ -277,6 +282,8 @@ public class PetService {
                 .description(pet.getDescription())
                 .atRisk(pet.getAtRisk())
                 .fosterable(pet.getFosterable())
+                .real(pet.getReal())
+                .onHold(pet.getOnHold() != null && pet.getOnHold())
                 .userId(pet.getUser() != null ? pet.getUser().getId() : null)
                 .images(pet.getImages().stream().map(this::toImageDTO).toList())
                 .viewCount(pet.getViewCount())

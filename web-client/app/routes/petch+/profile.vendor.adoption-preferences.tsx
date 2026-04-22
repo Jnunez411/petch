@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from 'react-router';
 import type { Route } from './+types/profile.vendor.adoption-preferences';
 import { getUserFromSession } from '~/services/auth';
@@ -9,12 +9,13 @@ import {
   getVendorProfile,
   uploadVendorAdoptionPreferencesPdf,
   updateVendorAdoptionPreferences,
+  deleteVendorAdoptionPreferencesPdf,
 } from '~/services/profile.server';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import type { AdoptionContactMethod, VendorAdoptionPreferencesRequest } from '~/types/vendor';
-import { ArrowLeft, CheckCircle2, FileText, Link2, MapPin, Phone, Upload } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Link2, MapPin, Phone, Upload, X } from 'lucide-react';
 
 function getProfileLoadErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -103,6 +104,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   const formData = await request.formData();
   const contactMethod = formData.get('contactMethod') as AdoptionContactMethod | null;
+  const shouldDeletePresetPdf = formData.get('deletePresetPdf') === 'true';
   const directLinkUrl = (formData.get('directLinkUrl') as string | null)?.trim() || '';
   const contactNumber = (formData.get('contactNumber') as string | null)?.trim() || '';
   const email = (formData.get('email') as string | null)?.trim() || '';
@@ -167,6 +169,8 @@ export async function action({ request }: Route.ActionArgs) {
 
     if (contactMethod === 'ONLINE_FORM' && uploadedPdf) {
       await uploadVendorAdoptionPreferencesPdf(request, uploadedPdf);
+    } else if (shouldDeletePresetPdf) {
+      await deleteVendorAdoptionPreferencesPdf(request);
     }
 
     return { success: true };
@@ -183,7 +187,15 @@ export default function VendorAdoptionPreferencesPage() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
   const [useShelterLocation, setUseShelterLocation] = useState(preferences?.useShelterLocation ?? false);
+
+  useEffect(() => {
+    if (actionData) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [actionData]);
   const [contactMethod, setContactMethod] = useState<AdoptionContactMethod>(preferences?.contactMethod ?? 'DIRECT_LINK');
+  const [pendingDeletePreset, setPendingDeletePreset] = useState(false);
+  const hasPreset = !pendingDeletePreset && !!preferences?.hasOnlineFormPdf;
 
   if (!vendorProfile) {
     return (
@@ -397,10 +409,26 @@ export default function VendorAdoptionPreferencesPage() {
                           />
                         </div>
 
-                        {preferences?.hasOnlineFormPdf && (
-                          <p className="text-sm text-muted-foreground">
-                            Current file: <span className="font-medium text-foreground">{preferences.onlineFormFileName || 'Uploaded PDF'}</span>
-                          </p>
+                        {pendingDeletePreset && (
+                          <input type="hidden" name="deletePresetPdf" value="true" />
+                        )}
+
+                        {hasPreset && (
+                          <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+                            <p className="text-sm text-muted-foreground">
+                              Current file: <span className="font-medium text-foreground">{preferences!.onlineFormFileName || 'Uploaded PDF'}</span>
+                            </p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-muted-foreground hover:text-destructive"
+                              title="Remove preset PDF"
+                              onClick={() => setPendingDeletePreset(true)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
                         )}
                       </div>
                     )}

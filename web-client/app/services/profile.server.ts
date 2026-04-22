@@ -226,10 +226,15 @@ export async function uploadVendorAdoptionPreferencesPdf(
     body: formData,
   });
 
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({ message: 'Failed to upload online form PDF' }));
-    throw new Error(errorBody.message || 'Failed to upload online form PDF');
-  }
-
   return await response.json();
+}
+
+export async function deleteVendorAdoptionPreferencesPdf(request: Request): Promise<void> {
+  const response = await authenticatedFetch(request, '/api/v1/vendor/adoption-preferences/me/online-form-pdf', {
+    method: 'DELETE',
+  });
+
+  if (!response.ok && response.status !== 404) {
+    throw new Error('Failed to remove the preset PDF.');
+  }
 }

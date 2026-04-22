@@ -69,6 +69,8 @@ interface Pet {
   description: string;
   atRisk: boolean;
   fosterable: boolean;
+  real: boolean;
+  onHold?: boolean;
   images: Image[];
   user: User;
   adoptionDetails?: AdoptionDetails;
@@ -109,6 +111,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       description: fakePet.description,
       atRisk: fakePet.atRisk,
       fosterable: fakePet.fosterable,
+      real: fakePet.real ?? false,
       images: [
         {
           id: -1,
@@ -327,9 +330,11 @@ export default function PetDetail() {
 
   const mainImage = pet.images?.[selectedImageIndex];
   const isVendorOwner = sessionUser?.userType === 'VENDOR' && pet.user?.email === sessionUser.email;
-  const canUploadSubmission = !!sessionUser;
+  const petIsOnHold = pet.onHold === true;
+  const canUploadSubmission = !!sessionUser && !petIsOnHold;
   const canViewSubmissionSection = !!sessionUser;
-  const canUseOnlineForm = !!onlineFormTemplate?.hasOnlineFormPdf
+  const canUseOnlineForm = !petIsOnHold
+    && !!onlineFormTemplate?.hasOnlineFormPdf
     && !pet.adoptionDetails?.isDirect
     && !pet.adoptionDetails?.redirectLink;
 
@@ -588,6 +593,11 @@ export default function PetDetail() {
                     Fosterable
                   </span>
                 )}
+                {pet.real && (
+                  <span className="inline-block bg-blue-100 text-blue-800 px-4 py-2 rounded-full font-semibold">
+                    Real
+                  </span>
+                )}
               </div>
             </div>
 
@@ -639,6 +649,12 @@ export default function PetDetail() {
                   <dt className="text-muted-foreground font-medium">Fosterable</dt>
                   <dd className="text-foreground font-semibold">
                     {pet.fosterable ? "Yes" : "No"}
+                  </dd>
+                </div>
+                <div className="flex justify-between items-center border-b border-border pb-3">
+                  <dt className="text-muted-foreground font-medium">Real</dt>
+                  <dd className="text-foreground font-semibold">
+                    {pet.real ? "Yes" : "No"}
                   </dd>
                 </div>
                 {pet.user && (
@@ -726,35 +742,39 @@ export default function PetDetail() {
                     </p>
                   </div>
 
+                  {/* On-hold banner */}
+                  {petIsOnHold && !isVendorOwner && (
+                    <div className="bg-amber-50 border border-amber-300 rounded-lg p-4">
+                      <div>
+                        <p className="font-semibold text-amber-800">This pet is currently in the adoption process</p>
+                        <p className="text-sm text-amber-700 mt-0.5">An adoption application has been accepted. New submissions are not being accepted at this time.</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Direct vs Redirect vs Online Form */}
                   {canUseOnlineForm ? (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
                       <div>
-                        <h3 className="font-semibold text-blue-900 mb-2">Download and Submit PDF Form</h3>
+                        <h3 className="font-semibold text-blue-900 mb-2">Submit Adoption Form</h3>
                         <p className="text-sm text-blue-800">
-                          Download the vendor's adoption form, complete it, then upload your filled PDF here.
+                          {isVendorOwner
+                            ? 'Adopters submit their completed PDF here. You can review every submission below.'
+                            : 'Download the adoption form, fill it out, then upload it below.'}
                         </p>
                       </div>
 
                       <Button
                         type="button"
                         onClick={handleDownloadTemplate}
-                        className="bg-coral hover:bg-coral-dark text-white"
+                        variant="outline"
+                        className="border-blue-300 text-blue-800 hover:bg-blue-100"
                       >
                         Download Form PDF
                       </Button>
 
                       {canViewSubmissionSection && (
-                        <div className="space-y-3 border-t border-blue-200 pt-4">
-                          <div>
-                            <h4 className="font-semibold text-blue-900 mb-1">Form Submission</h4>
-                            <p className="text-sm text-blue-800">
-                              {isVendorOwner
-                                ? 'Adopters can drag and drop their completed PDF here after downloading the form. You can review every submission below.'
-                                : 'Drag and drop your completed PDF here, or click the panel to choose a file.'}
-                            </p>
-                          </div>
-
+                        <div className="space-y-3">
                           <input
                             ref={fileInputRef}
                             type="file"
@@ -763,38 +783,46 @@ export default function PetDetail() {
                             className="hidden"
                           />
 
-                          <div
-                            role={canUploadSubmission ? 'button' : undefined}
-                            tabIndex={canUploadSubmission ? 0 : -1}
-                            onClick={openSubmissionFilePicker}
-                            onKeyDown={(event) => {
-                              if (!canUploadSubmission) {
-                                return;
-                              }
-
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                openSubmissionFilePicker();
-                              }
-                            }}
-                            onDragOver={handleSubmissionDragOver}
-                            onDragLeave={handleSubmissionDragLeave}
-                            onDrop={handleSubmissionDrop}
-                            className={`rounded-xl border-2 border-dashed p-6 text-center transition ${canUploadSubmission ? 'cursor-pointer' : 'cursor-default'} ${isDragActive ? 'border-coral bg-coral/10' : 'border-blue-300 bg-white/60'} ${!canUploadSubmission ? 'opacity-80' : ''}`}
-                          >
-                            <p className="font-medium text-blue-900">
-                              {canUploadSubmission ? 'Drag and drop a PDF here' : 'Sign in to upload a submission'}
-                            </p>
-                            <p className="mt-1 text-sm text-blue-800">
-                              {canUploadSubmission
-                                ? submissionFile
-                                  ? `Selected: ${submissionFile.name}`
-                                  : 'Or click to browse for a completed PDF.'
-                                : visibleSubmissions.length > 0
-                                  ? 'Use the list below to download submitted forms.'
-                                  : 'No submissions have been uploaded yet.'}
-                            </p>
-                          </div>
+                          {(() => {
+                            const presaved = !submissionFile && visibleSubmissions.length > 0 ? visibleSubmissions[0] : null;
+                            return (
+                              <div
+                                role={canUploadSubmission ? 'button' : undefined}
+                                tabIndex={canUploadSubmission ? 0 : -1}
+                                onClick={openSubmissionFilePicker}
+                                onKeyDown={(event) => {
+                                  if (!canUploadSubmission) return;
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    openSubmissionFilePicker();
+                                  }
+                                }}
+                                onDragOver={handleSubmissionDragOver}
+                                onDragLeave={handleSubmissionDragLeave}
+                                onDrop={handleSubmissionDrop}
+                                className={`rounded-xl border-2 border-dashed p-6 text-center transition ${canUploadSubmission ? 'cursor-pointer' : 'cursor-default'} ${isDragActive ? 'border-coral bg-coral/10' : 'border-blue-300 bg-white/60'} ${!canUploadSubmission ? 'opacity-80' : ''}`}
+                              >
+                                <p className="font-medium text-blue-900">
+                                  {submissionFile
+                                    ? `Selected: ${submissionFile.name}`
+                                    : presaved
+                                      ? presaved.fileName
+                                      : canUploadSubmission
+                                        ? 'Drag and drop your completed PDF here'
+                                        : 'Sign in to upload a submission'}
+                                </p>
+                                <p className="mt-1 text-sm text-blue-700">
+                                  {submissionFile
+                                    ? 'Click to choose a different file.'
+                                    : presaved
+                                      ? 'This file is from your previous submission. Click to upload a new one.'
+                                      : canUploadSubmission
+                                        ? 'Or click to browse for a completed PDF.'
+                                        : 'No submissions have been uploaded yet.'}
+                                </p>
+                              </div>
+                            );
+                          })()}
 
                           {canUploadSubmission && (
                             <Button

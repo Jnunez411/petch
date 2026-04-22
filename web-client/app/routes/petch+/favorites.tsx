@@ -227,6 +227,11 @@ export default function FavoritesPage() {
                                                 Fosterable
                                             </span>
                                         )}
+                                        {pet.real && (
+                                            <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-xs font-medium">
+                                                Real
+                                            </span>
+                                        )}
                                     </div>
 
                                     {pet.description && (

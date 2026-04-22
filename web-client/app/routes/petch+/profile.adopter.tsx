@@ -5,7 +5,7 @@ import { getSession } from '~/services/session.server';
 import { authenticatedFetch } from '~/utils/api';
 import { getAdopterProfile, createAdopterProfile, updateAdopterProfile } from '~/services/profile.server';
 import type { AdopterProfile, HomeType } from '~/types/adopter';
-import type { AdoptionFormSubmission } from '~/types/pet';
+import type { AdoptionFormSubmission, AdoptionAppointment } from '~/types/pet';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
@@ -16,7 +16,13 @@ import {
   ChevronDown,
   Download,
   FileText,
-  Trash2
+  Trash2,
+  CalendarCheck,
+  MapPin,
+  Clock,
+  CreditCard,
+  CheckCircle,
+  X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { createLogger } from '~/utils/logger';
@@ -69,7 +75,21 @@ export async function loader({ request }: Route.LoaderArgs) {
     logger.error('Failed to fetch adopter submissions', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
-  return { user, adopterProfile, submissions, token };
+  let appointments: AdoptionAppointment[] = [];
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/adopter/appointments/me`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+    });
+    if (response.ok) {
+      appointments = await response.json();
+    }
+  } catch (error) {
+    logger.error('Failed to fetch adopter appointments', { error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+
+  return { user, adopterProfile, submissions, appointments, token };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -187,7 +207,7 @@ function ToggleCheckbox({
 }
 
 export default function AdopterProfilePage() {
-  const { user, adopterProfile, submissions, token } = useLoaderData<typeof loader>();
+  const { user, adopterProfile, submissions, appointments, token } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const deleteFetcher = useFetcher();
@@ -195,6 +215,75 @@ export default function AdopterProfilePage() {
   const isSubmitting = navigation.state === 'submitting';
   const isDeleting = deleteFetcher.state !== 'idle';
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+
+  // Appointment interaction state
+  const [expandedAppointment, setExpandedAppointment] = useState<number | null>(
+    appointments.length > 0 ? appointments[0].id : null
+  );
+  const [selectedTimes, setSelectedTimes] = useState<Record<number, string>>({});
+  const [timeSelectLoading, setTimeSelectLoading] = useState<Record<number, boolean>>({});
+  const [confirmedAppointments, setConfirmedAppointments] = useState<Set<number>>(
+    new Set(appointments.filter(a => a.status === 'CONFIRMED').map(a => a.id))
+  );
+  const [vendorConfirmedIds, setVendorConfirmedIds] = useState<Set<number>>(
+    new Set(appointments.filter(a => a.vendorConfirmed).map(a => a.id))
+  );
+  const [localAppointments, setLocalAppointments] = useState(appointments);
+  const [rejectLoading, setRejectLoading] = useState<Record<number, boolean>>({});
+  const [dismissingId, setDismissingId] = useState<number | null>(null);
+  const [dismissLoading, setDismissLoading] = useState(false);
+  const [expandedSectionAppt, setExpandedSectionAppt] = useState<number | null>(null);
+
+  const handleSelectTime = async (appointmentId: number, time: string) => {
+    if (!token) return;
+    setTimeSelectLoading(p => ({ ...p, [appointmentId]: true }));
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/adopter/appointments/${appointmentId}/select-time`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ selectedTime: time }),
+      });
+      if (res.ok) {
+        setSelectedTimes(p => ({ ...p, [appointmentId]: time }));
+        setConfirmedAppointments(p => new Set([...p, appointmentId]));
+      }
+    } finally {
+      setTimeSelectLoading(p => ({ ...p, [appointmentId]: false }));
+    }
+  };
+
+  const handleRejectAppointment = async (appointmentId: number) => {
+    if (!token) return;
+    setRejectLoading(p => ({ ...p, [appointmentId]: true }));
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/adopter/appointments/${appointmentId}/reject`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setLocalAppointments(prev => prev.filter(a => a.id !== appointmentId));
+      }
+    } finally {
+      setRejectLoading(p => ({ ...p, [appointmentId]: false }));
+    }
+  };
+
+  const handleDismiss = async () => {
+    if (!dismissingId || !token) return;
+    setDismissLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/adopter/appointments/${dismissingId}/reject`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setLocalAppointments(prev => prev.filter(a => a.id !== dismissingId));
+        setDismissingId(null);
+      }
+    } finally {
+      setDismissLoading(false);
+    }
+  };
 
   const handleDeleteAccount = () => {
     setShowDeleteAccountModal(true);
@@ -234,9 +323,232 @@ export default function AdopterProfilePage() {
     URL.revokeObjectURL(objectUrl);
   };
 
+  const pendingAppts = localAppointments.filter(a => !vendorConfirmedIds.has(a.id));
+  const upcomingAppts = localAppointments.filter(a => vendorConfirmedIds.has(a.id));
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      {/* Page Header */}
+      {/* ── Appointment Notifications ── */}
+      {localAppointments.length > 0 && (
+        <div className="bg-teal/5 border-b border-teal/20">
+          <div className="container mx-auto px-4 py-6 max-w-5xl space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <CalendarCheck className="size-5 text-teal" />
+              <h2 className="text-base font-bold text-teal">
+                You have {localAppointments.length} adoption appointment{localAppointments.length > 1 ? 's' : ''}
+              </h2>
+            </div>
+
+            {localAppointments.map((appt) => {
+              const isExpanded = expandedAppointment === appt.id;
+              const isConfirmed = confirmedAppointments.has(appt.id);
+              const isFullyConfirmed = vendorConfirmedIds.has(appt.id);
+              const chosenTime = selectedTimes[appt.id] ?? appt.selectedTime;
+              const times = appt.availableTimes.split(',').map(t => t.trim()).filter(Boolean);
+
+              return (
+                <div key={appt.id} className="rounded-2xl border border-teal/20 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                  {/* Header row */}
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-5 py-4 text-left"
+                    onClick={() => setExpandedAppointment(isExpanded ? null : appt.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isFullyConfirmed
+                        ? <CheckCircle className="size-5 text-teal shrink-0" />
+                        : isConfirmed
+                          ? <CalendarCheck className="size-5 text-amber-500 shrink-0" />
+                          : <CalendarCheck className="size-5 text-amber-500 shrink-0" />}
+                      <div>
+                        <p className="font-semibold text-zinc-900 dark:text-zinc-50">
+                          {appt.petName ?? `Pet #${appt.petId}`}
+                          <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${
+                            appt.appointmentType === 'PICKUP'
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'bg-purple-50 text-purple-700'
+                          }`}>
+                            {appt.appointmentType === 'PICKUP' ? 'Pick Up' : 'Meet Up'}
+                          </span>
+                        </p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {isFullyConfirmed
+                            ? `Shelter confirmed · ${chosenTime}`
+                            : isConfirmed
+                              ? 'Waiting for shelter to confirm...'
+                              : 'Action required'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronDown className={`size-4 text-zinc-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <div className="border-t border-zinc-100 dark:border-zinc-800 px-5 py-4 space-y-4">
+                      <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Location</p>
+                            <p className="text-zinc-700 dark:text-zinc-300">{appt.location}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CalendarCheck className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Date</p>
+                            <p className="text-zinc-700 dark:text-zinc-300">
+                              {new Date(appt.appointmentDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CreditCard className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Payment</p>
+                            <p className="text-zinc-700 dark:text-zinc-300">
+                              {appt.paymentOption === 'IN_PERSON' ? 'In Person' : appt.paymentOption === 'ONLINE' ? 'Online' : 'In Person or Online'}
+                            </p>
+                          </div>
+                        </div>
+                        {appt.additionalInfo && (
+                          <div className="flex items-start gap-2 sm:col-span-2">
+                            <FileText className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Notes</p>
+                              <p className="text-zinc-700 dark:text-zinc-300">{appt.additionalInfo}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Time selection / confirmed state */}
+                      {isFullyConfirmed ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 rounded-xl bg-teal/10 border border-teal/20 px-4 py-3">
+                            <CheckCircle className="size-4 text-teal shrink-0" />
+                            <div>
+                              <p className="text-sm font-semibold text-teal">Shelter confirmed your appointment!</p>
+                              <p className="text-xs text-teal/80 mt-0.5">Time: {chosenTime}</p>
+                            </div>
+                          </div>
+                          {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
+                            <div>
+                              <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
+                                <CreditCard className="size-4 mr-2" />
+                                Pay Online
+                              </Button>
+                              <p className="text-xs text-zinc-400 mt-1">luis stripe part goes here.</p>
+                            </div>
+                          )}
+                          <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setDismissingId(appt.id)}
+                              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                            >
+                              <X className="size-4 mr-2" />
+                              Dismiss
+                            </Button>
+                          </div>
+                        </div>
+                      ) : isConfirmed ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 dark:bg-amber-950/20 dark:border-amber-800">
+                            <Clock className="size-4 text-amber-600 shrink-0" />
+                            <div>
+                              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Waiting for shelter to confirm</p>
+                              <p className="text-xs text-amber-600/80 dark:text-amber-500 mt-0.5">Your selected time: {chosenTime}</p>
+                            </div>
+                          </div>
+                          <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={rejectLoading[appt.id]}
+                              onClick={() => handleRejectAppointment(appt.id)}
+                              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                            >
+                              {rejectLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
+                              Decline Appointment
+                            </Button>
+                          </div>
+                        </div>
+                      ) : appt.appointmentType === 'MEETUP' ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                            <Clock className="size-4" /> Choose your preferred time
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {times.map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                disabled={timeSelectLoading[appt.id]}
+                                onClick={() => handleSelectTime(appt.id, t)}
+                                className="px-3 py-1.5 rounded-xl border-2 border-teal/30 text-sm font-medium text-teal hover:bg-teal/10 hover:border-teal transition-colors disabled:opacity-50"
+                              >
+                                {timeSelectLoading[appt.id] ? <Loader2 className="size-3 animate-spin" /> : t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                            <Clock className="size-4" /> Select your pick-up time
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {times.map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                disabled={timeSelectLoading[appt.id]}
+                                onClick={() => handleSelectTime(appt.id, t)}
+                                className="px-3 py-1.5 rounded-xl border-2 border-teal/30 text-sm font-medium text-teal hover:bg-teal/10 hover:border-teal transition-colors disabled:opacity-50"
+                              >
+                                {timeSelectLoading[appt.id] ? <Loader2 className="size-3 animate-spin" /> : t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Dismiss confirmation modal ── */}
+      {dismissingId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-zinc-900 p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-2">Dismiss appointment?</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
+              This will permanently delete the appointment record. This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" className="rounded-xl" onClick={() => setDismissingId(null)} disabled={dismissLoading}>
+                Keep it
+              </Button>
+              <Button
+                className="rounded-xl bg-red-600 text-white hover:bg-red-700"
+                onClick={handleDismiss}
+                disabled={dismissLoading}
+              >
+                {dismissLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+                Yes, dismiss
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         <div className="container mx-auto px-4 py-8 max-w-5xl">
           <div>
@@ -283,18 +595,6 @@ export default function AdopterProfilePage() {
                   </span>
                 </div>
 
-                {/* Delete Account */}
-                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
-                    onClick={handleDeleteAccount}
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="size-4 mr-2" />
-                    {isDeleting ? 'Deleting...' : 'Delete Account'}
-                  </Button>
-                </div>
               </div>
             </div>
 
@@ -449,7 +749,14 @@ export default function AdopterProfilePage() {
               <div className="bg-zinc-50 dark:bg-zinc-800/50 px-6 py-5 border-b border-zinc-200 dark:border-zinc-700 flex items-center gap-3">
                 <FileText className="size-5 text-coral" />
                 <div>
-                  <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Submitted Adoption Forms</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Submitted Adoption Forms</h2>
+                    {submissions.length > 0 && (
+                      <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-coral px-2 py-0.5 text-xs font-semibold text-white">
+                        {submissions.length}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Download the PDF forms you have already submitted.</p>
                 </div>
               </div>
@@ -487,8 +794,289 @@ export default function AdopterProfilePage() {
                 )}
               </div>
             </div>
+
+            {/* My Appointments Section */}
+            <div className="mt-8 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+              <div className="bg-zinc-50 dark:bg-zinc-800/50 px-6 py-5 border-b border-zinc-200 dark:border-zinc-700 flex items-center gap-3">
+                <CalendarCheck className="size-5 text-teal" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">My Appointments</h2>
+                    {localAppointments.length > 0 && (
+                      <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-teal px-2 py-0.5 text-xs font-semibold text-white">
+                        {localAppointments.length}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Track your upcoming and pending adoption appointments.</p>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {localAppointments.length === 0 ? (
+                  <p className="text-zinc-500 dark:text-zinc-400">You have no appointments yet.</p>
+                ) : (
+                  <>
+                    {/* Pending */}
+                    {pendingAppts.length > 0 && (
+                      <div className="space-y-3">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-full px-3 py-1">
+                          <Clock className="size-3" /> Pending · {pendingAppts.length}
+                        </span>
+                        {pendingAppts.map((appt) => {
+                          const isExpanded = expandedSectionAppt === appt.id;
+                          const isAdopterSelected = confirmedAppointments.has(appt.id);
+                          const chosenTime = selectedTimes[appt.id] ?? appt.selectedTime;
+                          const times = appt.availableTimes.split(',').map(t => t.trim()).filter(Boolean);
+                          return (
+                            <div key={appt.id} className="rounded-xl border border-amber-100 dark:border-amber-900/30 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                              <button
+                                type="button"
+                                className="w-full flex items-center justify-between px-5 py-4 text-left"
+                                onClick={() => setExpandedSectionAppt(isExpanded ? null : appt.id)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <CalendarCheck className="size-5 text-amber-500 shrink-0" />
+                                  <div>
+                                    <p className="font-semibold text-zinc-900 dark:text-zinc-50">
+                                      {appt.petName ?? `Pet #${appt.petId}`}
+                                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${appt.appointmentType === 'PICKUP' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
+                                        {appt.appointmentType === 'PICKUP' ? 'Pick Up' : 'Meet Up'}
+                                      </span>
+                                    </p>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                      {isAdopterSelected ? 'Waiting for shelter to confirm...' : 'Action required'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <ChevronDown className={`size-4 text-zinc-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                              {isExpanded && (
+                                <div className="border-t border-zinc-100 dark:border-zinc-800 px-5 py-4 space-y-4">
+                                  <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                                    <div className="flex items-start gap-2">
+                                      <MapPin className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                                      <div>
+                                        <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Location</p>
+                                        <p className="text-zinc-700 dark:text-zinc-300">{appt.location}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                      <CalendarCheck className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                                      <div>
+                                        <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Date</p>
+                                        <p className="text-zinc-700 dark:text-zinc-300">
+                                          {new Date(appt.appointmentDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                      <CreditCard className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                                      <div>
+                                        <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Payment</p>
+                                        <p className="text-zinc-700 dark:text-zinc-300">
+                                          {appt.paymentOption === 'IN_PERSON' ? 'In Person' : appt.paymentOption === 'ONLINE' ? 'Online' : 'In Person or Online'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {appt.additionalInfo && (
+                                      <div className="flex items-start gap-2 sm:col-span-2">
+                                        <FileText className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                                        <div>
+                                          <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Notes</p>
+                                          <p className="text-zinc-700 dark:text-zinc-300">{appt.additionalInfo}</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {isAdopterSelected ? (
+                                    <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 dark:bg-amber-950/20 dark:border-amber-800">
+                                      <Clock className="size-4 text-amber-600 shrink-0" />
+                                      <div>
+                                        <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Waiting for shelter to confirm</p>
+                                        <p className="text-xs text-amber-600/80 dark:text-amber-500 mt-0.5">Your selected time: {chosenTime}</p>
+                                      </div>
+                                    </div>
+                                  ) : appt.appointmentType === 'MEETUP' ? (
+                                    <div className="space-y-2">
+                                      <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                                        <Clock className="size-4" /> Choose your preferred time
+                                      </p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {times.map((t) => (
+                                          <button
+                                            key={t}
+                                            type="button"
+                                            disabled={timeSelectLoading[appt.id]}
+                                            onClick={() => handleSelectTime(appt.id, t)}
+                                            className="px-3 py-1.5 rounded-xl border-2 border-teal/30 text-sm font-medium text-teal hover:bg-teal/10 hover:border-teal transition-colors disabled:opacity-50"
+                                          >
+                                            {timeSelectLoading[appt.id] ? <Loader2 className="size-3 animate-spin" /> : t}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                                        <Clock className="size-4" /> Select your pick-up time
+                                      </p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {times.map((t) => (
+                                          <button
+                                            key={t}
+                                            type="button"
+                                            disabled={timeSelectLoading[appt.id]}
+                                            onClick={() => handleSelectTime(appt.id, t)}
+                                            className="px-3 py-1.5 rounded-xl border-2 border-teal/30 text-sm font-medium text-teal hover:bg-teal/10 hover:border-teal transition-colors disabled:opacity-50"
+                                          >
+                                            {timeSelectLoading[appt.id] ? <Loader2 className="size-3 animate-spin" /> : t}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
+                                    <div className="pt-1">
+                                      <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
+                                        <CreditCard className="size-4 mr-2" />
+                                        Pay Online
+                                      </Button>
+                                      <p className="text-xs text-zinc-400 mt-1">Luis Stripe part goes here.</p>
+                                    </div>
+                                  )}
+                                  <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      disabled={rejectLoading[appt.id]}
+                                      onClick={() => handleRejectAppointment(appt.id)}
+                                      className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                                    >
+                                      {rejectLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
+                                      Decline Appointment
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Upcoming */}
+                    {upcomingAppts.length > 0 && (
+                      <div className="space-y-3">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal bg-teal/10 border border-teal/20 rounded-full px-3 py-1">
+                          <CheckCircle className="size-3" /> Upcoming · {upcomingAppts.length}
+                        </span>
+                        {upcomingAppts.map((appt) => {
+                          const isExpanded = expandedSectionAppt === appt.id;
+                          const chosenTime = selectedTimes[appt.id] ?? appt.selectedTime;
+                          return (
+                            <div key={appt.id} className="rounded-xl border border-teal/20 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                              <button
+                                type="button"
+                                className="w-full flex items-center justify-between px-5 py-4 text-left"
+                                onClick={() => setExpandedSectionAppt(isExpanded ? null : appt.id)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <CheckCircle className="size-5 text-teal shrink-0" />
+                                  <div>
+                                    <p className="font-semibold text-zinc-900 dark:text-zinc-50">
+                                      {appt.petName ?? `Pet #${appt.petId}`}
+                                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${appt.appointmentType === 'PICKUP' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
+                                        {appt.appointmentType === 'PICKUP' ? 'Pick Up' : 'Meet Up'}
+                                      </span>
+                                    </p>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">Shelter confirmed · {chosenTime}</p>
+                                  </div>
+                                </div>
+                                <ChevronDown className={`size-4 text-zinc-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                              {isExpanded && (
+                                <div className="border-t border-zinc-100 dark:border-zinc-800 px-5 py-4 space-y-4">
+                                  <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                                    <div className="flex items-start gap-2">
+                                      <MapPin className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                                      <div>
+                                        <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Location</p>
+                                        <p className="text-zinc-700 dark:text-zinc-300">{appt.location}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                      <CalendarCheck className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                                      <div>
+                                        <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Date</p>
+                                        <p className="text-zinc-700 dark:text-zinc-300">
+                                          {new Date(appt.appointmentDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {appt.additionalInfo && (
+                                      <div className="flex items-start gap-2 sm:col-span-2">
+                                        <FileText className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                                        <div>
+                                          <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Notes</p>
+                                          <p className="text-zinc-700 dark:text-zinc-300">{appt.additionalInfo}</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 rounded-xl bg-teal/10 border border-teal/20 px-4 py-3">
+                                    <CheckCircle className="size-4 text-teal shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-semibold text-teal">Shelter confirmed your appointment!</p>
+                                      <p className="text-xs text-teal/80 mt-0.5">Time: {chosenTime}</p>
+                                    </div>
+                                  </div>
+                                  {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
+                                    <div>
+                                      <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
+                                        <CreditCard className="size-4 mr-2" />
+                                        Pay Online
+                                      </Button>
+                                      <p className="text-xs text-zinc-400 mt-1">Luis Stripe part goes here.</p>
+                                    </div>
+                                  )}
+                                  <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => setDismissingId(appt.id)}
+                                      className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                                    >
+                                      <X className="size-4 mr-2" />
+                                      Dismiss
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Delete Account */}
+      <div className="container mx-auto px-4 pb-12 flex justify-center">
+        <Button
+          variant="outline"
+          className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
+          onClick={handleDeleteAccount}
+          disabled={isDeleting}
+        >
+          <Trash2 className="size-4 mr-2" />
+          {isDeleting ? 'Deleting...' : 'Delete Account'}
+        </Button>
       </div>
 
       {/* Delete Account Modal */}

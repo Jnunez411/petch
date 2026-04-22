@@ -8,7 +8,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import project.petch.petch_api.dto.admin.AdminStatsDto;
+import project.petch.petch_api.dto.admin.ReviewVendorVerificationRequest;
 import project.petch.petch_api.dto.report.ResolveReportRequest;
+import project.petch.petch_api.models.VerificationRequestStatus;
 import project.petch.petch_api.service.AdminService;
 import project.petch.petch_api.service.ReportService;
 
@@ -82,6 +84,25 @@ public class AdminController {
     public ResponseEntity<?> getAuditLogs() {
         log.debug("Fetching admin audit logs");
         return ResponseEntity.ok(adminService.getRecentAuditLogs());
+    }
+
+    @GetMapping("/verification-requests")
+    public ResponseEntity<?> getVerificationRequests(
+            @RequestParam(required = false) VerificationRequestStatus status) {
+        log.debug("Admin fetching verification requests: status={}", status);
+        return ResponseEntity.ok(adminService.getVerificationRequests(status));
+    }
+
+    @PutMapping("/verification-requests/{requestId}")
+    public ResponseEntity<?> reviewVerificationRequest(
+            @PathVariable Long requestId,
+            @Valid @RequestBody ReviewVendorVerificationRequest request) {
+        log.info("Admin reviewing verification request: requestId={}, status={}", requestId, request.status());
+        try {
+            return ResponseEntity.ok(adminService.reviewVerificationRequest(requestId, request.status(), request.rejectionReason()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", e.getMessage()));
+        }
     }
 
     @GetMapping("/reports")

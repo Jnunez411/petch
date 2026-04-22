@@ -146,6 +146,31 @@ export async function action({ request }: Route.ActionArgs) {
     }
   }
 
+  if (intent === 'request-verification') {
+    try {
+      const response = await authenticatedFetch(request, '/api/v1/vendor/profile/me/verification-request', {
+        method: 'POST',
+      });
+
+      if (response.status === 404) {
+        return { error: 'Create your vendor profile before requesting verification.' };
+      }
+
+      if (response.status === 409) {
+        const conflict = await response.json().catch(() => ({ message: 'Verification request could not be submitted' }));
+        return { error: conflict.message || 'Verification request could not be submitted' };
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to submit verification request: ${response.status}`);
+      }
+
+      return { success: true, message: 'Verification request submitted for admin review.' };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to submit verification request' };
+    }
+  }
+
   if (intent === 'request-deletion') {
     try {
       const response = await authenticatedFetch(request, '/api/users/me/request-deletion', {
@@ -277,6 +302,7 @@ export default function VendorProfilePage() {
   const [showDeleteRequestModal, setShowDeleteRequestModal] = useState(false);
   const [hasPendingDeletion, setHasPendingDeletion] = useState(deletionRequested);
   const [notificationsEnabled, setNotificationsEnabled] = useState(emailNotificationsEnabled);
+  const verificationStatus = vendorProfile?.verificationStatus || 'UNVERIFIED';
 
   useEffect(() => {
     if (actionData?.deletionRequested) {
@@ -445,6 +471,16 @@ export default function VendorProfilePage() {
                 <span className="px-3 py-1 rounded-full bg-coral/10 text-coral text-xs font-semibold uppercase tracking-wide">
                   Vendor Account
                 </span>
+                {verificationStatus === 'VERIFIED' && (
+                  <span className="px-3 py-1 rounded-full bg-teal/10 text-teal text-xs font-semibold uppercase tracking-wide">
+                    Verified Vendor
+                  </span>
+                )}
+                {verificationStatus === 'PENDING' && (
+                  <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold uppercase tracking-wide">
+                    Verification Pending
+                  </span>
+                )}
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-foreground">
                 {vendorProfile?.organizationName || `${user.firstName} ${user.lastName}`}
@@ -485,6 +521,14 @@ export default function VendorProfilePage() {
                   </span>
                 </Link>
               </Button>
+              {(verificationStatus === 'UNVERIFIED' || verificationStatus === 'REJECTED') && (
+                <Form method="post">
+                  <input type="hidden" name="intent" value="request-verification" />
+                  <Button type="submit" variant="outline" className="rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+                    Request Verification
+                  </Button>
+                </Form>
+              )}
               {hasPendingDeletion ? (
                 <span className="inline-flex items-center px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
                   Deletion Requested

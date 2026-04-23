@@ -753,6 +753,15 @@ export default function PetDetail() {
                   <div className="border-b border-border pb-4">
                     <p className="text-muted-foreground text-sm font-medium">Estimated Adoption Cost</p>
                     <p className="text-2xl font-bold text-coral">${pet.adoptionDetails.priceEstimate?.toFixed(2) || '0.00'}</p>
+                    <Link 
+                      to={`/checkout?pet_id=${pet.id}&pet_name=${encodeURIComponent(pet.name)}&price=${Math.round((pet.adoptionDetails.priceEstimate || 0) * 100)}`}
+                      className="inline-block mt-3"
+                    >
+                      <Button className="bg-coral hover:bg-coral-dark text-white">
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Pay Adoption Fee
+                      </Button>
+                    </Link>
                   </div>
 
                   {/* Steps Description */}

@@ -143,8 +143,7 @@ public class PetController {
     }
 
     // get all pets with optional filtering and search
-    // GET
-    // /api/pets?search=Max&species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&real=true&page=0&size=12
+    // GET /api/pets?search=Max&species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&real=true&page=0&size=12
     @GetMapping
     public ResponseEntity<Page<PetDTO>> getFilteredPets(
             @RequestParam(required = false) String search,

@@ -17,9 +17,13 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
 
         List<Pets> findByAtRiskFalse();
 
+        List<Pets> findByAtRiskFalseAndIsAdoptedFalse();
+
         List<Pets> findByFosterableTrueAndIsAdoptedFalse();
 
         List<Pets> findByFosterableFalse();
+
+        List<Pets> findByFosterableFalseAndIsAdoptedFalse();
 
         List<Pets> findByRealTrue();
 

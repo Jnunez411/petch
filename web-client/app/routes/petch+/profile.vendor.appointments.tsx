@@ -389,8 +389,10 @@ export default function VendorAppointmentsPage() {
                         {detailGrid(appt)}
 
                         <div className="flex items-center gap-2 rounded-xl bg-teal/10 border border-teal/20 px-4 py-3">
+                          <CheckCircle className="size-4 text-teal shrink-0" />
                           <p className="text-sm font-medium text-teal">Appointment is set{chosenTime ? ` · ${chosenTime}` : ''}</p>
                         </div>
+
                         {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
                           <div className="pt-1 space-y-2">
                             <Link 
@@ -405,7 +407,6 @@ export default function VendorAppointmentsPage() {
                             <p className="text-xs text-zinc-400">Adopt for ${appt.priceEstimate?.toFixed(2) || '0.00'} online.</p>
                           </div>
                         )}
-
 
                         <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
                           <Button

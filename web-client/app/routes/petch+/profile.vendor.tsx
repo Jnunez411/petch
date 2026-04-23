@@ -606,6 +606,7 @@ export default function VendorProfilePage() {
                       {isConfirmed ? (
                         <div className="space-y-3">
                           <div className="flex items-center gap-2 rounded-xl bg-teal/10 border border-teal/20 px-4 py-3">
+                            <CheckCircle className="size-4 text-teal shrink-0" />
                             <p className="text-sm font-medium text-teal">Appointment is set · {chosenTime}</p>
                           </div>
                           {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
@@ -773,6 +774,7 @@ export default function VendorProfilePage() {
           </div>
         </div>
       )}
+
       {/* Hero Section */}
       <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         <div className="container mx-auto px-4 py-10">

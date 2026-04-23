@@ -162,6 +162,18 @@ export default function AdminDashboard() {
                         </CardContent>
                     </Card>
                 </Link>
+
+                <Link to="/admin/verification">
+                    <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+                        <CardHeader>
+                            <h3 className="text-lg font-semibold">Vendor Verification</h3>
+                            <p className="text-muted-foreground text-sm">Review verification requests</p>
+                        </CardHeader>
+                        <CardContent className="text-muted-foreground">
+                            Approve or reject shelters and breeders requesting verified vendor status.
+                        </CardContent>
+                    </Card>
+                </Link>
             </div>
 
             {/* Platform Status */}

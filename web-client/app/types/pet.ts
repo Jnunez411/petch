@@ -70,6 +70,15 @@ export interface PetDocuments {
     documents: PetDocumentFile[];
 }
 
+export interface PetOwner {
+    id: number;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    userType?: string;
+    verificationStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+}
+
 export interface Pet {
     id: number;
     name: string;
@@ -84,6 +93,7 @@ export interface Pet {
     images: PetImage[];
     adoptionDetails?: AdoptionDetails;
     userId?: number;
+    user?: PetOwner;
 }
 
 /** Pet interaction history for undo functionality */

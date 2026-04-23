@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import project.petch.petch_api.dto.user.SubmitVendorVerificationRequest;
 import project.petch.petch_api.dto.user.VendorProfileDTO;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.service.VendorProfileService;
@@ -84,6 +85,27 @@ public class VendorProfileController {
                     log.warn("Vendor profile not found for update: userId={}", user.getId());
                     return ResponseEntity.notFound().build();
                 });
+    }
+
+    @PostMapping("/me/verification-request")
+    public ResponseEntity<?> requestVerification(
+            Authentication authentication,
+            @Valid @RequestBody(required = false) SubmitVendorVerificationRequest request) {
+        User user = (User) authentication.getPrincipal();
+        log.info("Vendor verification request submitted for userId={}", user.getId());
+
+        try {
+            String supportingMetadata = request != null ? request.supportingMetadata() : null;
+            return vendorProfileService.requestVerification(user.getId(), supportingMetadata)
+                    .<ResponseEntity<?>>map(ResponseEntity::ok)
+                    .orElseGet(() -> {
+                        log.warn("Vendor verification request failed - profile not found for userId={}", user.getId());
+                        return ResponseEntity.notFound().build();
+                    });
+        } catch (IllegalStateException ex) {
+            log.warn("Vendor verification request conflict for userId={}: {}", user.getId(), ex.getMessage());
+            return ResponseEntity.status(409).body(java.util.Map.of("message", ex.getMessage()));
+        }
     }
 
     @PostMapping("/me/image")

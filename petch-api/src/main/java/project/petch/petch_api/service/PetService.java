@@ -19,6 +19,7 @@ import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.models.UserPreference;
 import project.petch.petch_api.dto.user.UserType;
+import project.petch.petch_api.models.VerificationStatus;
 import project.petch.petch_api.repositories.PetInteractionRepository;
 import project.petch.petch_api.repositories.PetsRepository;
 import project.petch.petch_api.repositories.UserPreferenceRepository;
@@ -377,12 +378,18 @@ public class PetService {
             return null;
         }
 
+        VerificationStatus verificationStatus = VerificationStatus.UNVERIFIED;
+        if (user.getVendorProfile() != null && user.getVendorProfile().getVerificationStatus() != null) {
+            verificationStatus = user.getVendorProfile().getVerificationStatus();
+        }
+
         return PetOwnerDTO.builder()
                 .id(user.getId())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .userType(user.getUserType() != null ? user.getUserType().name() : null)
+                .verificationStatus(verificationStatus.name())
                 .build();
     }
 

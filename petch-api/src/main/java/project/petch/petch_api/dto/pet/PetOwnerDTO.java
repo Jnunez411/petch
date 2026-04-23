@@ -17,4 +17,5 @@ public class PetOwnerDTO{
     private String firstName;
     private String lastName;
     private String userType;
+    private String verificationStatus;
 }

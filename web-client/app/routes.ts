@@ -28,6 +28,7 @@ export default [
     route("users", "routes/petch+/admin.users.tsx"),
     route("pets", "routes/petch+/admin.pets.tsx"),
     route("listings", "routes/petch+/admin.listings.tsx"),
+    route("verification", "routes/petch+/admin.verification.tsx"),
     route("reports", "routes/petch+/admin.reports.tsx"),
   ]),
 ] satisfies RouteConfig;

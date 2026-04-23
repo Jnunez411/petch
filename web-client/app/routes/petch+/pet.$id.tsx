@@ -25,6 +25,7 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
+  verificationStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
 }
 
 interface AdoptionDetails {
@@ -670,8 +671,13 @@ export default function PetDetail() {
                 {pet.user && (
                   <div className="flex justify-between items-center">
                     <dt className="text-muted-foreground font-medium">Uploaded by</dt>
-                    <dd className="text-foreground font-semibold">
-                      {pet.user.firstName} {pet.user.lastName}
+                    <dd className="text-foreground font-semibold flex items-center gap-2">
+                      <span>{pet.user.firstName} {pet.user.lastName}</span>
+                      {pet.user.verificationStatus === 'VERIFIED' && (
+                        <span className="inline-flex items-center rounded-full bg-teal/10 px-2 py-0.5 text-xs font-semibold text-teal">
+                          Verified Vendor
+                        </span>
+                      )}
                     </dd>
                   </div>
                 )}

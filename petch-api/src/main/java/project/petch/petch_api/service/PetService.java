@@ -47,7 +47,7 @@ public class PetService {
                 .map(i -> i.getPet().getId())
                 .collect(Collectors.toList());
 
-        // PERFORMANCE: Use database-level exclusion instead of loading all pets
+        // PERFORMANCE: Use database-level exclusion instead of loading all pets into memory
         List<Pets> availablePets = interactedPetIds.isEmpty()
                 ? petsRepository.findAllWithDetails()
                 : petsRepository.findPetsNotIn(interactedPetIds);
@@ -107,7 +107,6 @@ public class PetService {
             Boolean real,
             Pageable pageable) {
         return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, real, pageable)
-        return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, pageable)
                 .map(this::toDTO);
     }
 

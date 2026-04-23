@@ -106,8 +106,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     logger.error('Failed to fetch adopter appointments', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
-  return { user, adopterProfile, submissions, appointments, token };
-  return { user, adopterProfile, submissions, token, emailNotificationsEnabled, deletionRequested };
+  return { user, adopterProfile, submissions, appointments, token, emailNotificationsEnabled, deletionRequested };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -225,8 +224,7 @@ function ToggleCheckbox({
 }
 
 export default function AdopterProfilePage() {
-  const { user, adopterProfile, submissions, appointments, token } = useLoaderData<typeof loader>();
-  const { user, adopterProfile, submissions, token, emailNotificationsEnabled, deletionRequested } = useLoaderData<typeof loader>();
+  const { user, adopterProfile, submissions, appointments, token, emailNotificationsEnabled, deletionRequested } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const deleteFetcher = useFetcher();
@@ -328,8 +326,6 @@ export default function AdopterProfilePage() {
     }
   };
 
-  const handleDeleteAccount = () => {
-    setShowDeleteAccountModal(true);
   const handleRequestDeletion = () => {
     setShowDeleteRequestModal(true);
   };
@@ -479,12 +475,17 @@ export default function AdopterProfilePage() {
                             </div>
                           </div>
                           {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
-                            <div>
-                              <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
-                                <CreditCard className="size-4 mr-2" />
-                                Pay Online
-                              </Button>
-                              <p className="text-xs text-zinc-400 mt-1">luis stripe part goes here.</p>
+                            <div className="space-y-2">
+                              <Link 
+                                to={`/checkout?pet_id=${appt.petId}&pet_name=${encodeURIComponent(appt.petName || `Pet #${appt.petId}`)}&price=${Math.round((appt.priceEstimate || 0) * 100)}`}
+                                className="inline-block"
+                              >
+                                <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
+                                  <CreditCard className="size-4 mr-2" />
+                                  Pay Online
+                                </Button>
+                              </Link>
+                              <p className="text-xs text-zinc-400">Adopt for ${appt.priceEstimate?.toFixed(2) || '0.00'} online.</p>
                             </div>
                           )}
                           <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
@@ -1015,12 +1016,17 @@ export default function AdopterProfilePage() {
                                     </div>
                                   )}
                                   {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
-                                    <div className="pt-1">
-                                      <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
-                                        <CreditCard className="size-4 mr-2" />
-                                        Pay Online
-                                      </Button>
-                                      <p className="text-xs text-zinc-400 mt-1">Luis Stripe part goes here.</p>
+                                    <div className="pt-1 space-y-2">
+                                      <Link 
+                                        to={`/checkout?pet_id=${appt.petId}&pet_name=${encodeURIComponent(appt.petName || `Pet #${appt.petId}`)}&price=${Math.round((appt.priceEstimate || 0) * 100)}`}
+                                        className="inline-block"
+                                      >
+                                        <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
+                                          <CreditCard className="size-4 mr-2" />
+                                          Pay Online
+                                        </Button>
+                                      </Link>
+                                      <p className="text-xs text-zinc-400">Adopt for ${appt.priceEstimate?.toFixed(2) || '0.00'} online.</p>
                                     </div>
                                   )}
                                   <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
@@ -1110,12 +1116,17 @@ export default function AdopterProfilePage() {
                                     </div>
                                   </div>
                                   {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
-                                    <div>
-                                      <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
-                                        <CreditCard className="size-4 mr-2" />
-                                        Pay Online
-                                      </Button>
-                                      <p className="text-xs text-zinc-400 mt-1">Luis Stripe part goes here.</p>
+                                    <div className="pt-1 space-y-2">
+                                      <Link 
+                                        to={`/checkout?pet_id=${appt.petId}&pet_name=${encodeURIComponent(appt.petName || `Pet #${appt.petId}`)}&price=${Math.round((appt.priceEstimate || 0) * 100)}`}
+                                        className="inline-block"
+                                      >
+                                        <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
+                                          <CreditCard className="size-4 mr-2" />
+                                          Pay Online
+                                        </Button>
+                                      </Link>
+                                      <p className="text-xs text-zinc-400">Adopt for ${appt.priceEstimate?.toFixed(2) || '0.00'} online.</p>
                                     </div>
                                   )}
                                   <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
@@ -1144,32 +1155,6 @@ export default function AdopterProfilePage() {
         </div>
       </div>
 
-      {/* Delete Account */}
-      <div className="container mx-auto px-4 pb-12 flex justify-center">
-        <Button
-          variant="outline"
-          className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
-          onClick={handleDeleteAccount}
-          disabled={isDeleting}
-        >
-          <Trash2 className="size-4 mr-2" />
-          {isDeleting ? 'Deleting...' : 'Delete Account'}
-        </Button>
-      </div>
-
-      {/* Delete Account Modal */}
-      {/* Disable Account Modal */}
-      {showDeleteAccountModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl border border-zinc-200 dark:border-zinc-800">
-            <div className="flex items-center gap-3 mb-4 text-red-600">
-              <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                <AlertCircle className="size-6" />
-              </div>
-              <h3 className="text-xl font-bold">Disable Account?</h3>
-            </div>
-            <p className="text-muted-foreground mb-6">
-              Are you sure you want to disable your adopter account? You can reactivate it anytime by reaching out to support.
       {/* Request Deletion Modal */}
       {showDeleteRequestModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

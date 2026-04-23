@@ -112,8 +112,19 @@ public class VendorAdoptionPreferencesService{
     public VendorAdoptionPreferences getOnlineFormTemplateForPet(Long petId){
         Pets pet = petsRepository.findById(petId).orElseThrow(() -> new ResourceNotFoundException("Pet not found with id: " + petId));
 
+        // 1. Check if the pet has its own specific online form
+        if (pet.getAdoptionDetails() != null && pet.getAdoptionDetails().getOnlineFormPdf() != null && pet.getAdoptionDetails().getOnlineFormPdf().length > 0) {
+            VendorAdoptionPreferences syntheticPrefs = new VendorAdoptionPreferences();
+            syntheticPrefs.setContactMethod(VendorAdoptionPreferences.AdoptionContactMethod.ONLINE_FORM);
+            syntheticPrefs.setOnlineFormPdf(pet.getAdoptionDetails().getOnlineFormPdf());
+            syntheticPrefs.setOnlineFormFileName(pet.getAdoptionDetails().getOnlineFormFileName());
+            syntheticPrefs.setOnlineFormContentType(pet.getAdoptionDetails().getOnlineFormContentType());
+            return syntheticPrefs;
+        }
+
+        // 2. Fall back to vendor's global preferences
         if(pet.getUser() == null){
-            throw new ResourceNotFoundException("Pet does not belong to a vendor");
+            throw new ResourceNotFoundException("Pet does not belong to a vendor and has no specific adoption form");
         }
 
         VendorAdoptionPreferences preferences = repository.findByVendorProfileUserId(pet.getUser().getId()).orElseThrow(() -> new ResourceNotFoundException("Vendor adoption preferences not found for pet"));
@@ -121,7 +132,7 @@ public class VendorAdoptionPreferencesService{
         boolean hasTemplate = preferences.getContactMethod() == VendorAdoptionPreferences.AdoptionContactMethod.ONLINE_FORM && preferences.getOnlineFormPdf() != null && preferences.getOnlineFormPdf().length > 0;
 
         if(!hasTemplate){
-            throw new ResourceNotFoundException("Online form template not found for pet");
+            throw new ResourceNotFoundException("Online form template not found for pet (neither specific nor global)");
         }
 
         return preferences;

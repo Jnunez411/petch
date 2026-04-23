@@ -394,12 +394,17 @@ export default function VendorAppointmentsPage() {
                         </div>
 
                         {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
-                          <div>
-                            <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
-                              <CreditCard className="size-4 mr-2" />
-                              Pay Online
-                            </Button>
-                            <p className="text-xs text-zinc-400 mt-1">Luis Stripe part goes here.</p>
+                          <div className="pt-1 space-y-2">
+                            <Link 
+                              to={`/checkout?pet_id=${appt.petId}&pet_name=${encodeURIComponent(appt.petName || `Pet #${appt.petId}`)}&price=${Math.round((appt.priceEstimate || 0) * 100)}`}
+                              className="inline-block"
+                            >
+                              <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
+                                <CreditCard className="size-4 mr-2" />
+                                Pay Online
+                              </Button>
+                            </Link>
+                            <p className="text-xs text-zinc-400">Adopt for ${appt.priceEstimate?.toFixed(2) || '0.00'} online.</p>
                           </div>
                         )}
 

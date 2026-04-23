@@ -31,8 +31,6 @@ import {
   Loader2,
   X,
 } from 'lucide-react';
-import { useState, useRef } from 'react';
-import { getImageUrl, API_BASE_URL } from '~/config/api-config';
 import { useState, useRef, useEffect } from 'react';
 import { getImageUrl, API_BASE_URL } from '~/config/api-config';
 import { Checkbox } from '~/components/ui/checkbox';
@@ -126,8 +124,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const pendingCount = appointments.filter(a => !a.vendorConfirmed).length;
 
-  return { user, vendorProfile, vendorPets, backendUserId, submissionCount, pendingCount, appointments, token };
-  return { user, vendorProfile, vendorPets, backendUserId, submissionCount, emailNotificationsEnabled, deletionRequested, token };
+  return { user, vendorProfile, vendorPets, backendUserId, submissionCount, pendingCount, appointments, token, emailNotificationsEnabled, deletionRequested };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -313,8 +310,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function VendorProfilePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { user, vendorProfile, vendorPets, submissionCount, pendingCount, appointments, token } = useLoaderData<typeof loader>();
-  const { user, vendorProfile, vendorPets, submissionCount, emailNotificationsEnabled, deletionRequested, token } = useLoaderData<typeof loader>();
+  const { user, vendorProfile, vendorPets, submissionCount, pendingCount, appointments, token, emailNotificationsEnabled, deletionRequested } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const fetcher = useFetcher();
   const deleteFetcher = useFetcher();
@@ -614,12 +610,17 @@ export default function VendorProfilePage() {
                             <p className="text-sm font-medium text-teal">Appointment is set · {chosenTime}</p>
                           </div>
                           {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
-                            <div>
-                              <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
-                                <CreditCard className="size-4 mr-2" />
-                                Pay Online
-                              </Button>
-                              <p className="text-xs text-zinc-400 mt-1">Luis Stripe part goes here.</p>
+                            <div className="pt-1 space-y-2">
+                              <Link 
+                                to={`/checkout?pet_id=${appt.petId}&pet_name=${encodeURIComponent(appt.petName || `Pet #${appt.petId}`)}&price=${Math.round((appt.priceEstimate || 0) * 100)}`}
+                                className="inline-block"
+                              >
+                                <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
+                                  <CreditCard className="size-4 mr-2" />
+                                  Pay Online
+                                </Button>
+                              </Link>
+                              <p className="text-xs text-zinc-400">Adopt for ${appt.priceEstimate?.toFixed(2) || '0.00'} online.</p>
                             </div>
                           )}
                           <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
@@ -773,6 +774,7 @@ export default function VendorProfilePage() {
           </div>
         </div>
       )}
+
       {/* Hero Section */}
       <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         <div className="container mx-auto px-4 py-10">
@@ -1156,6 +1158,8 @@ export default function VendorProfilePage() {
                         {pet.real && (
                           <span className="px-2 py-1 rounded-full bg-blue-500 text-white text-xs font-semibold">
                             Real
+                          </span>
+                        )}
                         {pet.isAdopted && (
                           <span className="px-2 py-1 rounded-full bg-purple-500 text-white text-xs font-semibold">
                             Adopted
@@ -1216,32 +1220,6 @@ export default function VendorProfilePage() {
         </div>
       </div>
 
-      {/* Delete Account */}
-      <div className="container mx-auto px-4 pb-12 max-w-6xl flex justify-center">
-        <Button
-          variant="outline"
-          className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
-          onClick={handleDeleteAccount}
-          disabled={isDeletingAccount}
-        >
-          <Trash2 className="size-4 mr-2" />
-          {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
-        </Button>
-      </div>
-
-      {/* Delete Account Modal */}
-      {/* Disable Account Modal */}
-      {showDeleteAccountModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl border border-zinc-200 dark:border-zinc-800">
-            <div className="flex items-center gap-3 mb-4 text-red-600">
-              <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                <AlertCircle className="size-6" />
-              </div>
-              <h3 className="text-xl font-bold">Disable Account?</h3>
-            </div>
-            <p className="text-muted-foreground mb-6">
-              Are you sure you want to disable your vendor account? Your pet listings will be hidden from public view until you reactivate your account.
       {/* Request Deletion Modal */}
       {showDeleteRequestModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

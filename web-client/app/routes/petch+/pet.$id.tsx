@@ -36,6 +36,8 @@ interface AdoptionDetails {
   redirectLink: string;
   phoneNumber: string;
   email: string;
+  hasOnlineFormPdf?: boolean;
+  onlineFormFileName?: string;
 }
 
 interface OnlineFormTemplateInfo {
@@ -336,8 +338,10 @@ export default function PetDetail() {
   const petIsOnHold = pet.onHold === true;
   const canUploadSubmission = !!sessionUser && !petIsOnHold;
   const canViewSubmissionSection = !!sessionUser;
+  const hasListingPdf = pet.adoptionDetails?.hasOnlineFormPdf === true;
+  const hasGlobalPdf = onlineFormTemplate?.hasOnlineFormPdf === true;
   const canUseOnlineForm = !petIsOnHold
-    && !!onlineFormTemplate?.hasOnlineFormPdf
+    && (hasListingPdf || hasGlobalPdf)
     && !pet.adoptionDetails?.isDirect
     && !pet.adoptionDetails?.redirectLink;
 
@@ -428,9 +432,10 @@ export default function PetDetail() {
 
   const handleDownloadTemplate = async () => {
     try {
+      const fileName = pet.adoptionDetails?.onlineFormFileName || onlineFormTemplate?.onlineFormFileName || `${pet.name}-adoption-form.pdf`;
       await downloadProtectedFile(
         `${apiBaseUrl}/api/v1/vendor/adoption-preferences/pets/${pet.id}/online-form-template`,
-        onlineFormTemplate?.onlineFormFileName || `${pet.name}-adoption-form.pdf`
+        fileName
       );
     } catch {
       setSubmissionError('Failed to download the adoption form. Please try again.');
@@ -921,23 +926,21 @@ export default function PetDetail() {
                         )}
                       </dl>
                     </div>
-                  ) : (
+                  ) : pet.adoptionDetails.redirectLink ? (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <h3 className="font-semibold text-blue-900 mb-3">Apply on Adoption Website</h3>
                       <dl className="space-y-2">
-                        {pet.adoptionDetails.redirectLink && (
-                          <div className="mb-3">
-                            <dt className="text-muted-foreground font-medium mb-2">Adoption Page</dt>
-                            <a
-                              href={pet.adoptionDetails.redirectLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 font-semibold underline break-all"
-                            >
-                              {pet.adoptionDetails.redirectLink}
-                            </a>
-                          </div>
-                        )}
+                        <div className="mb-3">
+                          <dt className="text-muted-foreground font-medium mb-2">Adoption Page</dt>
+                          <a
+                            href={pet.adoptionDetails.redirectLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 font-semibold underline break-all"
+                          >
+                            {pet.adoptionDetails.redirectLink}
+                          </a>
+                        </div>
                         {pet.adoptionDetails.phoneNumber && (
                           <div className="flex justify-between items-center border-t border-blue-200 pt-2">
                             <dt className="text-muted-foreground font-medium">Phone</dt>
@@ -951,6 +954,24 @@ export default function PetDetail() {
                           </div>
                         )}
                       </dl>
+                    </div>
+                  ) : (
+                    <div className="bg-muted border border-border rounded-lg p-4 text-center">
+                      <p className="text-muted-foreground font-medium">Contact the vendor for more adoption details.</p>
+                      <div className="mt-4 space-y-2">
+                        {pet.adoptionDetails.phoneNumber && (
+                          <div className="flex justify-between items-center border-b border-border pb-2">
+                            <dt className="text-muted-foreground text-sm font-medium">Phone</dt>
+                            <dd className="text-foreground font-semibold">{pet.adoptionDetails.phoneNumber}</dd>
+                          </div>
+                        )}
+                        {pet.adoptionDetails.email && (
+                          <div className="flex justify-between items-center">
+                            <dt className="text-muted-foreground text-sm font-medium">Email</dt>
+                            <dd className="text-foreground font-semibold">{pet.adoptionDetails.email}</dd>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

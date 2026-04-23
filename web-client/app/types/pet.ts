@@ -54,6 +54,7 @@ export interface AdoptionAppointment {
     selectedTime?: string;
     status: AppointmentStatus;
     vendorConfirmed?: boolean;
+    priceEstimate?: number;
     createdAt: string;
 }
 

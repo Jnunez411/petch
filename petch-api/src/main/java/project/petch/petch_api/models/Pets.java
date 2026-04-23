@@ -74,6 +74,8 @@ public class Pets {
     @Builder.Default
     @Column(name = "on_hold")
     private Boolean onHold = false;
+
+    @Builder.Default
     @Column(name = "is_adopted", nullable = false, columnDefinition = "boolean default false")
     private Boolean isAdopted = false;
 

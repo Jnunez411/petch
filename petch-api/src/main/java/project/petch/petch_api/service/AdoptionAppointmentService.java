@@ -218,6 +218,7 @@ public class AdoptionAppointmentService {
                 .selectedTime(a.getSelectedTime())
                 .status(a.getStatus())
                 .vendorConfirmed(a.getVendorConfirmed())
+                .priceEstimate(a.getPet().getAdoptionDetails() != null ? a.getPet().getAdoptionDetails().getPriceEstimate() : null)
                 .createdAt(a.getCreatedAt())
                 .build();
     }

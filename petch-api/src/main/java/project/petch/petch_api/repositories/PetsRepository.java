@@ -17,9 +17,13 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
 
         List<Pets> findByAtRiskFalse();
 
+        List<Pets> findByAtRiskFalseAndIsAdoptedFalse();
+
         List<Pets> findByFosterableTrueAndIsAdoptedFalse();
 
         List<Pets> findByFosterableFalse();
+
+        List<Pets> findByFosterableFalseAndIsAdoptedFalse();
 
         List<Pets> findByRealTrue();
 
@@ -45,48 +49,35 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
         // Find pets by user/vendor
         List<Pets> findByUserId(Long userId);
 
-        // Eager fetch pets with images and adoption details (excludes on-hold pets)
-        @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.onHold IS NULL OR p.onHold = false")
-        // Eager fetch non-adopted pets with images and adoption details (public/discover feed only)
-        @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.isAdopted = false")
+        // Eager fetch non-adopted pets with images and adoption details (excludes on-hold pets)
+        @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE (p.onHold IS NULL OR p.onHold = false) AND p.isAdopted = false")
         List<Pets> findAllWithDetails();
 
         // Eager fetch single pet with details
         @Query("SELECT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.id = :id")
         java.util.Optional<Pets> findByIdWithDetails(@Param("id") Long id);
 
-        // Filtered query with pagination and search (native SQL for reliable null
-        // handling)
+        // Filtered query with pagination and search (native SQL for reliable null handling)
         @Query(value = "SELECT * FROM pets p WHERE " +
                         "(p.on_hold IS NULL OR p.on_hold = false) AND " +
-                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
-                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.species) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
-                        +
-                        "(CAST(:species AS text) IS NULL OR UPPER(p.species) = UPPER(CAST(:species AS text))) AND "
-                        +
+                        "p.is_adopted = false AND " +
+                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.species) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND " +
+                        "(CAST(:species AS text) IS NULL OR UPPER(p.species) = UPPER(CAST(:species AS text))) AND " +
                         "(CAST(:ageMin AS integer) IS NULL OR p.age >= CAST(:ageMin AS integer)) AND " +
                         "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
                         "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND " +
                         "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND " +
-                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean))", countQuery = "SELECT COUNT(*) FROM pets p WHERE "
-                                        +
-                                        "(p.on_hold IS NULL OR p.on_hold = false) AND " +
-                                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
-                        "p.is_adopted = false", countQuery = "SELECT COUNT(*) FROM pets p WHERE "
-                                        +
-                                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.species) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
-                                        +
-                                        "(CAST(:species AS text) IS NULL OR UPPER(p.species) = UPPER(CAST(:species AS text))) AND "
-                                        +
-                                        "(CAST(:ageMin AS integer) IS NULL OR p.age >= CAST(:ageMin AS integer)) AND " +
-                                        "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
-                                        "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND "
-                                        +
-                                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND "
-                                        +
-                                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean))", nativeQuery = true)
-                                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND " +
-                                        "p.is_adopted = false", nativeQuery = true)
+                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean)) ORDER BY p.id DESC", 
+               countQuery = "SELECT COUNT(*) FROM pets p WHERE " +
+                        "(p.on_hold IS NULL OR p.on_hold = false) AND " +
+                        "p.is_adopted = false AND " +
+                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.species) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND " +
+                        "(CAST(:species AS text) IS NULL OR UPPER(p.species) = UPPER(CAST(:species AS text))) AND " +
+                        "(CAST(:ageMin AS integer) IS NULL OR p.age >= CAST(:ageMin AS integer)) AND " +
+                        "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
+                        "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND " +
+                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND " +
+                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean))", nativeQuery = true)
         Page<Pets> findFilteredPets(
                         @Param("search") String search,
                         @Param("species") String species,
@@ -99,14 +90,13 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
 
         // Count for filtered results
         @Query("SELECT COUNT(p) FROM Pets p WHERE " +
-                        "(:species IS NULL OR UPPER(CAST(p.species AS string)) = UPPER(CAST(:species AS string))) AND "
-                        +
+                        "p.isAdopted = false AND " +
+                        "(:species IS NULL OR UPPER(CAST(p.species AS string)) = UPPER(CAST(:species AS string))) AND " +
                         "(:ageMin IS NULL OR p.age >= :ageMin) AND " +
                         "(:ageMax IS NULL OR p.age <= :ageMax) AND " +
                         "(:fosterable IS NULL OR p.fosterable = :fosterable) AND " +
                         "(:atRisk IS NULL OR p.atRisk = :atRisk) AND " +
                         "(:real IS NULL OR p.real = :real)")
-                        "p.isAdopted = false")
         long countFilteredPets(
                         @Param("species") String species,
                         @Param("ageMin") Integer ageMin,
@@ -118,19 +108,14 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
         // Find trending pets (ordered by view count, handles NULL, excludes test data and on-hold pets)
         @Query("SELECT p FROM Pets p WHERE " +
                         "(p.onHold IS NULL OR p.onHold = false) AND " +
-        // Find trending non-adopted pets (ordered by view count, handles NULL, excludes test data)
-        @Query("SELECT p FROM Pets p WHERE " +
                         "p.isAdopted = false AND " +
                         "p.name NOT LIKE '%SQL%' AND p.name NOT LIKE '%script%' AND p.name NOT LIKE '%DROP%' AND " +
-                        "p.species NOT LIKE '%script%' AND p.species NOT LIKE '%img%' AND p.species NOT LIKE '%onerror%' "
-                        +
+                        "p.species NOT LIKE '%script%' AND p.species NOT LIKE '%img%' AND p.species NOT LIKE '%onerror%' " +
                         "ORDER BY COALESCE(p.viewCount, 0) DESC, p.createdAt DESC")
         List<Pets> findTrendingPets(Pageable pageable);
 
-        // PERFORMANCE: Database-level exclusion for discovery - avoids loading all pets
-        // into memory
-        @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.id NOT IN :excludedIds AND (p.onHold IS NULL OR p.onHold = false)")
-        @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.id NOT IN :excludedIds AND p.isAdopted = false")
+        // PERFORMANCE: Database-level exclusion for discovery - avoids loading all pets into memory
+        @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.id NOT IN :excludedIds AND (p.onHold IS NULL OR p.onHold = false) AND p.isAdopted = false")
         List<Pets> findPetsNotIn(@Param("excludedIds") List<Long> excludedIds);
 
         // PERFORMANCE: Proper count query instead of loading all records

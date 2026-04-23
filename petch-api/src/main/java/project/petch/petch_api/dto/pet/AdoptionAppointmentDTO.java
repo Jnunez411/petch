@@ -32,5 +32,6 @@ public class AdoptionAppointmentDTO {
     private String selectedTime;
     private AppointmentStatus status;
     private Boolean vendorConfirmed;
+    private Double priceEstimate;
     private LocalDateTime createdAt;
 }

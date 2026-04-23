@@ -69,7 +69,11 @@ public class PetDocumentsService {
     }
 
     public void deleteDocumentsByPet(Long petId){
-        petDocumentsRepository.deleteByPetId(petId);
+        petDocumentsRepository.findByPetId(petId).ifPresent(petDocuments -> {
+            petDocuments.getDocuments().clear();
+            petDocumentsRepository.flush();
+            petDocumentsRepository.delete(petDocuments);
+        });
     }
 
     private Pets requireOwnedPet(Long petId, User user){

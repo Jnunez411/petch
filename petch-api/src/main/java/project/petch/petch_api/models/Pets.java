@@ -68,7 +68,7 @@ public class Pets {
     private Boolean fosterable;
 
     @Builder.Default
-    @Column(name = "real", nullable = false)
+    @Column(name = "is_real", nullable = false)
     private Boolean real = false;
 
     @Builder.Default

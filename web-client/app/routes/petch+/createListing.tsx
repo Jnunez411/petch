@@ -466,8 +466,8 @@ export default function CreatePetPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    e?.preventDefault();
 
     // Mark all fields as touched to show any validation errors
     setTouched({
@@ -759,7 +759,7 @@ export default function CreatePetPage() {
               <Progress value={(currentStep / totalSteps) * 100} className="h-2" />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
 {currentStep === 1 && (<>
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">
@@ -1384,7 +1384,8 @@ export default function CreatePetPage() {
                   </Button>
                 ) : (
                   <Button
-                    type="submit"
+                    type="button"
+                    onClick={() => handleSubmit()}
                     disabled={loading}
                     className="flex-1"
                   >

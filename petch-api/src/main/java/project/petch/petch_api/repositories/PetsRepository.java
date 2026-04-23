@@ -67,7 +67,7 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
                         "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND " +
                         "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND " +
-                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean)) ORDER BY p.id DESC", 
+                        "(CAST(:real AS boolean) IS NULL OR p.is_real = CAST(:real AS boolean)) ORDER BY p.id DESC",
                countQuery = "SELECT COUNT(*) FROM pets p WHERE " +
                         "(p.on_hold IS NULL OR p.on_hold = false) AND " +
                         "p.is_adopted = false AND " +
@@ -77,7 +77,7 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
                         "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND " +
                         "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND " +
-                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean))", nativeQuery = true)
+                        "(CAST(:real AS boolean) IS NULL OR p.is_real = CAST(:real AS boolean))", nativeQuery = true)
         Page<Pets> findFilteredPets(
                         @Param("search") String search,
                         @Param("species") String species,

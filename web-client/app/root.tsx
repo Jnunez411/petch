@@ -32,12 +32,29 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" >
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        {/* Prevent flash of wrong theme */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('petch-theme');
+                  var isDark = theme === 'dark' || 
+                    (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  if (isDark) {
+                    document.documentElement.classList.add('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body className="bg-background text-foreground min-h-screen">
         {children}
@@ -57,12 +74,12 @@ export default function App() {
   const { user } = useLoaderData<typeof loader>();
   const location = useLocation();
 
-  // Hide main header on admin routes (admin has its own header)
+  // Hide main header on admin routes
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   return (
     <>
-      {!isAdminRoute && <Header user={user} />}
+      {(!isAdminRoute) && <Header user={user} />}
       <Outlet />
     </>
   );

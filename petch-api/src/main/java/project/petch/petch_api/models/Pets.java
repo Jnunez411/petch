@@ -7,6 +7,7 @@ import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 
@@ -66,6 +67,17 @@ public class Pets {
     @Column(name = "fosterable", nullable = false)
     private Boolean fosterable;
 
+    @Builder.Default
+    @Column(name = "real", nullable = false)
+    private Boolean real = false;
+
+    @Builder.Default
+    @Column(name = "on_hold")
+    private Boolean onHold = false;
+    @Builder.Default
+    @Column(name = "is_adopted", nullable = false, columnDefinition = "boolean default false")
+    private Boolean isAdopted = false;
+
     // Image Realationship
     @Builder.Default
     @JsonManagedReference
@@ -82,6 +94,25 @@ public class Pets {
     @JsonManagedReference
     @OneToOne(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private AdoptionDetails adoptionDetails;
+
+    @JsonIgnore
+    @OneToOne(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private PetDocuments petDocuments;
+
+    @Builder.Default
+    @JsonIgnore
+    @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<PetInteraction> interactions = new ArrayList<>();
+
+    @Builder.Default
+    @JsonIgnore
+    @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<Report> reports = new ArrayList<>();
+
+    @Builder.Default
+    @JsonIgnore
+    @OneToMany(mappedBy = "pet", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<AdoptionFormSubmission> adoptionFormSubmissions = new ArrayList<>();
 
     // Must add realationship to shelter
     // @ManyToOne(fetch = FetchType.LAZY)

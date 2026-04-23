@@ -1,14 +1,16 @@
 import { useLoaderData, Link, redirect, Form, useActionData, useNavigation, useFetcher } from 'react-router';
 import type { Route } from './+types/profile.vendor';
-import { getUserFromSession, logout } from '~/services/auth';
+import { getUserFromSession } from '~/services/auth';
 import { getSession } from '~/services/session.server';
 import { authenticatedFetch } from '~/utils/api';
 import { getVendorProfile, createVendorProfile, updateVendorProfile } from '~/services/profile.server';
 import type { VendorProfile } from '~/types/vendor';
+import type { AdoptionAppointment } from '~/types/pet';
 
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { ChangePasswordSection } from '~/components/blocks/ChangePasswordSection';
 import {
   Building2,
   Plus,
@@ -18,10 +20,20 @@ import {
   CheckCircle,
   User,
   Camera,
-  AlertCircle
+  AlertCircle,
+  SlidersHorizontal,
+  FileText,
+  CalendarCheck,
+  MapPin,
+  Clock,
+  CreditCard,
+  ChevronDown,
+  Loader2,
+  X,
 } from 'lucide-react';
-import { useState, useRef } from 'react';
-import { getImageUrl } from '~/config/api-config';
+import { useState, useRef, useEffect } from 'react';
+import { getImageUrl, API_BASE_URL } from '~/config/api-config';
+import { Checkbox } from '~/components/ui/checkbox';
 import { PLACEHOLDER_IMAGES } from '~/config/constants';
 import { createLogger } from '~/utils/logger';
 
@@ -43,6 +55,8 @@ interface Pet {
   images?: { filePath: string }[];
   atRisk?: boolean;
   fosterable?: boolean;
+  real?: boolean;
+  isAdopted?: boolean;
   viewCount?: number;
 }
 
@@ -68,11 +82,16 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   let vendorPets: Pet[] = [];
   let backendUserId: number | null = null;
+  let submissionCount = 0;
+  let emailNotificationsEnabled = true;
+  let deletionRequested = false;
   try {
     const userResponse = await authenticatedFetch(request, '/api/users/me');
     if (userResponse.ok) {
       const backendUser = await userResponse.json();
       backendUserId = backendUser.id;
+      emailNotificationsEnabled = backendUser.emailNotificationsEnabled ?? true;
+      deletionRequested = backendUser.deletionRequested ?? false;
 
       const petsResponse = await authenticatedFetch(request, `/api/pets/user/${backendUserId}`);
       if (petsResponse.ok) {
@@ -83,7 +102,29 @@ export async function loader({ request }: Route.LoaderArgs) {
     logger.error('Failed to fetch vendor pets', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 
-  return { user, vendorProfile, vendorPets, backendUserId };
+  try {
+    const submissionsResponse = await authenticatedFetch(request, '/api/v1/vendor/submissions/me');
+    if (submissionsResponse.ok) {
+      const submissions = await submissionsResponse.json();
+      submissionCount = Array.isArray(submissions) ? submissions.length : 0;
+    }
+  } catch (error) {
+    logger.error('Failed to fetch vendor submission count', { error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+
+  let appointments: AdoptionAppointment[] = [];
+  try {
+    const apptResponse = await authenticatedFetch(request, '/api/v1/vendor/appointments/me');
+    if (apptResponse.ok) {
+      appointments = await apptResponse.json();
+    }
+  } catch (error) {
+    logger.error('Failed to fetch vendor appointments', { error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+
+  const pendingCount = appointments.filter(a => !a.vendorConfirmed).length;
+
+  return { user, vendorProfile, vendorPets, backendUserId, submissionCount, pendingCount, appointments, token, emailNotificationsEnabled, deletionRequested };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -126,19 +167,67 @@ export async function action({ request }: Route.ActionArgs) {
     }
   }
 
-  if (intent === 'delete-account') {
+  if (intent === 'request-verification') {
     try {
-      const response = await authenticatedFetch(request, '/api/users/me', {
-        method: 'DELETE',
+      const response = await authenticatedFetch(request, '/api/v1/vendor/profile/me/verification-request', {
+        method: 'POST',
+      });
+
+      if (response.status === 404) {
+        return { error: 'Create your vendor profile before requesting verification.' };
+      }
+
+      if (response.status === 409) {
+        const conflict = await response.json().catch(() => ({ message: 'Verification request could not be submitted' }));
+        return { error: conflict.message || 'Verification request could not be submitted' };
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to submit verification request: ${response.status}`);
+      }
+
+      return { success: true, message: 'Verification request submitted for admin review.' };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to submit verification request' };
+    }
+  }
+
+  if (intent === 'request-deletion') {
+    try {
+      const response = await authenticatedFetch(request, '/api/users/me/request-deletion', {
+        method: 'PUT',
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to delete account: ${response.status}`);
+        throw new Error(`Failed to request account deletion: ${response.status}`);
       }
 
-      return await logout(request);
+      return { success: true, deletionRequested: true };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : 'Failed to delete account' };
+      return { error: error instanceof Error ? error.message : 'Failed to request account deletion' };
+    }
+  }
+
+  if (intent === 'change-password') {
+    const currentPassword = formData.get('currentPassword') as string;
+    const newPassword = formData.get('newPassword') as string;
+
+    try {
+      const response = await authenticatedFetch(request, '/api/users/me/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { error: data.message || 'Failed to change password' };
+      }
+      return { success: true };
+    } catch (error) {
+      if (error instanceof Response) {
+        return { error: 'Your session has expired. Please log in again.' };
+      }
+      return { error: error instanceof Error ? error.message : 'Failed to change password' };
     }
   }
 
@@ -160,6 +249,29 @@ export async function action({ request }: Route.ActionArgs) {
       return { success: true, message: 'Pet deleted successfully' };
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'Failed to delete pet' };
+    }
+  }
+
+  if (intent === 'toggle-adopted') {
+    const petId = formData.get('petId');
+    const isAdopted = formData.get('isAdopted') === 'true';
+    if (!petId) {
+      return { error: 'Pet ID is required' };
+    }
+
+    try {
+      const response = await authenticatedFetch(request, `/api/pets/${petId}/adoption-status`, {
+        method: 'PUT',
+        body: JSON.stringify({ isAdopted }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update adoption status: ${response.status}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Failed to update adoption status' };
     }
   }
 
@@ -198,16 +310,128 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function VendorProfilePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { user, vendorProfile, vendorPets } = useLoaderData<typeof loader>();
+  const { user, vendorProfile, vendorPets, submissionCount, pendingCount, appointments, token, emailNotificationsEnabled, deletionRequested } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const fetcher = useFetcher();
   const deleteFetcher = useFetcher();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
+  const isRequesting = deleteFetcher.state !== 'idle';
   const [isEditing, setIsEditing] = useState(!vendorProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [showDeleteRequestModal, setShowDeleteRequestModal] = useState(false);
+  const [hasPendingDeletion, setHasPendingDeletion] = useState(deletionRequested);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(emailNotificationsEnabled);
+  const verificationStatus = vendorProfile?.verificationStatus || 'UNVERIFIED';
+
+  useEffect(() => {
+    if (actionData?.deletionRequested) {
+      setHasPendingDeletion(true);
+    }
+  }, [actionData]);
+
+  const handleToggleNotifications = async (checked: boolean) => {
+    setNotificationsEnabled(checked);
+    try {
+      await fetch(`${API_BASE_URL}/api/users/me/notifications`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ emailNotificationsEnabled: checked }),
+      });
+    } catch (error) {
+      setNotificationsEnabled(!checked);
+    }
+  };
+
+  // ── Appointment state (banner on profile page) ──
+  const [localAppointments, setLocalAppointments] = useState(appointments);
+  const [expandedAppointment, setExpandedAppointment] = useState<number | null>(
+    appointments.length > 0 ? appointments[0].id : null
+  );
+  const [acceptedIds, setAcceptedIds] = useState<Set<number>>(
+    new Set(appointments.filter(a => a.selectedTime || a.vendorConfirmed).map(a => a.id))
+  );
+  const [confirmedIds, setConfirmedIds] = useState<Set<number>>(
+    new Set(appointments.filter(a => a.vendorConfirmed).map(a => a.id))
+  );
+  const [confirmLoading, setConfirmLoading] = useState<Record<number, boolean>>({});
+  const [cancelLoading, setCancelLoading] = useState<Record<number, boolean>>({});
+  const [selectedTimes, setSelectedTimes] = useState<Record<number, string>>(
+    Object.fromEntries(appointments.filter(a => a.selectedTime).map(a => [a.id, a.selectedTime!]))
+  );
+  const [timeSelectLoading, setTimeSelectLoading] = useState<Record<number, boolean>>({});
+  const [dismissingId, setDismissingId] = useState<number | null>(null);
+  const [dismissLoading, setDismissLoading] = useState(false);
+  const [apptError, setApptError] = useState<string | null>(null);
+
+  const handleVendorSelectTime = async (appointmentId: number, time: string) => {
+    setApptError(null);
+    setTimeSelectLoading(p => ({ ...p, [appointmentId]: true }));
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/vendor/appointments/${appointmentId}/select-time`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedTime: time }),
+      });
+      if (res.ok) {
+        setSelectedTimes(p => ({ ...p, [appointmentId]: time }));
+        setConfirmedIds(p => new Set([...p, appointmentId]));
+      } else {
+        setApptError('Failed to set time. Please try again.');
+      }
+    } catch {
+      setApptError('Could not reach the server. Is it running?');
+    } finally {
+      setTimeSelectLoading(p => ({ ...p, [appointmentId]: false }));
+    }
+  };
+
+  const handleConfirm = async (appointmentId: number) => {
+    setConfirmLoading(p => ({ ...p, [appointmentId]: true }));
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/vendor/appointments/${appointmentId}/confirm`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) setConfirmedIds(p => new Set([...p, appointmentId]));
+    } finally {
+      setConfirmLoading(p => ({ ...p, [appointmentId]: false }));
+    }
+  };
+
+  const handleCancel = async (appointmentId: number) => {
+    setCancelLoading(p => ({ ...p, [appointmentId]: true }));
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/vendor/appointments/${appointmentId}/cancel`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) setLocalAppointments(prev => prev.filter(a => a.id !== appointmentId));
+    } finally {
+      setCancelLoading(p => ({ ...p, [appointmentId]: false }));
+    }
+  };
+
+  const handleDismiss = async () => {
+    if (!dismissingId) return;
+    setDismissLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/vendor/appointments/${dismissingId}/cancel`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setLocalAppointments(prev => prev.filter(a => a.id !== dismissingId));
+        setDismissingId(null);
+      }
+    } finally {
+      setDismissLoading(false);
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -230,28 +454,29 @@ export default function VendorProfilePage() {
     }
   };
 
-  const isDeletingAccount = deleteFetcher.state !== 'idle';
-
-  const handleDeleteAccount = () => {
-    setShowDeleteAccountModal(true);
+  const handleRequestDeletion = () => {
+    setShowDeleteRequestModal(true);
   };
 
-  const confirmDeleteAccount = () => {
+  const confirmRequestDeletion = () => {
     deleteFetcher.submit(
-      { intent: 'delete-account' },
+      { intent: 'request-deletion' },
       { method: 'POST' }
     );
-    setShowDeleteAccountModal(false);
+    setShowDeleteRequestModal(false);
+  };
+
+  const adoptFetcher = useFetcher();
+
+  const isTogglingAdoption = (petId: number) => {
+    return (
+      adoptFetcher.state !== 'idle' &&
+      adoptFetcher.formData?.get('intent') === 'toggle-adopted' &&
+      adoptFetcher.formData?.get('petId') === petId.toString()
+    );
   };
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number } | null>(null);
-  /*if (!confirm('Are you sure you want to delete this pet? This action cannot be undone.')) {
-      return;
-    }
-    fetcher.submit(
-      { intent: 'delete-pet', petId: petId.toString() i},
-      { method: 'POST' }
-    );*/
   const handleDelete = (petId: number) => {
     setDeleteConfirm({ id: petId });
   };
@@ -274,11 +499,246 @@ export default function VendorProfilePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      {/* ── Appointment Notifications ── */}
+      {localAppointments.length > 0 && (
+        <div className="bg-teal/5 border-b border-teal/20">
+          <div className="container mx-auto px-4 py-6 max-w-6xl space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <CalendarCheck className="size-5 text-teal" />
+              <h2 className="text-base font-bold text-teal">
+                You have {localAppointments.length} adoption appointment{localAppointments.length > 1 ? 's' : ''}
+              </h2>
+            </div>
+
+            {apptError && (
+              <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3 dark:bg-red-950/20 dark:border-red-800">
+                <AlertCircle className="size-4 text-red-600 shrink-0" />
+                <p className="text-sm text-red-700 dark:text-red-400">{apptError}</p>
+                <button type="button" onClick={() => setApptError(null)} className="ml-auto text-red-400 hover:text-red-600">
+                  <X className="size-4" />
+                </button>
+              </div>
+            )}
+
+            {localAppointments.map((appt) => {
+              const isExpanded = expandedAppointment === appt.id;
+              const isAccepted = acceptedIds.has(appt.id);
+              const isConfirmed = confirmedIds.has(appt.id);
+              const adopterSelected = !!appt.selectedTime;
+              const chosenTime = selectedTimes[appt.id] ?? appt.selectedTime;
+              const times = appt.availableTimes?.split(',').map(t => t.trim()).filter(Boolean) ?? [];
+
+              return (
+                <div key={appt.id} className="rounded-2xl border border-teal/20 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-5 py-4 text-left"
+                    onClick={() => setExpandedAppointment(isExpanded ? null : appt.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isConfirmed
+                        ? <CheckCircle className="size-5 text-teal shrink-0" />
+                        : adopterSelected || isAccepted
+                          ? <CalendarCheck className="size-5 text-amber-500 shrink-0" />
+                          : <Clock className="size-5 text-zinc-400 shrink-0" />}
+                      <div>
+                        <p className="font-semibold text-zinc-900 dark:text-zinc-50">
+                          {appt.petName ?? `Pet #${appt.petId}`}
+                          <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${
+                            appt.appointmentType === 'PICKUP' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
+                          }`}>
+                            {appt.appointmentType === 'PICKUP' ? 'Pick Up' : 'Meet Up'}
+                          </span>
+                        </p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {isConfirmed
+                            ? `Appointment set · ${chosenTime}`
+                            : adopterSelected
+                              ? 'Action required'
+                              : isAccepted
+                                ? 'Choose a time slot'
+                                : 'New adoption request'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronDown className={`size-4 text-zinc-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t border-zinc-100 dark:border-zinc-800 px-5 py-4 space-y-4">
+                      <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Location</p>
+                            <p className="text-zinc-700 dark:text-zinc-300">{appt.location}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CalendarCheck className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Date</p>
+                            <p className="text-zinc-700 dark:text-zinc-300">
+                              {new Date(appt.appointmentDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CreditCard className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Payment</p>
+                            <p className="text-zinc-700 dark:text-zinc-300">
+                              {appt.paymentOption === 'IN_PERSON' ? 'In Person' : appt.paymentOption === 'ONLINE' ? 'Online' : 'In Person or Online'}
+                            </p>
+                          </div>
+                        </div>
+                        {appt.additionalInfo && (
+                          <div className="flex items-start gap-2 sm:col-span-2">
+                            <FileText className="size-4 text-zinc-400 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Notes</p>
+                              <p className="text-zinc-700 dark:text-zinc-300">{appt.additionalInfo}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {isConfirmed ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 rounded-xl bg-teal/10 border border-teal/20 px-4 py-3">
+                            <p className="text-sm font-medium text-teal">Appointment is set · {chosenTime}</p>
+                          </div>
+                          {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
+                            <div className="pt-1 space-y-2">
+                              <Link 
+                                to={`/checkout?pet_id=${appt.petId}&pet_name=${encodeURIComponent(appt.petName || `Pet #${appt.petId}`)}&price=${Math.round((appt.priceEstimate || 0) * 100)}`}
+                                className="inline-block"
+                              >
+                                <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
+                                  <CreditCard className="size-4 mr-2" />
+                                  Pay Online
+                                </Button>
+                              </Link>
+                              <p className="text-xs text-zinc-400">Adopt for ${appt.priceEstimate?.toFixed(2) || '0.00'} online.</p>
+                            </div>
+                          )}
+                          <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setDismissingId(appt.id)}
+                              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                            >
+                              <X className="size-4 mr-2" />
+                              Dismiss
+                            </Button>
+                          </div>
+                        </div>
+                      ) : !isAccepted ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 rounded-xl bg-zinc-50 border border-zinc-200 dark:bg-zinc-800/50 dark:border-zinc-700 px-4 py-3">
+                            <Clock className="size-4 text-zinc-400 shrink-0" />
+                            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                              A new adoption request has arrived for <span className="font-semibold">{appt.petName}</span>. Accept the new pet?
+                            </p>
+                          </div>
+                          <div className="flex gap-3 flex-wrap">
+                            <Button
+                              onClick={() => setAcceptedIds(p => new Set([...p, appt.id]))}
+                              className="rounded-xl bg-teal text-white hover:bg-teal/90"
+                            >
+                              <CheckCircle className="size-4 mr-2" />
+                              Accept New Pet
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={cancelLoading[appt.id]}
+                              onClick={() => handleCancel(appt.id)}
+                              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                            >
+                              {cancelLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : adopterSelected ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 dark:bg-amber-950/20 dark:border-amber-800">
+                            <CheckCircle className="size-4 text-amber-600 shrink-0" />
+                            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                              Adopter selected: <span className="font-bold">{appt.selectedTime}</span> · Please confirm this works for you
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => handleConfirm(appt.id)}
+                            disabled={confirmLoading[appt.id]}
+                            className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto"
+                          >
+                            {confirmLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <CheckCircle className="size-4 mr-2" />}
+                            Confirm Appointment
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                            <Clock className="size-4" />
+                            {appt.appointmentType === 'MEETUP' ? 'Pick a time for the adopter' : 'Choose a pick-up time for the adopter'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {times.map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                disabled={timeSelectLoading[appt.id]}
+                                onClick={() => handleVendorSelectTime(appt.id, t)}
+                                className="px-3 py-1.5 rounded-xl border-2 border-teal/30 text-sm font-medium text-teal hover:bg-teal/10 hover:border-teal transition-colors disabled:opacity-50"
+                              >
+                                {timeSelectLoading[appt.id] ? <Loader2 className="size-3 animate-spin inline" /> : t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Dismiss confirmation modal ── */}
+      {dismissingId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-zinc-900 p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-2">Dismiss appointment?</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
+              This will permanently delete the appointment record. This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" className="rounded-xl" onClick={() => setDismissingId(null)} disabled={dismissLoading}>
+                Keep it
+              </Button>
+              <Button
+                className="rounded-xl bg-red-600 text-white hover:bg-red-700"
+                onClick={handleDismiss}
+                disabled={dismissLoading}
+              >
+                {dismissLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : null}
+                Yes, dismiss
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Custom Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-page-alt">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <audio ref={audioRef} src="/chime2.mp3" preload="auto" />
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-lg shadow-lg p-8 max-w-md w-full flex flex-col items-center">
             <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
             <h2 className="text-xl font-bold mb-2">Confirm Delete</h2>
             <p className="mb-6 text-center text-muted-foreground">
@@ -353,6 +813,16 @@ export default function VendorProfilePage() {
                 <span className="px-3 py-1 rounded-full bg-coral/10 text-coral text-xs font-semibold uppercase tracking-wide">
                   Vendor Account
                 </span>
+                {verificationStatus === 'VERIFIED' && (
+                  <span className="px-3 py-1 rounded-full bg-teal/10 text-teal text-xs font-semibold uppercase tracking-wide">
+                    Verified Vendor
+                  </span>
+                )}
+                {verificationStatus === 'PENDING' && (
+                  <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold uppercase tracking-wide">
+                    Verification Pending
+                  </span>
+                )}
               </div>
               <h1 className="text-3xl md:text-4xl font-bold text-foreground">
                 {vendorProfile?.organizationName || `${user.firstName} ${user.lastName}`}
@@ -378,15 +848,55 @@ export default function VendorProfilePage() {
 
             {/* Quick Actions */}
             <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
-                onClick={handleDeleteAccount}
-                disabled={isDeletingAccount}
-              >
-                <Trash2 className="size-4 mr-2" />
-                {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
+              <Button asChild variant="outline" className="rounded-xl border-coral/30 text-coral hover:bg-coral/10 hover:text-coral-dark">
+                <Link to="/profile/vendor/adoption-preferences">
+                  <SlidersHorizontal className="size-4 mr-2" />
+                  Adoption Preferences
+                </Link>
               </Button>
+              <Button asChild variant="outline" className="rounded-xl border-teal/30 text-teal hover:bg-teal/10 hover:text-teal">
+                <Link to="/profile/vendor/submissions" className="inline-flex items-center gap-2">
+                  <FileText className="size-4" />
+                  Submission Forms
+                  <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-teal px-2 py-0.5 text-xs font-semibold text-white">
+                    {submissionCount}
+                  </span>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-xl border-teal/30 text-teal hover:bg-teal/10 hover:text-teal">
+                <Link to="/profile/vendor/appointments" className="inline-flex items-center gap-2">
+                  <CalendarCheck className="size-4" />
+                  Appointments
+                  {pendingCount > 0 && (
+                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">
+                      {pendingCount}
+                    </span>
+                  )}
+                </Link>
+              </Button>
+              {(verificationStatus === 'UNVERIFIED' || verificationStatus === 'REJECTED') && (
+                <Form method="post">
+                  <input type="hidden" name="intent" value="request-verification" />
+                  <Button type="submit" variant="outline" className="rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+                    Request Verification
+                  </Button>
+                </Form>
+              )}
+              {hasPendingDeletion ? (
+                <span className="inline-flex items-center px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
+                  Deletion Requested
+                </span>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
+                  onClick={handleRequestDeletion}
+                  disabled={isRequesting}
+                >
+                  <Trash2 className="size-4 mr-2" />
+                  {isRequesting ? 'Submitting...' : 'Request Deletion'}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="rounded-xl"
@@ -533,6 +1043,57 @@ export default function VendorProfilePage() {
                     {isSubmitting ? 'Saving...' : vendorProfile ? 'Save Changes' : 'Create Profile'}
                   </Button>
                 </Form>
+
+                {/* Email Notifications */}
+                <div className="pt-5 mt-5 border-t border-zinc-200 dark:border-zinc-700">
+                  <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Notifications</p>
+                  <div className="flex items-start space-x-2">
+                    <Checkbox
+                      id="emailNotifications"
+                      checked={notificationsEnabled}
+                      onCheckedChange={(checked) => handleToggleNotifications(checked as boolean)}
+                    />
+                    <label htmlFor="emailNotifications" className="text-sm text-zinc-600 dark:text-zinc-400 leading-tight cursor-pointer">
+                      Email me about new pet matches and updates
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Change Password & Account Status */}
+            <div className="mt-6 space-y-6">
+              <ChangePasswordSection />
+              
+              {/* Account Status */}
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-red-100 dark:border-red-900/30 overflow-hidden">
+                <div className="bg-red-50/50 dark:bg-red-950/10 px-6 py-4 border-b border-red-100 dark:border-red-900/30">
+                  <h3 className="text-sm font-semibold text-red-800 dark:text-red-300">Account Status</h3>
+                </div>
+                <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Request Account Deletion</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Request account removal. An admin will review and process your request.
+                    </p>
+                  </div>
+                  {hasPendingDeletion ? (
+                    <span className="inline-flex items-center px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
+                      Deletion Requested
+                    </span>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-400 dark:hover:border-red-600 hover:text-red-700 dark:hover:text-red-300"
+                      onClick={handleRequestDeletion}
+                      disabled={isRequesting}
+                    >
+                      <Trash2 className="size-4 mr-2" />
+                      {isRequesting ? 'Submitting...' : 'Request Deletion'}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -592,6 +1153,16 @@ export default function VendorProfilePage() {
                             Fosterable
                           </span>
                         )}
+                        {pet.real && (
+                          <span className="px-2 py-1 rounded-full bg-blue-500 text-white text-xs font-semibold">
+                            Real
+                          </span>
+                        )}
+                        {pet.isAdopted && (
+                          <span className="px-2 py-1 rounded-full bg-purple-500 text-white text-xs font-semibold">
+                            Adopted
+                          </span>
+                        )}
                       </div>
 
                       {/* Pet Name */}
@@ -606,7 +1177,7 @@ export default function VendorProfilePage() {
                       <span className="text-sm text-muted-foreground">{pet.species}</span>
                       <div className="flex gap-2">
                         <Button asChild variant="ghost" size="sm" className="rounded-lg">
-                          <Link to={`/pets/${pet.id}`}>
+                          <Link to={`/pets/${pet.id}?origin=profile`}>
                             <ExternalLink className="size-4" />
                           </Link>
                         </Button>
@@ -614,6 +1185,19 @@ export default function VendorProfilePage() {
                           <Link to={`/pets/${pet.id}/edit`}>
                             <Edit3 className="size-4" />
                           </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`rounded-lg ${pet.isAdopted ? 'text-purple-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/20' : 'text-muted-foreground hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/20'}`}
+                          title={pet.isAdopted ? 'Mark as Available' : 'Mark as Adopted'}
+                          onClick={() => adoptFetcher.submit(
+                            { intent: 'toggle-adopted', petId: pet.id.toString(), isAdopted: (!pet.isAdopted).toString() },
+                            { method: 'POST' }
+                          )}
+                          disabled={isTogglingAdoption(pet.id)}
+                        >
+                          <CheckCircle className="size-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -633,20 +1217,21 @@ export default function VendorProfilePage() {
           </div>
         </div>
       </div>
-      {/* Delete Account Modal */}
-      {showDeleteAccountModal && (
+
+      {/* Request Deletion Modal */}
+      {showDeleteRequestModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold mb-2">Delete Account</h3>
+            <h3 className="text-lg font-semibold mb-2">Request Account Deletion</h3>
             <p className="text-muted-foreground mb-4">
-              Are you sure you want to delete your account? This action cannot be undone and all your data, including pet listings, will be permanently removed.
+              Are you sure you want to request account deletion? An admin will review your request and permanently remove your account, including all pet listings and associated data.
             </p>
             <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setShowDeleteAccountModal(false)}>
+              <Button variant="outline" onClick={() => setShowDeleteRequestModal(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={confirmDeleteAccount}>
-                Delete Account
+              <Button variant="destructive" onClick={confirmRequestDeletion}>
+                Request Deletion
               </Button>
             </div>
           </div>

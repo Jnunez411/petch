@@ -6,15 +6,29 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.petch.petch_api.dto.admin.AdminStatsDto;
+import project.petch.petch_api.dto.admin.AdminUserDto;
+import project.petch.petch_api.dto.admin.VendorVerificationRequestDTO;
+import project.petch.petch_api.models.VerificationRequestStatus;
 import project.petch.petch_api.dto.user.UserType;
 import project.petch.petch_api.models.AdminAuditLog;
 import project.petch.petch_api.models.Pets;
+import project.petch.petch_api.models.ReportStatus;
 import project.petch.petch_api.models.User;
+import project.petch.petch_api.models.VerificationStatus;
+import project.petch.petch_api.models.VendorProfile;
+import project.petch.petch_api.models.VendorVerificationRequest;
 import project.petch.petch_api.repositories.AdminAuditLogRepository;
+import project.petch.petch_api.repositories.PasswordResetTokenRepository;
+import project.petch.petch_api.repositories.PetInteractionRepository;
 import project.petch.petch_api.repositories.PetsRepository;
+import project.petch.petch_api.repositories.ReportRepository;
+import project.petch.petch_api.repositories.UserPreferenceRepository;
 import project.petch.petch_api.repositories.UserRepository;
+import project.petch.petch_api.repositories.VendorProfileRepository;
+import project.petch.petch_api.repositories.VendorVerificationRequestRepository;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +41,14 @@ public class AdminService {
     private final UserRepository userRepository;
     private final PetsRepository petsRepository;
     private final AdminAuditLogRepository auditLogRepository;
+    private final ReportRepository reportRepository;
+    private final PetInteractionRepository petInteractionRepository;
+    private final UserPreferenceRepository userPreferenceRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final ImageService imageService;
+    private final PetDocumentsService petDocumentsService;
+    private final VendorProfileRepository vendorProfileRepository;
+    private final VendorVerificationRequestRepository vendorVerificationRequestRepository;
 
     /**
      * Get admin dashboard statistics using efficient count queries
@@ -34,20 +56,38 @@ public class AdminService {
     public AdminStatsDto getStats() {
         long totalUsers = userRepository.count();
         long totalPets = petsRepository.count();
+        long totalAdoptedPets = petsRepository.countByIsAdoptedTrue();
         long totalAdopters = userRepository.countByUserType(UserType.ADOPTER);
         long totalVendors = userRepository.countByUserType(UserType.VENDOR);
+        long pendingReports = reportRepository.countByStatus(ReportStatus.PENDING);
 
         return AdminStatsDto.builder()
                 .totalUsers(totalUsers)
                 .totalPets(totalPets)
+                .totalAdoptedPets(totalAdoptedPets)
                 .totalAdopters(totalAdopters)
                 .totalVendors(totalVendors)
+                .pendingReports(pendingReports)
                 .build();
     }
 
     // PERFORMANCE: Added pagination to avoid loading all users at once
-    public Page<User> getAllUsers(Pageable pageable) {
-        return userRepository.findAll(pageable);
+    // Returns DTOs to avoid lazy-loading blob issues during JSON serialization
+    @Transactional(readOnly = true)
+    public Page<AdminUserDto> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable).map(user -> AdminUserDto.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .userType(user.getUserType())
+                .phoneNumber(user.getPhoneNumber())
+                .emailNotificationsEnabled(user.getEmailNotificationsEnabled())
+                .deletionRequested(user.getDeletionRequested())
+                .deletionRequestedAt(user.getDeletionRequestedAt())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build());
     }
 
     /**
@@ -73,6 +113,12 @@ public class AdminService {
                 userToDelete.getUserType());
 
         auditLog(currentUserEmail, "DELETE_USER", "USER", id, targetDetails);
+
+        // Clean up dependent rows that are not cascaded from User
+        petInteractionRepository.deleteByUser_Id(id);
+        petInteractionRepository.deleteByPet_User_Id(id);
+        userPreferenceRepository.deleteByUser_Id(id);
+        passwordResetTokenRepository.deleteByUserId(id);
 
         log.info("Admin {} deleted user: {}", currentUserEmail, targetDetails);
         userRepository.deleteById(id);
@@ -102,6 +148,16 @@ public class AdminService {
 
         auditLog(currentUserEmail, "DELETE_PET", "PET", id, targetDetails);
 
+        // Clean up related records before deleting the pet
+        try {
+            imageService.deleteImagesByPet(id);
+        } catch (java.io.IOException e) {
+            log.error("Failed to delete images for pet {}: {}", id, e.getMessage());
+        }
+        petDocumentsService.deleteDocumentsByPet(id);
+        petInteractionRepository.deleteByPet_Id(id);
+        reportRepository.deleteByPetId(id);
+
         log.info("Admin {} deleted pet: {}", currentUserEmail, targetDetails);
         petsRepository.deleteById(id);
     }
@@ -111,6 +167,61 @@ public class AdminService {
      */
     public List<AdminAuditLog> getRecentAuditLogs() {
         return auditLogRepository.findTop100ByOrderByCreatedAtDesc();
+    }
+
+    public List<VendorVerificationRequestDTO> getVerificationRequests(VerificationRequestStatus status) {
+        VerificationRequestStatus requestedStatus = status == null ? VerificationRequestStatus.PENDING : status;
+        return vendorVerificationRequestRepository.findByStatusOrderBySubmittedAtAsc(requestedStatus)
+                .stream()
+                .map(this::toVerificationRequestDTO)
+                .toList();
+    }
+
+    @Transactional
+    public VendorVerificationRequestDTO reviewVerificationRequest(Long requestId, VerificationRequestStatus nextStatus, String rejectionReason) {
+        if (nextStatus != VerificationRequestStatus.APPROVED && nextStatus != VerificationRequestStatus.REJECTED) {
+            throw new IllegalArgumentException("status must be APPROVED or REJECTED");
+        }
+
+        String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        User reviewer = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new IllegalStateException("Authenticated admin user not found"));
+
+        VendorVerificationRequest verificationRequest = vendorVerificationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Verification request not found with ID: " + requestId));
+
+        if (verificationRequest.getStatus() != VerificationRequestStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending verification requests can be reviewed");
+        }
+
+        verificationRequest.setStatus(nextStatus);
+        verificationRequest.setReviewedBy(reviewer);
+        verificationRequest.setReviewedAt(LocalDateTime.now());
+        verificationRequest.setRejectionReason(nextStatus == VerificationRequestStatus.REJECTED ? rejectionReason : null);
+
+        VendorVerificationRequest savedRequest = vendorVerificationRequestRepository.save(verificationRequest);
+
+        VendorProfile profile = verificationRequest.getVendorProfile();
+        if (profile == null) {
+            throw new IllegalStateException("Verification request has no associated vendor profile");
+        }
+
+        // Adapter: request APPROVED maps to vendor VERIFIED (badge source of truth)
+        VerificationStatus vendorStatus = nextStatus == VerificationRequestStatus.APPROVED
+                ? VerificationStatus.VERIFIED
+                : VerificationStatus.REJECTED;
+        profile.setVerificationStatus(vendorStatus);
+        VendorProfile savedProfile = vendorProfileRepository.save(profile);
+
+        String targetDetails = String.format("VerificationRequest: %d | VendorProfile: %d (%s) -> %s",
+                savedRequest.getId(),
+                savedProfile.getId(),
+                savedProfile.getOrganizationName(),
+                nextStatus.name());
+
+        auditLog(currentUserEmail, "REVIEW_VENDOR_VERIFICATION", "VENDOR_VERIFICATION_REQUEST", savedRequest.getId(), targetDetails);
+
+        return toVerificationRequestDTO(savedRequest);
     }
 
     /**
@@ -126,5 +237,24 @@ public class AdminService {
                 .build();
 
         auditLogRepository.save(logEntry);
+    }
+
+    private VendorVerificationRequestDTO toVerificationRequestDTO(VendorVerificationRequest request) {
+        VendorProfile profile = request.getVendorProfile();
+        return VendorVerificationRequestDTO.builder()
+                .verificationRequestId(request.getId())
+                .vendorProfileId(profile.getId())
+                .userId(profile.getUser() != null ? profile.getUser().getId() : null)
+                .organizationName(profile.getOrganizationName())
+                .contactEmail(profile.getUser() != null ? profile.getUser().getEmail() : null)
+                .city(profile.getCity())
+                .state(profile.getState())
+                .submittedAt(request.getSubmittedAt())
+                .reviewedBy(request.getReviewedBy() != null ? request.getReviewedBy().getEmail() : null)
+                .reviewedAt(request.getReviewedAt())
+                .rejectionReason(request.getRejectionReason())
+                .supportingMetadata(request.getSupportingMetadata())
+                .requestStatus(request.getStatus())
+                .build();
     }
 }

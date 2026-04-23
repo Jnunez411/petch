@@ -72,6 +72,28 @@ export async function action({ request }: Route.ActionArgs) {
         }
     }
 
+    if (actionType === 'toggle-adopted') {
+        const isAdopted = formData.get('isAdopted') === 'true';
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/pets/${petId}/adoption-status`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ isAdopted }),
+            });
+
+            if (!response.ok) {
+                return { success: false, error: 'Failed to update adoption status' };
+            }
+
+            return { success: true };
+        } catch {
+            return { success: false, error: 'API connection failed' };
+        }
+    }
+
     return { success: false, error: 'Unknown action' };
 }
 
@@ -80,6 +102,7 @@ const ITEMS_PER_PAGE = 10;
 export default function AdminPets() {
     const { pets, error } = useLoaderData<typeof loader>();
     const fetcher = useFetcher();
+    const adoptFetcher = useFetcher();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
@@ -144,13 +167,12 @@ export default function AdminPets() {
                             Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
                         </p>
                         <div className="flex gap-3 justify-end">
-                            <Button
-                                variant="outline"
+                            <button
+                                className="px-4 py-2 rounded-md text-sm font-medium border border-zinc-300 text-zinc-700 bg-white hover:bg-zinc-100 hover:border-zinc-400 transition-colors"
                                 onClick={() => setDeleteConfirm(null)}
-                                className="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-700"
                             >
                                 Cancel
-                            </Button>
+                            </button>
                             <Button variant="destructive" onClick={handleDeleteConfirm}>
                                 Delete Pet
                             </Button>
@@ -243,11 +265,15 @@ export default function AdminPets() {
                                                             Fosterable
                                                         </span>
                                                     )}
-                                                    {!pet.atRisk && !pet.fosterable && (
+                                                    {pet.isAdopted ? (
+                                                        <span className="px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                                                            Adopted
+                                                        </span>
+                                                    ) : (!pet.atRisk && !pet.fosterable && (
                                                         <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700">
                                                             Available
                                                         </span>
-                                                    )}
+                                                    ))}
                                                 </div>
                                             </td>
                                             <td className="py-3 px-4">
@@ -256,6 +282,18 @@ export default function AdminPets() {
                                                         <Link to={`/pets/${pet.id}?origin=admin`}>
                                                             View
                                                         </Link>
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className={pet.isAdopted ? 'text-purple-600 border-purple-300 hover:bg-purple-50' : ''}
+                                                        onClick={() => adoptFetcher.submit(
+                                                            { petId: String(pet.id), _action: 'toggle-adopted', isAdopted: String(!pet.isAdopted) },
+                                                            { method: 'POST' }
+                                                        )}
+                                                        disabled={adoptFetcher.state !== 'idle' && adoptFetcher.formData?.get('petId') === String(pet.id)}
+                                                    >
+                                                        {pet.isAdopted ? 'Unmark' : 'Adopted'}
                                                     </Button>
                                                     <Button
                                                         variant="destructive"

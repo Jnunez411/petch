@@ -6,16 +6,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import project.petch.petch_api.dto.pet.ImageDTO;
+import project.petch.petch_api.dto.pet.PetDocumentFileDTO;
+import project.petch.petch_api.dto.pet.PetDocumentsDTO;
 import project.petch.petch_api.dto.pet.PetDTO;
+import project.petch.petch_api.models.PetDocumentFile;
 import project.petch.petch_api.models.PetInteraction;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.service.ImageService;
+import project.petch.petch_api.service.PetDocumentsService;
 import project.petch.petch_api.service.PetService;
 import project.petch.petch_api.service.SecurityEventLogger;
 
@@ -24,6 +30,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/pets")
@@ -32,25 +39,56 @@ import java.util.Map;
 public class PetController {
     private final PetService petService;
     private final ImageService imageService;
+    private final PetDocumentsService petDocumentsService;
     private final SecurityEventLogger securityEventLogger;
     private final HttpServletRequest httpServletRequest;
 
     // GET /api/pets/discover
     @GetMapping("/discover")
-    public ResponseEntity<List<Pets>> discoverPets(@AuthenticationPrincipal User user) {
+    public ResponseEntity<List<PetDTO>> discoverPets(@AuthenticationPrincipal User user) {
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(petService.discoverPets(user));
+        return ResponseEntity.ok(petService.discoverPetDTOs(user));
     }
 
     // GET /api/pets/liked - Get user's liked pets
     @GetMapping("/liked")
-    public ResponseEntity<List<Pets>> getLikedPets(@AuthenticationPrincipal User user) {
+    public ResponseEntity<List<PetDTO>> getLikedPets(@AuthenticationPrincipal User user) {
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(petService.getLikedPets(user));
+        return ResponseEntity.ok(petService.getLikedPetDTOs(user));
+    }
+
+    // GET /api/pets/favorites - Get user's favorited pets
+    @GetMapping("/favorites")
+    public ResponseEntity<List<Pets>> getFavoritePets(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(petService.getFavoritePets(user));
+    }
+
+    // GET /api/pets/favorites/ids - Get IDs of favorited pets (for UI state)
+    @GetMapping("/favorites/ids")
+    public ResponseEntity<List<Long>> getFavoriteIds(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(petService.getFavoriteIds(user));
+    }
+
+    // POST /api/pets/{id}/favorite - Toggle favorite status
+    @PostMapping("/{id}/favorite")
+    public ResponseEntity<Map<String, Boolean>> toggleFavorite(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        boolean isFavorited = petService.toggleFavorite(user, id);
+        return ResponseEntity.ok(Map.of("favorited", isFavorited));
     }
 
     // POST /api/pets/{id}/interact
@@ -68,6 +106,12 @@ public class PetController {
         }
         try {
             PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
+            
+            // Map Discover "LIKE" swipes directly to "FAVORITE" interactions
+            if (interactionType == PetInteraction.InteractionType.LIKE) {
+                interactionType = PetInteraction.InteractionType.FAVORITE;
+            }
+            
             petService.recordInteraction(user, id, interactionType);
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
@@ -79,11 +123,12 @@ public class PetController {
     @DeleteMapping("/{id}/interact")
     public ResponseEntity<Void> deleteInteraction(
             @PathVariable Long id,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal User user,
+            @RequestParam(required = false) String type) {
         if (user == null) {
             return ResponseEntity.status(401).build();
         }
-        petService.deleteInteraction(user, id);
+        petService.deleteInteraction(user, id, type);
         return ResponseEntity.noContent().build();
     }
 
@@ -99,36 +144,37 @@ public class PetController {
 
     // get all pets with optional filtering and search
     // GET
-    // /api/pets?search=Max&species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&page=0&size=12
+    // /api/pets?search=Max&species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&real=true&page=0&size=12
     @GetMapping
-    public ResponseEntity<Page<Pets>> getFilteredPets(
+    public ResponseEntity<Page<PetDTO>> getFilteredPets(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String species,
             @RequestParam(required = false) Integer ageMin,
             @RequestParam(required = false) Integer ageMax,
             @RequestParam(required = false) Boolean fosterable,
             @RequestParam(required = false) Boolean atRisk,
+            @RequestParam(required = false) Boolean real,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size) {
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Pets> pets = petService.getFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, pageable);
+        Page<PetDTO> pets = petService.getFilteredPetDTOs(search, species, ageMin, ageMax, fosterable, atRisk, real, pageable);
         return ResponseEntity.ok(pets);
     }
 
     // get user's pets (for vendors)
     // GET /api/pets/user/{userId}
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Pets>> getUserPets(@PathVariable Long userId) {
-        List<Pets> pets = petService.getPetsByUserId(userId);
+    public ResponseEntity<List<PetDTO>> getUserPets(@PathVariable Long userId) {
+        List<PetDTO> pets = petService.getPetDTOsByUserId(userId);
         return ResponseEntity.ok(pets);
     }
 
     // get pet by id (also increments view count)
     // GET /api/pets/{id}
     @GetMapping("/{id}")
-    public ResponseEntity<Pets> getPetById(@PathVariable Long id) {
-        return petService.getPetById(id)
+    public ResponseEntity<PetDTO> getPetById(@PathVariable Long id) {
+        return petService.getPetDTOById(id)
                 .map(pet -> {
                     // Increment view count for trending logic
                     petService.incrementViewCount(id);
@@ -140,9 +186,9 @@ public class PetController {
     // Get trending pets (most viewed)
     // GET /api/pets/trending?count=8
     @GetMapping("/trending")
-    public ResponseEntity<List<Pets>> getTrendingPets(
+    public ResponseEntity<List<PetDTO>> getTrendingPets(
             @RequestParam(defaultValue = "8") int count) {
-        List<Pets> pets = petService.getTrendingPets(count);
+        List<PetDTO> pets = petService.getTrendingPetDTOs(count);
         return ResponseEntity.ok(pets);
     }
 
@@ -164,6 +210,7 @@ public class PetController {
                     .description(dto.getDescription())
                     .atRisk(dto.getAtRisk() != null ? dto.getAtRisk() : false)
                     .fosterable(dto.getFosterable() != null ? dto.getFosterable() : false)
+                    .real(dto.getReal() != null ? dto.getReal() : false)
                     .user(user)
                     .build();
             Pets createdPet = petService.createPet(pet);
@@ -202,6 +249,7 @@ public class PetController {
                 return ResponseEntity.status(403).build();
             }
             imageService.deleteImagesByPet(id);
+            petDocumentsService.deleteDocumentsByPet(id);
             petService.deletePet(id);
             log.info("Pet deleted successfully: id={}, name={}", id, pet.getName());
             return ResponseEntity.noContent().build();
@@ -239,6 +287,34 @@ public class PetController {
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    // PUT /api/pets/{id}/adoption-status
+    @PutMapping("/{id}/adoption-status")
+    public ResponseEntity<Map<String, Boolean>> updateAdoptionStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body,
+            @AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).build();
+        }
+        Boolean isAdopted = body.get("isAdopted");
+        if (isAdopted == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        Pets pet = petService.getPetById(id).orElse(null);
+        if (pet == null) {
+            return ResponseEntity.notFound().build();
+        }
+        boolean isAdmin = user.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin && (pet.getUser() == null || !pet.getUser().getId().equals(user.getId()))) {
+            securityEventLogger.logIdorAttempt(
+                    getClientIP(), user.getId().toString(), "pet-adoption-status", id);
+            return ResponseEntity.status(403).build();
+        }
+        petService.markAdopted(id, isAdopted);
+        return ResponseEntity.ok(Map.of("isAdopted", isAdopted));
     }
 
     // get all pets by species
@@ -330,6 +406,56 @@ public class PetController {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    @GetMapping("/{id}/documents")
+    public ResponseEntity<PetDocumentsDTO> getDocumentsForPet(@PathVariable Long id, @AuthenticationPrincipal User user){
+        if(user == null){
+            return ResponseEntity.status(401).build();
+        }
+
+        return ResponseEntity.ok(petDocumentsService.getDocumentsForPet(id));
+    }
+
+    @PostMapping(value = "/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PetDocumentFileDTO> uploadDocumentForPet(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal User user) throws IOException {
+        try{
+            if(user == null){
+                return ResponseEntity.status(401).build();
+            }
+
+            PetDocumentFileDTO documentDTO = petDocumentsService.uploadDocument(id, file, user);
+            return ResponseEntity.created(URI.create("/api/pets/" + id + "/documents/" + documentDTO.getId())).body(documentDTO);
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{petId}/documents/{documentId}/download")
+    public ResponseEntity<byte[]> downloadPetDocument(
+            @PathVariable Long petId,
+            @PathVariable Long documentId,
+            @AuthenticationPrincipal User user) {
+        if(user == null){
+            return ResponseEntity.status(401).build();
+        }
+
+        PetDocumentFile document = petDocumentsService.getDocumentForPet(petId, documentId);
+        MediaType mediaType;
+
+        try{
+            mediaType = MediaType.parseMediaType(document.getContentType());
+        }catch(Exception exception){
+            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\"" + document.getFileName() + "\"")
+                .contentType(Objects.requireNonNull(mediaType))
+                .body(document.getDocumentData());
     }
 
     // Delete image for a pet

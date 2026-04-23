@@ -20,6 +20,20 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:465}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    protocol: smtps
+    properties:
+      mail:
+        smtps:
+          auth: true
+          starttls:
+            enable: ${MAIL_STARTTLS:true}
+          ssl:
+            enable: ${MAIL_SSL:false}
   servlet:
     multipart:
       max-file-size: 10MB
@@ -41,6 +55,16 @@ cors:
 app:
   upload:
     dir: ${APP_UPLOAD_DIR:uploads/images}
+  password-reset:
+    token-expiry-minutes: ${PASSWORD_RESET_EXPIRY:30}
+    frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+# Stripe Configuration
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  success-url: ${STRIPE_SUCCESS_URL:http://localhost:3000/payment-success}
+  cancel-url: ${STRIPE_CANCEL_URL:http://localhost:3000/checkout}
 
 # Logging Configuration
 logging:

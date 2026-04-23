@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
 import lombok.*;
+
 import java.util.List;
 
 @Getter
@@ -14,7 +15,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PetDTO {
+public class PetDTO{
     private Long id;
 
     @NotBlank(message = "Name is Required")
@@ -47,11 +48,24 @@ public class PetDTO {
     @Builder.Default
     private Boolean fosterable = false;
 
+    @Builder.Default
+    private Boolean real = false;
+
+    @Builder.Default
+    private Boolean onHold = false;
+    private Boolean isAdopted = false;
+
     private Long userId;
 
     private List<ImageDTO> images;
 
     private Long viewCount;
 
+    private Double latitude;
+
+    private Double longitude;
+
     private AdoptionDetailsDTO adoptionDetails;
+
+    private PetOwnerDTO user;
 }

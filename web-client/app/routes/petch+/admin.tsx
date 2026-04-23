@@ -2,8 +2,9 @@ import { Outlet, useLoaderData, Link, redirect, Form, useLocation } from 'react-
 import type { Route } from './+types/admin';
 import { getUserFromSession } from '~/services/auth';
 import { Button } from '~/components/ui/button';
-import { Dog, Menu, X, LayoutDashboard, Users, PawPrint, List, LogOut } from 'lucide-react';
+import { Dog, Menu, X, LayoutDashboard, Users, PawPrint, List, LogOut, Flag, Sun, Moon } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { ThemeToggle } from '~/components/ui/theme-toggle';
 
 export async function loader({ request }: Route.LoaderArgs) {
     const user = await getUserFromSession(request);
@@ -43,6 +44,8 @@ export default function AdminLayout() {
         { to: "/admin/users", label: "Users" },
         { to: "/admin/pets", label: "Pets" },
         { to: "/admin/listings", label: "Listings" },
+        { to: "/admin/verification", label: "Verification" },
+        { to: "/admin/reports", label: "Reports" },
     ];
 
     const isActive = (path: string) => {
@@ -87,6 +90,8 @@ export default function AdminLayout() {
 
                     {/* Right side */}
                     <div className="flex items-center gap-3">
+                        {/* Theme Toggle - Desktop */}
+                        <ThemeToggle />
 
                         {/* Desktop Logout */}
                         <Form method="post" action="/logout" className="hidden md:block">
@@ -146,6 +151,16 @@ export default function AdminLayout() {
                                 </Link>
                             );
                         })}
+
+                        {/* Theme Toggle - Mobile */}
+                        <div className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                            <div className="flex items-center gap-3">
+                                <Sun className="size-5 text-muted-foreground dark:hidden" />
+                                <Moon className="size-5 text-muted-foreground hidden dark:block" />
+                                <span>Dark Mode</span>
+                            </div>
+                            <ThemeToggle />
+                        </div>
 
                         {/* Mobile User Info & Logout */}
                         <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">

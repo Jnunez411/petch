@@ -7,6 +7,7 @@ export interface RegisterRequest {
   lastName: string;
   phoneNumber?: string;
   userType: UserType;
+  emailNotificationsEnabled?: boolean;
 }
 
 export interface LoginRequest {
@@ -35,4 +36,6 @@ export interface AdminUser extends User {
   phoneNumber?: string;
   createdAt: string;
   updatedAt?: string;
+  deletionRequested?: boolean;
+  deletionRequestedAt?: string;
 }

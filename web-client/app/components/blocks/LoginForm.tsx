@@ -39,6 +39,7 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
 
   return (
     <div className="min-h-screen flex">
+
       {/* Left side - Decorative */}
       <div className="hidden lg:flex lg:w-1/2 bg-coral relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-coral to-coral-dark" />
@@ -140,6 +141,12 @@ export function LoginForm({ error, isSubmitting }: LoginFormProps) {
                   {passwordError}
                 </p>
               )}
+            </div>
+
+            <div className="flex justify-end">
+              <Link to="/forgot-password" className="text-sm text-coral hover:underline font-medium">
+                Forgot password?
+              </Link>
             </div>
 
             <Button

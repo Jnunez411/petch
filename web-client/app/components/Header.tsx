@@ -1,8 +1,9 @@
 import type { User } from "~/types/auth";
 import { Button } from "./ui/button";
 import { Form, Link, useLocation } from "react-router";
-import { Dog, Menu, X, Home, Search, Heart, User as UserIcon, Plus, LogOut, Info } from "lucide-react";
+import { Dog, Menu, X, Home, Search, Heart, Star, User as UserIcon, Plus, LogOut, Info, Sun, Moon } from "lucide-react";
 import { useState, useEffect } from "react";
+import { ThemeToggle } from "./ui/theme-toggle";
 
 interface HeaderProps {
   user?: User | null;
@@ -51,10 +52,10 @@ export function Header(props: HeaderProps) {
   const navLinks = props.user?.userType === 'ADMIN'
     ? [{ to: "/admin", label: "Admin Dashboard", icon: Home }]
     : [
-      { to: "/", label: "Home", icon: Home },
-      { to: "/about", label: "About", icon: Info },
       { to: "/pets", label: "Pet Listings", icon: Search },
       { to: "/discover", label: "Discover", icon: Heart },
+      { to: "/favorites", label: "Favorites", icon: Star },
+      { to: "/about", label: "About", icon: Info },
       { to: "/profile", label: "Profile", icon: UserIcon },
       ...(props.user?.userType === 'VENDOR'
         ? [{ to: "/pets/create", label: "Create Listing", icon: Plus }]
@@ -67,7 +68,7 @@ export function Header(props: HeaderProps) {
       <header className="sticky top-0 z-50 w-full border-b border-black/5 dark:border-white/5 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-md">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
+          <Link to={props.user ? "/pets" : "/"} className="flex items-center gap-2">
             <div className="size-8 rounded-lg bg-coral flex items-center justify-center">
               <Dog className="size-5 text-white" />
             </div>
@@ -97,6 +98,9 @@ export function Header(props: HeaderProps) {
 
           {/* Right side actions */}
           <div className="flex items-center gap-3">
+            {/* Theme Toggle - Desktop (Authenticated Only) */}
+            {props.user && <ThemeToggle />}
+
             {/* Desktop Logout */}
             {props.user && (
               <Form method="post" action="/logout" className="hidden md:block">
@@ -169,6 +173,18 @@ export function Header(props: HeaderProps) {
                   </Link>
                 );
               })}
+
+              {/* Theme Toggle - Mobile (Authenticated Only) */}
+              {props.user && (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Sun className="size-5 text-muted-foreground dark:hidden" />
+                    <Moon className="size-5 text-muted-foreground hidden dark:block" />
+                    <span>Dark Mode</span>
+                  </div>
+                  <ThemeToggle />
+                </div>
+              )}
 
               {/* Mobile Logout */}
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">

@@ -19,12 +19,14 @@ export async function authenticatedFetch(
   const session = await getSession(request.headers.get('Cookie'));
   const token = session.get('token');
 
+  const body = options.body;
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
   const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
+    ...((options.headers as Record<string, string>) || {}),
   };
 
-  // Only set Content-Type for non-FormData bodies
-  if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
+  if (!isFormData && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
 

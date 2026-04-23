@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
 public class AdminStatsDto {
     private long totalUsers;
     private long totalPets;
+    private long totalAdoptedPets;
     private long totalAdopters;
     private long totalVendors;
+    private long pendingReports;
 }

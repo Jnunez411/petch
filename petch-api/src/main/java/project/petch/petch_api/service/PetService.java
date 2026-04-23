@@ -7,11 +7,19 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import project.petch.petch_api.dto.pet.AdoptionDetailsDTO;
+import project.petch.petch_api.dto.pet.ImageDTO;
 import project.petch.petch_api.dto.pet.PetDTO;
+import project.petch.petch_api.dto.pet.PetOwnerDTO;
+import project.petch.petch_api.models.AdoptionDetails;
+import project.petch.petch_api.models.Images;
 import project.petch.petch_api.models.PetInteraction;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.models.UserPreference;
+import project.petch.petch_api.dto.user.UserType;
+import project.petch.petch_api.models.VerificationStatus;
 import project.petch.petch_api.repositories.PetInteractionRepository;
 import project.petch.petch_api.repositories.PetsRepository;
 import project.petch.petch_api.repositories.UserPreferenceRepository;
@@ -27,6 +35,7 @@ public class PetService {
     private final PetsRepository petsRepository;
     private final UserPreferenceRepository userPreferenceRepository;
     private final PetInteractionRepository petInteractionRepository;
+    private final EmailService emailService;
 
     public List<Pets> discoverPets(User user) {
         UserPreference prefs = userPreferenceRepository.findByUser(user)
@@ -52,14 +61,24 @@ public class PetService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    public List<PetDTO> discoverPetDTOs(User user) {
+        return discoverPets(user).stream().map(this::toDTO).toList();
+    }
+
     /**
      * Get all pets the user has liked.
      */
     public List<Pets> getLikedPets(User user) {
-        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.LIKE)
+        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.FAVORITE)
                 .stream()
                 .map(PetInteraction::getPet)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PetDTO> getLikedPetDTOs(User user) {
+        return getLikedPets(user).stream().map(this::toDTO).toList();
     }
 
     /**
@@ -72,8 +91,23 @@ public class PetService {
             Integer ageMax,
             Boolean fosterable,
             Boolean atRisk,
+            Boolean real,
             Pageable pageable) {
-        return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, pageable);
+        return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, real, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PetDTO> getFilteredPetDTOs(
+            String search,
+            String species,
+            Integer ageMin,
+            Integer ageMax,
+            Boolean fosterable,
+            Boolean atRisk,
+            Boolean real,
+            Pageable pageable) {
+        return petsRepository.findFilteredPets(search, species, ageMin, ageMax, fosterable, atRisk, real, pageable)
+                .map(this::toDTO);
     }
 
     /**
@@ -81,6 +115,11 @@ public class PetService {
      */
     public List<Pets> getAllPetsWithDetails() {
         return petsRepository.findAllWithDetails();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PetDTO> getAllPetDTOsWithDetails() {
+        return petsRepository.findAllWithDetails().stream().map(this::toDTO).toList();
     }
 
     private double calculateMatchScore(Pets pet, UserPreference prefs) {
@@ -162,8 +201,18 @@ public class PetService {
         return petsRepository.findByUserId(userId);
     }
 
+    @Transactional(readOnly = true)
+    public List<PetDTO> getPetDTOsByUserId(Long userId) {
+        return petsRepository.findByUserId(userId).stream().map(this::toDTO).toList();
+    }
+
     public Optional<Pets> getPetById(Long id) {
         return petsRepository.findByIdWithDetails(id);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<PetDTO> getPetDTOById(Long id) {
+        return petsRepository.findByIdWithDetails(id).map(this::toDTO);
     }
 
     public void resetDiscovery(User user) {
@@ -186,7 +235,44 @@ public class PetService {
     }
 
     public Pets createPet(Pets pet) {
-        return petsRepository.save(pet);
+        Pets savedPet = petsRepository.save(pet);
+        notifyMatchingUsers(savedPet);
+        return savedPet;
+    }
+
+    @Async("asyncExecutor")
+    public void notifyMatchingUsers(Pets pet) {
+        try {
+            List<UserPreference> allPreferences = userPreferenceRepository.findAll();
+            log.info("Checking {} user preferences for pet match notifications (petId={})", allPreferences.size(), pet.getId());
+
+            for (UserPreference prefs : allPreferences) {
+                User user = prefs.getUser();
+
+                // Skip non-adopters, notifications disabled, or user is the pet owner
+                if (user.getUserType() != UserType.ADOPTER) {
+                    log.debug("Skipping userId={} - not an adopter (type={})", user.getId(), user.getUserType());
+                    continue;
+                }
+                if (user.getEmailNotificationsEnabled() == null || !user.getEmailNotificationsEnabled()) {
+                    log.debug("Skipping userId={} - notifications disabled", user.getId());
+                    continue;
+                }
+                if (pet.getUser() != null && pet.getUser().getId().equals(user.getId())) {
+                    log.debug("Skipping userId={} - is the pet owner", user.getId());
+                    continue;
+                }
+
+                double score = calculateMatchScore(pet, prefs);
+                log.info("Match score for userId={} and petId={}: {}", user.getId(), pet.getId(), score);
+                if (score > 1.0) {
+                    emailService.sendPetMatchEmail(user.getEmail(), user.getFirstName(), List.of(pet));
+                    log.info("Pet match notification sent to userId={} for petId={}", user.getId(), pet.getId());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error notifying matching users for petId={}: {}", pet.getId(), e.getMessage());
+        }
     }
 
     public void deletePet(Long id) {
@@ -202,6 +288,7 @@ public class PetService {
             pet.setDescription(updatedPet.getDescription());
             pet.setAtRisk(updatedPet.getAtRisk());
             pet.setFosterable(updatedPet.getFosterable());
+            pet.setReal(updatedPet.getReal());
             return petsRepository.save(pet);
         }).orElseThrow(() -> new RuntimeException("Pet not found with id " + id));
     }
@@ -215,24 +302,110 @@ public class PetService {
             pet.setDescription(dto.getDescription());
             pet.setAtRisk(dto.getAtRisk() != null ? dto.getAtRisk() : false);
             pet.setFosterable(dto.getFosterable() != null ? dto.getFosterable() : false);
+            pet.setReal(dto.getReal() != null ? dto.getReal() : false);
             return petsRepository.save(pet);
         }).orElseThrow(() -> new RuntimeException("Pet not found with id " + id));
     }
 
+    @Transactional(readOnly = true)
+    public List<PetDTO> getTrendingPetDTOs(int count) {
+        return petsRepository.findTrendingPets(Pageable.ofSize(count)).stream().map(this::toDTO).toList();
+    }
+
+    private PetDTO toDTO(Pets pet) {
+        return PetDTO.builder()
+                .id(pet.getId())
+                .name(pet.getName())
+                .species(pet.getSpecies())
+                .breed(pet.getBreed())
+                .age(pet.getAge())
+                .description(pet.getDescription())
+                .atRisk(pet.getAtRisk())
+                .fosterable(pet.getFosterable())
+                .real(pet.getReal())
+                .onHold(pet.getOnHold() != null && pet.getOnHold())
+                .isAdopted(pet.getIsAdopted())
+                .userId(pet.getUser() != null ? pet.getUser().getId() : null)
+                .images(pet.getImages().stream().map(this::toImageDTO).toList())
+                .viewCount(pet.getViewCount())
+                .latitude(pet.getLatitude())
+                .longitude(pet.getLongitude())
+                .adoptionDetails(toAdoptionDetailsDTO(pet.getAdoptionDetails()))
+                .user(toOwnerDTO(pet.getUser()))
+                .build();
+    }
+
+    @Transactional
+    public Pets markAdopted(Long petId, boolean adopted) {
+        return petsRepository.findById(petId).map(pet -> {
+            pet.setIsAdopted(adopted);
+            return petsRepository.save(pet);
+        }).orElseThrow(() -> new RuntimeException("Pet not found with id " + petId));
+    }
+
+    private ImageDTO toImageDTO(Images image) {
+        return ImageDTO.builder()
+                .id(image.getId())
+                .filePath(image.getFilePath())
+                .altText(image.getAltText())
+                .fileSize(image.getFileSize())
+                .createdAt(image.getCreatedAt())
+                .build();
+    }
+
+    private AdoptionDetailsDTO toAdoptionDetailsDTO(AdoptionDetails adoptionDetails) {
+        if (adoptionDetails == null) {
+            return null;
+        }
+
+        return AdoptionDetailsDTO.builder()
+                .id(adoptionDetails.getId())
+                .isDirect(adoptionDetails.getIsDirect())
+                .priceEstimate(adoptionDetails.getPriceEstimate())
+                .stepsDescription(adoptionDetails.getStepsDescription())
+                .redirectLink(adoptionDetails.getRedirectLink())
+                .phoneNumber(adoptionDetails.getPhoneNumber())
+                .email(adoptionDetails.getEmail())
+                .hasOnlineFormPdf(adoptionDetails.getOnlineFormPdf() != null && adoptionDetails.getOnlineFormPdf().length > 0)
+                .onlineFormFileName(adoptionDetails.getOnlineFormFileName())
+                .onlineFormContentType(adoptionDetails.getOnlineFormContentType())
+                .build();
+    }
+
+    private PetOwnerDTO toOwnerDTO(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        VerificationStatus verificationStatus = VerificationStatus.UNVERIFIED;
+        if (user.getVendorProfile() != null && user.getVendorProfile().getVerificationStatus() != null) {
+            verificationStatus = user.getVendorProfile().getVerificationStatus();
+        }
+
+        return PetOwnerDTO.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .userType(user.getUserType() != null ? user.getUserType().name() : null)
+                .verificationStatus(verificationStatus.name())
+                .build();
+    }
+
     public List<Pets> findPetsBySpecies(String species) {
-        return petsRepository.findBySpeciesIgnoreCase(species);
+        return petsRepository.findBySpeciesIgnoreCaseAndIsAdoptedFalse(species);
     }
 
     public List<Pets> findPetsByBreed(String breed) {
-        return petsRepository.findByBreedIgnoreCase(breed);
+        return petsRepository.findByBreedIgnoreCaseAndIsAdoptedFalse(breed);
     }
 
     public List<Pets> findPetsByAgeRange(Integer minAge, Integer maxAge) {
-        return petsRepository.findByAgeBetween(minAge, maxAge);
+        return petsRepository.findByAgeBetweenAndIsAdoptedFalse(minAge, maxAge);
     }
 
     public List<Pets> searchPetsByName(String name) {
-        return petsRepository.findByNameContainingIgnoreCase(name);
+        return petsRepository.findByNameContainingIgnoreCaseAndIsAdoptedFalse(name);
     }
 
     public List<Pets> findSpecificPetsByRace(String species, String breed) {
@@ -240,11 +413,11 @@ public class PetService {
     }
 
     public List<Pets> findAtRiskPets() {
-        return petsRepository.findByAtRiskTrue();
+        return petsRepository.findByAtRiskTrueAndIsAdoptedFalse();
     }
 
     public List<Pets> findFosterablePets() {
-        return petsRepository.findByFosterableTrue();
+        return petsRepository.findByFosterableTrueAndIsAdoptedFalse();
     }
 
     public long countFosterablePets() {
@@ -294,20 +467,34 @@ public class PetService {
 
     /**
      * Delete an interaction (Undo) and reverse learned preferences.
+     * If type is provided, deletes only the interaction of that type.
      */
-    public void deleteInteraction(User user, Long petId) {
-        PetInteraction interaction = petInteractionRepository.findByUserAndPet_Id(user, petId)
-                .orElseThrow(() -> new RuntimeException("Interaction not found"));
+    public void deleteInteraction(User user, Long petId, String type) {
+        PetInteraction interaction;
+        if (type != null && !type.isBlank()) {
+            PetInteraction.InteractionType interactionType = PetInteraction.InteractionType.valueOf(type.toUpperCase());
+            
+            // Map Discover "LIKE" or "UNDO" requests to "FAVORITE" when trying to delete
+            if (interactionType == PetInteraction.InteractionType.LIKE) {
+                interactionType = PetInteraction.InteractionType.FAVORITE;
+            }
+
+            interaction = petInteractionRepository.findByUserAndPet_IdAndInteractionType(user, petId, interactionType)
+                    .orElseThrow(() -> new RuntimeException("Interaction not found"));
+        } else {
+            interaction = petInteractionRepository.findByUserAndPet_Id(user, petId)
+                    .orElseThrow(() -> new RuntimeException("Interaction not found"));
+        }
 
         Pets pet = interaction.getPet();
-        PetInteraction.InteractionType type = interaction.getInteractionType();
+        PetInteraction.InteractionType actualType = interaction.getInteractionType();
 
         petInteractionRepository.delete(interaction);
 
         // Reverse preference learning and decrement total swipes
         userPreferenceRepository.findByUser(user).ifPresent(prefs -> {
-            // Reverse the learning rate that was applied
-            double reverseLearningRate = type == PetInteraction.InteractionType.LIKE ? -0.5 : 0.2;
+            // Reverse the learning rate that was applied (Using FAVORITE now)
+            double reverseLearningRate = (actualType == PetInteraction.InteractionType.LIKE || actualType == PetInteraction.InteractionType.FAVORITE) ? -0.5 : 0.2;
             String species = pet.getSpecies().toLowerCase();
             String breed = pet.getBreed().toLowerCase();
 
@@ -341,5 +528,49 @@ public class PetService {
 
             userPreferenceRepository.save(prefs);
         });
+    }
+
+    /**
+     * Get all pets the user has favorited.
+     */
+    public List<Pets> getFavoritePets(User user) {
+        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.FAVORITE)
+                .stream()
+                .map(PetInteraction::getPet)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get IDs of all pets the user has favorited (for efficient UI state
+     * hydration).
+     */
+    public List<Long> getFavoriteIds(User user) {
+        return petInteractionRepository.findByUserAndInteractionType(user, PetInteraction.InteractionType.FAVORITE)
+                .stream()
+                .map(i -> i.getPet().getId())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Toggle favorite status for a pet. Returns true if favorited, false if
+     * unfavorited.
+     */
+    public boolean toggleFavorite(User user, Long petId) {
+        Optional<PetInteraction> existing = petInteractionRepository
+                .findByUserAndPet_IdAndInteractionType(user, petId, PetInteraction.InteractionType.FAVORITE);
+
+        if (existing.isPresent()) {
+            petInteractionRepository.delete(existing.get());
+            return false;
+        } else {
+            Pets pet = petsRepository.findById(petId)
+                    .orElseThrow(() -> new RuntimeException("Pet not found"));
+            petInteractionRepository.save(PetInteraction.builder()
+                    .user(user)
+                    .pet(pet)
+                    .interactionType(PetInteraction.InteractionType.FAVORITE)
+                    .build());
+            return true;
+        }
     }
 }

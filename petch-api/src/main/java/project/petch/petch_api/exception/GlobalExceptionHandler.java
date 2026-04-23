@@ -88,6 +88,20 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle invalid argument exceptions (e.g., invalid password reset token)
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Invalid argument: {}", ex.getMessage());
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.BAD_REQUEST.value());
+        response.put("message", ex.getMessage());
+
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Handle all other exceptions - SECURITY: Don't expose internal details
      */
     @ExceptionHandler(Exception.class)

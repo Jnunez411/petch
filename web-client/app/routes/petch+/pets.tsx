@@ -8,11 +8,12 @@ import { Label } from '~/components/ui/label';
 import { useState, useEffect } from 'react';
 import { getSession } from '~/services/session.server';
 import { getUserFromSession } from '~/services/auth';
-import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2, Dog } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Heart, Loader2, Dog, Flag } from 'lucide-react';
 import { API_BASE_URL, getImageUrl } from '~/config/api-config';
 import { PLACEHOLDER_IMAGES } from '~/config/constants';
 import type { Pet } from '~/types/pet';
 import { createLogger } from '~/utils/logger';
+import ReportModal from '~/components/ReportModal';
 
 const logger = createLogger('PetsPage');
 
@@ -34,6 +35,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const ageRange = url.searchParams.get('ageRange');
   const fosterable = url.searchParams.get('fosterable') === 'true';
   const atRisk = url.searchParams.get('atRisk') === 'true';
+  const real = url.searchParams.get('real') === 'true';
   const search = url.searchParams.get('search') || '';
   const page = parseInt(url.searchParams.get('page') || '1', 10) - 1; // Backend is 0-indexed
 
@@ -77,6 +79,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     queryParams.set('atRisk', 'true');
   }
 
+  if (real) {
+    queryParams.set('real', 'true');
+  }
+
   queryParams.set('page', page.toString());
   queryParams.set('size', PETS_PER_PAGE.toString());
 
@@ -85,14 +91,28 @@ export async function loader({ request }: Route.LoaderArgs) {
     const token = session.get('token');
 
     const apiUrl = `${API_BASE_URL}/api/pets?${queryParams.toString()}`;
-    const response = await fetch(apiUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Authorization': token ? `Bearer ${token}` : '',
-      },
-      cache: 'no-store',
-    });
+
+    // Fetch pets and favorite IDs in parallel
+    const [response, favResponse] = await Promise.all([
+      fetch(apiUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        cache: 'no-store',
+      }),
+      token
+        ? fetch(`${API_BASE_URL}/api/pets/favorites/ids`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
+        : Promise.resolve(null),
+    ]);
+
+    let favoriteIds: number[] = [];
+    if (favResponse && favResponse.ok) {
+      favoriteIds = await favResponse.json();
+    }
 
     if (!response.ok) {
       logger.error('Backend returned error when fetching pets', { status: response.status });
@@ -102,7 +122,8 @@ export async function loader({ request }: Route.LoaderArgs) {
         totalPages: 0,
         currentPage: 1,
         user,
-        filters: { species, ageRange, fosterable, atRisk, search }
+        favoriteIds,
+        filters: { species, ageRange, fosterable, atRisk, real, search }
       };
     }
 
@@ -115,7 +136,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       totalPages: data.totalPages || 0,
       currentPage: (data.number || 0) + 1, // Convert to 1-indexed for UI
       user,
-      filters: { species, ageRange, fosterable, atRisk, search }
+      favoriteIds,
+      filters: { species, ageRange, fosterable, atRisk, real, search }
     };
   } catch (error) {
     logger.error('Failed to fetch pets', { error: error instanceof Error ? error.message : 'Unknown error' });
@@ -125,15 +147,17 @@ export async function loader({ request }: Route.LoaderArgs) {
       totalPages: 0,
       currentPage: 1,
       user,
-      filters: { species, ageRange, fosterable, atRisk }
+      favoriteIds: [],
+      filters: { species, ageRange, fosterable, atRisk, real }
     };
   }
 }
 
-// Server action for deleting pets (keeps token secure on server)
+// Server action for deleting pets and toggling favorites
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const petId = formData.get('petId');
+  const intent = formData.get('intent') as string | null;
 
   if (!petId) {
     return { error: 'Pet ID is required' };
@@ -146,6 +170,57 @@ export async function action({ request }: Route.ActionArgs) {
     return { error: 'Not authenticated' };
   }
 
+  // Handle report submission
+  if (intent === 'report') {
+    const reasons = formData.get('reasons') as string;
+    const additionalDetails = formData.get('additionalDetails') as string;
+    if (!reasons) {
+      return { error: 'At least one reason is required' };
+    }
+    try {
+      const parsedReasons = JSON.parse(reasons);
+      const response = await fetch(`${API_BASE_URL}/api/reports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          petId: Number(petId),
+          reasons: parsedReasons,
+          additionalDetails: additionalDetails || null,
+        }),
+      });
+      if (response.status === 409) {
+        return { error: 'You have already reported this listing' };
+      }
+      if (!response.ok) {
+        return { error: 'Failed to submit report' };
+      }
+      return { success: true, intent: 'report' };
+    } catch {
+      return { error: 'Failed to submit report' };
+    }
+  }
+
+  // Handle favorite toggle
+  if (intent === 'favorite') {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/pets/${petId}/favorite`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        return { error: 'Failed to toggle favorite' };
+      }
+      const result = await response.json();
+      return { success: true, intent: 'favorite', petId: Number(petId), favorited: result.favorited };
+    } catch {
+      return { error: 'Failed to toggle favorite' };
+    }
+  }
+
+  // Handle pet deletion
   try {
     const response = await fetch(`${API_BASE_URL}/api/pets/${petId}`, {
       method: 'DELETE',
@@ -166,7 +241,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function PetsPage() {
-  const { pets, totalPets, totalPages, currentPage, user, filters } = useLoaderData<typeof loader>();
+  const { pets, totalPets, totalPages, currentPage, user, filters, favoriteIds: initialFavoriteIds } = useLoaderData<typeof loader>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const fetcher = useFetcher();
@@ -180,7 +255,60 @@ export default function PetsPage() {
   const [selectedAgeRange, setSelectedAgeRange] = useState<string>(filters.ageRange || 'all');
   const [filterFosterable, setFilterFosterable] = useState<boolean>(filters.fosterable);
   const [filterAtRisk, setFilterAtRisk] = useState<boolean>(filters.atRisk);
+  const [filterReal, setFilterReal] = useState<boolean>(filters.real);
   const [searchQuery, setSearchQuery] = useState<string>(filters.search || '');
+  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set(initialFavoriteIds || []));
+  const [reportingPet, setReportingPet] = useState<{ id: number; name: string } | null>(null);
+
+  // Favorite toggle handler
+  const handleToggleFavorite = (petId: number) => {
+    // Optimistic UI
+    setFavoriteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(petId)) {
+        next.delete(petId);
+      } else {
+        next.add(petId);
+      }
+      return next;
+    });
+    fetcher.submit(
+      { petId: petId.toString(), intent: 'favorite' },
+      { method: 'POST' }
+    );
+  };
+
+  // Rollback optimistic favorite toggle on server error
+  useEffect(() => {
+    if (fetcher.state === 'idle' && fetcher.data) {
+      const data = fetcher.data as { error?: string; intent?: string; petId?: number; favorited?: boolean };
+      if (data.intent === 'favorite' && data.petId) {
+        if (data.error) {
+          // Rollback: reverse the optimistic toggle
+          setFavoriteIds(prev => {
+            const next = new Set(prev);
+            if (next.has(data.petId!)) {
+              next.delete(data.petId!);
+            } else {
+              next.add(data.petId!);
+            }
+            return next;
+          });
+        } else if (typeof data.favorited === 'boolean') {
+          // Sync with server truth
+          setFavoriteIds(prev => {
+            const next = new Set(prev);
+            if (data.favorited) {
+              next.add(data.petId!);
+            } else {
+              next.delete(data.petId!);
+            }
+            return next;
+          });
+        }
+      }
+    }
+  }, [fetcher.state, fetcher.data]);
 
   // Build return URL from current filter state (preserves filters when navigating to pet details)
   const buildReturnUrl = () => {
@@ -190,6 +318,7 @@ export default function PetsPage() {
     if (selectedAgeRange && selectedAgeRange !== 'all') params.set('ageRange', selectedAgeRange);
     if (filterFosterable) params.set('fosterable', 'true');
     if (filterAtRisk) params.set('atRisk', 'true');
+    if (filterReal) params.set('real', 'true');
     if (currentPage > 1) params.set('page', currentPage.toString());
     const queryString = params.toString();
     return '/pets' + (queryString ? '?' + queryString : '');
@@ -201,6 +330,7 @@ export default function PetsPage() {
     ageRange?: string;
     fosterable?: boolean;
     atRisk?: boolean;
+    real?: boolean;
     search?: string;
     page?: number;
   }) => {
@@ -211,6 +341,7 @@ export default function PetsPage() {
     const ageRange = newFilters.ageRange ?? selectedAgeRange;
     const fosterable = newFilters.fosterable ?? filterFosterable;
     const atRisk = newFilters.atRisk ?? filterAtRisk;
+    const real = newFilters.real ?? filterReal;
     const search = newFilters.search ?? searchQuery;
     const page = newFilters.page ?? 1;
 
@@ -219,6 +350,7 @@ export default function PetsPage() {
     if (ageRange && ageRange !== 'all') params.set('ageRange', ageRange);
     if (fosterable) params.set('fosterable', 'true');
     if (atRisk) params.set('atRisk', 'true');
+    if (real) params.set('real', 'true');
     if (page > 1) params.set('page', page.toString());
 
     setSearchParams(params);
@@ -251,6 +383,7 @@ export default function PetsPage() {
     setSelectedAgeRange('all');
     setFilterFosterable(false);
     setFilterAtRisk(false);
+    setFilterReal(false);
     setSearchQuery('');
     setSearchParams({});
   };
@@ -324,7 +457,7 @@ export default function PetsPage() {
 
       {/* Filters */}
       <div className="container mx-auto px-4 py-6">
-        <div className="w-full bg-white rounded-lg border shadow-sm p-4">
+        <div className="w-full bg-white dark:bg-zinc-900 rounded-lg border dark:border-zinc-800 shadow-sm p-4">
           <div className="flex flex-wrap items-center gap-6">
             {/* Search Input */}
             <div className="flex items-center gap-2 flex-1 min-w-[200px]">
@@ -422,6 +555,21 @@ export default function PetsPage() {
               </Label>
             </div>
 
+            {/* Real Checkbox */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="real-filter"
+                checked={filterReal}
+                onCheckedChange={(checked) => {
+                  setFilterReal(checked as boolean);
+                  applyFilters({ real: checked as boolean, page: 1 });
+                }}
+              />
+              <Label htmlFor="real-filter" className="text-sm font-medium cursor-pointer">
+                Real Only
+              </Label>
+            </div>
+
             {/* Clear Filters Button */}
             <Button
               variant="outline"
@@ -434,13 +582,14 @@ export default function PetsPage() {
           </div>
 
           {/* Active filters summary */}
-          {(selectedSpecies !== 'all' || selectedAgeRange !== 'all' || filterFosterable || filterAtRisk) && (
+          {(selectedSpecies !== 'all' || selectedAgeRange !== 'all' || filterFosterable || filterAtRisk || filterReal) && (
             <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
               Showing {totalPets} {totalPets === 1 ? 'pet' : 'pets'}
               {selectedSpecies !== 'all' && ` • Species: ${selectedSpecies}`}
               {selectedAgeRange !== 'all' && ` • Age: ${selectedAgeRange} years`}
               {filterFosterable && ' • Fosterable'}
               {filterAtRisk && ' • At Risk'}
+              {filterReal && ' • Real'}
             </div>
           )}
         </div>
@@ -449,7 +598,7 @@ export default function PetsPage() {
       {/* Loading Overlay */}
       {isFiltering && (
         <div className="fixed inset-0 bg-background/50 z-50 flex items-center justify-center">
-          <div className="flex items-center gap-2 bg-white p-4 rounded-lg shadow-lg">
+          <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border dark:border-zinc-800 p-4 rounded-lg shadow-lg">
             <Loader2 className="w-6 h-6 animate-spin text-coral" />
             <span>Filtering...</span>
           </div>
@@ -494,9 +643,34 @@ export default function PetsPage() {
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         loading="lazy"
                       />
-                      {/* Gradient overlay for text readability if we wanted, but clean is nice for now */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </Link>
+                    {/* Favorite Heart Button */}
+                    {user && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); handleToggleFavorite(pet.id); }}
+                        className={`absolute top-3 right-3 z-10 size-9 rounded-full backdrop-blur-sm shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 ${favoriteIds.has(pet.id)
+                            ? 'bg-white/90 hover:bg-red-50'
+                            : 'bg-black/40 hover:bg-black/60'
+                          }`}
+                        title={favoriteIds.has(pet.id) ? 'Remove from favorites' : 'Add to favorites'}
+                      >
+                        <Heart className={`w-5 h-5 transition-colors duration-200 ${favoriteIds.has(pet.id)
+                            ? 'text-rose-500 fill-rose-500'
+                            : 'text-white'
+                          }`} />
+                      </button>
+                    )}
+                    {/* Report Flag Button */}
+                    {user && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); setReportingPet({ id: pet.id, name: pet.name }); }}
+                        className="absolute bottom-3 right-3 z-10 size-8 rounded-full bg-black/40 hover:bg-amber-500 backdrop-blur-sm shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200"
+                        title="Report this listing"
+                      >
+                        <Flag className="w-4 h-4 text-white" />
+                      </button>
+                    )}
                   </div>
 
                   <CardHeader className="pb-2 pt-4">
@@ -512,6 +686,11 @@ export default function PetsPage() {
                           <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
                           {pet.age} {pet.age === 1 ? 'year' : 'years'} old
                         </p>
+                        {pet.user?.verificationStatus === 'VERIFIED' && (
+                          <span className="mt-2 inline-flex items-center rounded-full bg-teal/10 px-2.5 py-0.5 text-xs font-semibold text-teal">
+                            Verified Vendor
+                          </span>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -527,6 +706,11 @@ export default function PetsPage() {
                       {pet.fosterable && (
                         <span className="px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-100 rounded-md text-xs font-medium">
                           Fosterable
+                        </span>
+                      )}
+                      {pet.real && (
+                        <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-xs font-medium">
+                          Real
                         </span>
                       )}
                     </div>
@@ -658,6 +842,14 @@ export default function PetsPage() {
           </>
         )}
       </div>
+
+      {/* Report Modal */}
+      <ReportModal
+        petId={reportingPet?.id ?? 0}
+        petName={reportingPet?.name ?? ''}
+        isOpen={reportingPet !== null}
+        onClose={() => setReportingPet(null)}
+      />
     </div>
   );
 }

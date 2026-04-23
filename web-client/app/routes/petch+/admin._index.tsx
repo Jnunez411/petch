@@ -2,6 +2,7 @@ import { useLoaderData, Link } from 'react-router';
 import type { Route } from './+types/admin._index';
 import { getUserFromSession, getAuthToken } from '~/services/auth';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
+import { Flag } from 'lucide-react';
 import { API_BASE_URL } from '~/config/api-config';
 
 export function meta({ }: Route.MetaArgs) {
@@ -55,7 +56,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
                 <Card>
                     <CardHeader className="pb-2">
                         <span className="text-sm text-muted-foreground">Total Users</span>
@@ -76,6 +77,15 @@ export default function AdminDashboard() {
 
                 <Card>
                     <CardHeader className="pb-2">
+                        <span className="text-sm text-muted-foreground">Adopted Pets</span>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-4xl font-bold text-purple-500">{stats?.totalAdoptedPets ?? 0}</p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-2">
                         <span className="text-sm text-muted-foreground">Adopters</span>
                     </CardHeader>
                     <CardContent>
@@ -91,10 +101,24 @@ export default function AdminDashboard() {
                         <p className="text-4xl font-bold text-green-500">{stats?.totalVendors ?? 0}</p>
                     </CardContent>
                 </Card>
+
+                <Card className={stats?.pendingReports > 0 ? 'border-amber-300' : ''}>
+                    <CardHeader className="pb-2">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                            <Flag className="w-3.5 h-3.5" />
+                            Pending Reports
+                        </span>
+                    </CardHeader>
+                    <CardContent>
+                        <p className={`text-4xl font-bold ${stats?.pendingReports > 0 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                            {stats?.pendingReports ?? 0}
+                        </p>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Link to="/admin/users">
                     <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                         <CardHeader>
@@ -115,6 +139,38 @@ export default function AdminDashboard() {
                         </CardHeader>
                         <CardContent className="text-muted-foreground">
                             Review and moderate pet listings. Remove inappropriate or fake listings to maintain platform quality.
+                        </CardContent>
+                    </Card>
+                </Link>
+
+                <Link to="/admin/reports">
+                    <Card className={`hover:shadow-lg transition-shadow cursor-pointer h-full ${stats?.pendingReports > 0 ? 'border-amber-300' : ''}`}>
+                        <CardHeader>
+                            <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <Flag className="w-5 h-5 text-amber-500" />
+                                Reports
+                                {stats?.pendingReports > 0 && (
+                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                                        {stats.pendingReports} pending
+                                    </span>
+                                )}
+                            </h3>
+                            <p className="text-muted-foreground text-sm">Review flagged listings</p>
+                        </CardHeader>
+                        <CardContent className="text-muted-foreground">
+                            Review user-submitted reports on pet listings. Take action on inappropriate, fraudulent, or harmful content.
+                        </CardContent>
+                    </Card>
+                </Link>
+
+                <Link to="/admin/verification">
+                    <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+                        <CardHeader>
+                            <h3 className="text-lg font-semibold">Vendor Verification</h3>
+                            <p className="text-muted-foreground text-sm">Review verification requests</p>
+                        </CardHeader>
+                        <CardContent className="text-muted-foreground">
+                            Approve or reject shelters and breeders requesting verified vendor status.
                         </CardContent>
                     </Card>
                 </Link>

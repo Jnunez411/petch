@@ -52,6 +52,7 @@ public class PetInteraction {
 
     public enum InteractionType {
         LIKE,
-        PASS
+        PASS,
+        FAVORITE
     }
 }

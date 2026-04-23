@@ -14,6 +14,7 @@ export interface FakePet {
     description: string;
     atRisk: boolean;
     fosterable: boolean;
+    real: boolean;
     imageUrl: string;
     priceEstimate: number;
     stepsDescription: string;
@@ -90,6 +91,7 @@ function generateFakePets(): FakePet[] {
             description: dogDescriptions[i],
             atRisk: i < 2, // Max and Buddy are at risk
             fosterable: i % 2 === 0,
+            real: false,
             imageUrl: petImages.dog[i],
             priceEstimate: [150, 175, 200, 125, 150, 175, 100, 125][i],
             stepsDescription: "1. Submit adoption application\n2. Meet and greet\n3. Home check\n4. Finalize adoption",
@@ -120,6 +122,7 @@ function generateFakePets(): FakePet[] {
             description: catDescriptions[i],
             atRisk: i < 2, // Luna and Milo are at risk
             fosterable: i % 2 === 1,
+            real: false,
             imageUrl: petImages.cat[i],
             priceEstimate: [100, 125, 150, 100, 125, 100, 75, 75][i],
             stepsDescription: "1. Fill out application\n2. Phone interview\n3. Meet your new cat\n4. Take them home!",
@@ -146,6 +149,7 @@ function generateFakePets(): FakePet[] {
             description: birdDescriptions[i],
             atRisk: i === 0,
             fosterable: i < 2,
+            real: false,
             imageUrl: petImages.bird[i],
             priceEstimate: [50, 75, 150, 40][i],
             stepsDescription: "1. Learn about bird care\n2. Schedule a visit\n3. Complete application\n4. Welcome home!",
@@ -172,6 +176,7 @@ function generateFakePets(): FakePet[] {
             description: rabbitDescriptions[i],
             atRisk: i === 0,
             fosterable: i < 2,
+            real: false,
             imageUrl: petImages.rabbit[i],
             priceEstimate: [60, 50, 45, 55][i],
             stepsDescription: "1. Research rabbit care\n2. Prepare a habitat\n3. Meet your bunny\n4. Adoption day!",
@@ -199,6 +204,7 @@ function generateFakePets(): FakePet[] {
             description: otherDescriptions[i],
             atRisk: false,
             fosterable: true,
+            real: false,
             imageUrl: petImages.other[i],
             priceEstimate: [25, 35, 40, 100][i],
             stepsDescription: "1. Learn about caring for this pet\n2. Prepare supplies\n3. Schedule pickup\n4. Enjoy!",

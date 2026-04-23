@@ -82,6 +82,7 @@ export default function AdminUsers() {
     const fetcher = useFetcher();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [showDeletionRequestsOnly, setShowDeletionRequestsOnly] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
 
     if (error) {
@@ -92,15 +93,19 @@ export default function AdminUsers() {
         );
     }
 
-    // Filter users based on search query
+    // Filter users based on search query and deletion request filter
     const filteredUsers = users.filter((user: AdminUser) => {
         const query = searchQuery.toLowerCase();
-        return (
+        const matchesSearch = (
             user.firstName?.toLowerCase().includes(query) ||
             user.lastName?.toLowerCase().includes(query) ||
             user.email?.toLowerCase().includes(query) ||
             user.userType?.toLowerCase().includes(query)
         );
+        if (showDeletionRequestsOnly) {
+            return matchesSearch && user.deletionRequested;
+        }
+        return matchesSearch;
     });
 
     // Pagination
@@ -111,6 +116,7 @@ export default function AdminUsers() {
     const adopters = users.filter((u: AdminUser) => u.userType === 'ADOPTER');
     const vendors = users.filter((u: AdminUser) => u.userType === 'VENDOR');
     const admins = users.filter((u: AdminUser) => u.userType === 'ADMIN');
+    const pendingDeletions = users.filter((u: AdminUser) => u.deletionRequested);
 
     const handleDeleteClick = (user: AdminUser) => {
         setDeleteConfirm({ id: user.id, name: `${user.firstName} ${user.lastName}` });
@@ -168,7 +174,7 @@ export default function AdminUsers() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <Card>
                     <CardContent className="pt-6 text-center">
                         <p className="text-3xl font-bold">{users.length}</p>
@@ -191,6 +197,18 @@ export default function AdminUsers() {
                     <CardContent className="pt-6 text-center">
                         <p className="text-3xl font-bold text-purple-500">{admins.length}</p>
                         <p className="text-muted-foreground text-sm">Admins</p>
+                    </CardContent>
+                </Card>
+                <Card
+                    className={`cursor-pointer transition-colors ${showDeletionRequestsOnly ? 'ring-2 ring-red-500' : ''}`}
+                    onClick={() => {
+                        setShowDeletionRequestsOnly(!showDeletionRequestsOnly);
+                        setCurrentPage(1);
+                    }}
+                >
+                    <CardContent className="pt-6 text-center">
+                        <p className="text-3xl font-bold text-red-500">{pendingDeletions.length}</p>
+                        <p className="text-muted-foreground text-sm">Pending Deletions</p>
                     </CardContent>
                 </Card>
             </div>
@@ -220,6 +238,7 @@ export default function AdminUsers() {
                                     <th className="text-left py-3 px-4 font-medium">ID</th>
                                     <th className="text-left py-3 px-4 font-medium">User</th>
                                     <th className="text-left py-3 px-4 font-medium">Type</th>
+                                    <th className="text-left py-3 px-4 font-medium">Status</th>
                                     <th className="text-left py-3 px-4 font-medium">Joined</th>
                                     <th className="text-left py-3 px-4 font-medium">Actions</th>
                                 </tr>
@@ -227,8 +246,8 @@ export default function AdminUsers() {
                             <tbody>
                                 {paginatedUsers.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                                            {searchQuery ? `No users found matching "${searchQuery}"` : 'No users found'}
+                                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                                            {searchQuery ? `No users found matching "${searchQuery}"` : showDeletionRequestsOnly ? 'No pending deletion requests' : 'No users found'}
                                         </td>
                                     </tr>
                                 ) : (
@@ -252,6 +271,15 @@ export default function AdminUsers() {
                                                 >
                                                     {user.userType}
                                                 </span>
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                {user.deletionRequested ? (
+                                                    <span className="px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700">
+                                                        Pending Deletion
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-xs">Active</span>
+                                                )}
                                             </td>
                                             <td className="py-3 px-4 text-muted-foreground">
                                                 {new Date(user.createdAt).toLocaleDateString()}

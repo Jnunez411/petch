@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { DragEvent } from 'react';
 import { useNavigate, Link, useLoaderData, redirect } from 'react-router';
 import type { Route } from './+types/createListing';
@@ -100,9 +100,11 @@ export default function CreatePetPage() {
   const [selectedDocumentFiles, setSelectedDocumentFiles] = useState<File[]>([]);
   const [isDocumentDragging, setIsDocumentDragging] = useState(false);
   const [selectedAdoptionFormFile, setSelectedAdoptionFormFile] = useState<File | null>(null);
+  const [showUploadInput, setShowUploadInput] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
@@ -154,6 +156,12 @@ export default function CreatePetPage() {
   };
 
 
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [error]);
+
   const [formData, setFormData] = useState({
     name: '',
     species: '',
@@ -162,6 +170,7 @@ export default function CreatePetPage() {
     description: '',
     atRisk: false,
     fosterable: false,
+    real: false,
   });
 
   const [adoptionDetails, setAdoptionDetails] = useState(
@@ -526,6 +535,7 @@ export default function CreatePetPage() {
         description: formData.description,
         atRisk: formData.atRisk,
         fosterable: formData.fosterable,
+        real: formData.real,
         userId: fullUser.id,
       };
 
@@ -729,7 +739,7 @@ export default function CreatePetPage() {
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+              <div ref={errorRef} className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium text-red-800">Something went wrong</p>
@@ -885,6 +895,27 @@ export default function CreatePetPage() {
                       </Label>
                       <p className="text-xs text-muted-foreground">
                         Open to temporary foster homes
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="real"
+                      name="real"
+                      checked={formData.real}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          real: checked as boolean,
+                        }))
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="real" className="cursor-pointer font-medium">
+                        Real
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        For innovation Day and Presentating real data
                       </p>
                     </div>
                   </div>
@@ -1074,65 +1105,75 @@ export default function CreatePetPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4 pt-4 border-t">
-                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                        <div className="flex items-start gap-3">
-                          <FileText className="mt-0.5 h-5 w-5 text-primary" />
-                          <div>
-                            <p className="font-medium text-foreground">PDF form submission</p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Adopters will download your saved PDF form, fill it out, and upload it back from the pet page.
-                            </p>
-                            {vendorPreferences?.hasOnlineFormPdf ? (
-                              <p className="text-sm text-muted-foreground mt-2">
-                                Attached from Adoption Preferences: <span className="font-medium text-foreground">{vendorPreferences.onlineFormFileName || 'Uploaded PDF template'}</span>
-                              </p>
-                            ) : (
-                              <p className="text-sm text-muted-foreground mt-2">
-                                No default PDF template found in Adoption Preferences. You can upload one just for this listing below.
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                    <div className="space-y-3 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground">
+                        Adopters will download this PDF, fill it out, and upload it from the pet page.
+                      </p>
 
-                        <div className="border-t pt-4 space-y-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <Label htmlFor="listingOnlineFormPdf">Listing adoption PDF</Label>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Upload one PDF for this listing. Selecting a new file replaces the previous selection.
-                              </p>
-                            </div>
-                            {selectedAdoptionFormFile && (
+                      {selectedAdoptionFormFile ? (
+                        <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">{selectedAdoptionFormFile.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {vendorPreferences?.hasOnlineFormPdf && (
                               <Button
                                 type="button"
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
-                                onClick={() => setSelectedAdoptionFormFile(null)}
+                                onClick={() => { setSelectedAdoptionFormFile(null); setShowUploadInput(false); }}
+                                className="text-xs text-muted-foreground"
                               >
-                                Clear
+                                Use preset
                               </Button>
                             )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => { setSelectedAdoptionFormFile(null); setShowUploadInput(false); }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
+                        </div>
+                      ) : vendorPreferences?.hasOnlineFormPdf ? (
+                        <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+                          <p className="text-sm text-muted-foreground">
+                            Using preset: <span className="font-medium text-foreground">{vendorPreferences.onlineFormFileName || 'Saved PDF'}</span>
+                          </p>
+                          {!showUploadInput && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowUploadInput(true)}
+                              className="text-xs text-muted-foreground"
+                            >
+                              Upload instead
+                            </Button>
+                          )}
+                        </div>
+                      ) : null}
 
+                      {(!vendorPreferences?.hasOnlineFormPdf || showUploadInput) && (
+                        <div>
+                          <Label htmlFor="listingOnlineFormPdf" className="text-sm">
+                            {vendorPreferences?.hasOnlineFormPdf ? 'Upload a different PDF for this listing' : 'Upload adoption form PDF *'}
+                          </Label>
                           <Input
                             id="listingOnlineFormPdf"
                             type="file"
                             accept=".pdf,application/pdf"
+                            className="mt-1"
                             onChange={(event) => setAdoptionFormFile(event.target.files?.[0] || null)}
                           />
-
-                          {selectedAdoptionFormFile ? (
-                            <p className="text-sm text-muted-foreground">
-                              Selected for this listing: <span className="font-medium text-foreground">{selectedAdoptionFormFile.name}</span>
-                            </p>
-                          ) : vendorPreferences?.hasOnlineFormPdf ? (
-                            <p className="text-sm text-muted-foreground">
-                              This listing will use your saved vendor preference PDF unless you replace it here.
-                            </p>
-                          ) : null}
+                          {!vendorPreferences?.hasOnlineFormPdf && !selectedAdoptionFormFile && (
+                            <p className="text-xs text-amber-600 mt-1">No preset found — upload a PDF for this listing.</p>
+                          )}
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>

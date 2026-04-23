@@ -689,6 +689,11 @@ export default function DiscoverPage() {
                                     Foster Available
                                 </span>
                             )}
+                            {currentPet.real && (
+                                <span className="bg-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-lg">
+                                    Real
+                                </span>
+                            )}
                         </div>
 
                         {/* Report Button */}

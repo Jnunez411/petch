@@ -29,6 +29,31 @@ export interface AdoptionFormSubmission {
     adopterEmail: string;
     fileName: string;
     contentType: string;
+    priceEstimate?: number;
+    createdAt: string;
+}
+
+export type AppointmentType = 'PICKUP' | 'MEETUP';
+export type PaymentOption = 'IN_PERSON' | 'ONLINE' | 'BOTH';
+export type AppointmentStatus = 'PENDING' | 'CONFIRMED';
+
+export interface AdoptionAppointment {
+    id: number;
+    submissionId: number;
+    petId: number;
+    petName?: string;
+    adopterUserId: number;
+    adopterEmail: string;
+    vendorUserId: number;
+    appointmentType: AppointmentType;
+    location: string;
+    appointmentDate: string;
+    availableTimes: string;
+    paymentOption: PaymentOption;
+    additionalInfo?: string;
+    selectedTime?: string;
+    status: AppointmentStatus;
+    vendorConfirmed?: boolean;
     createdAt: string;
 }
 
@@ -63,6 +88,7 @@ export interface Pet {
     description?: string;
     atRisk: boolean;
     fosterable: boolean;
+    real: boolean;
     isAdopted?: boolean;
     images: PetImage[];
     adoptionDetails?: AdoptionDetails;

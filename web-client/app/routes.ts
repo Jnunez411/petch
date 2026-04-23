@@ -13,6 +13,7 @@ export default [
   route("profile/vendor", "routes/petch+/profile.vendor.tsx"),
   route("profile/vendor/adoption-preferences", "routes/petch+/profile.vendor.adoption-preferences.tsx"),
   route("profile/vendor/submissions", "routes/petch+/profile.vendor.submissions.tsx"),
+  route("profile/vendor/appointments", "routes/petch+/profile.vendor.appointments.tsx"),
   route("pets", "routes/petch+/pets.tsx"),
   route("pets/create", "routes/petch+/createListing.tsx"),
   route("pets/:id/edit", "routes/petch+/editListing.$id.tsx"),

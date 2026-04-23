@@ -21,6 +21,11 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
 
         List<Pets> findByFosterableFalse();
 
+        List<Pets> findByRealTrue();
+
+        List<Pets> findByRealFalse();
+
+        List<Pets> findByAgeBetween(Integer minAge, Integer maxAge);
         List<Pets> findByAgeBetweenAndIsAdoptedFalse(Integer minAge, Integer maxAge);
 
         List<Pets> findByNameContainingIgnoreCaseAndIsAdoptedFalse(String name);
@@ -32,6 +37,7 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
 
         long countByAtRiskTrue();
 
+        long countByRealTrue();
         long countByIsAdoptedTrue();
 
         long countBySpeciesIgnoreCase(String species);
@@ -39,6 +45,8 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
         // Find pets by user/vendor
         List<Pets> findByUserId(Long userId);
 
+        // Eager fetch pets with images and adoption details (excludes on-hold pets)
+        @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.onHold IS NULL OR p.onHold = false")
         // Eager fetch non-adopted pets with images and adoption details (public/discover feed only)
         @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.isAdopted = false")
         List<Pets> findAllWithDetails();
@@ -50,6 +58,8 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
         // Filtered query with pagination and search (native SQL for reliable null
         // handling)
         @Query(value = "SELECT * FROM pets p WHERE " +
+                        "(p.on_hold IS NULL OR p.on_hold = false) AND " +
+                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
                         "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.species) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
                         +
                         "(CAST(:species AS text) IS NULL OR UPPER(p.species) = UPPER(CAST(:species AS text))) AND "
@@ -58,6 +68,10 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
                         "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND " +
                         "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND " +
+                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean))", countQuery = "SELECT COUNT(*) FROM pets p WHERE "
+                                        +
+                                        "(p.on_hold IS NULL OR p.on_hold = false) AND " +
+                                        "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
                         "p.is_adopted = false", countQuery = "SELECT COUNT(*) FROM pets p WHERE "
                                         +
                                         "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.species) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND "
@@ -68,6 +82,9 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                                         "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
                                         "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND "
                                         +
+                                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND "
+                                        +
+                                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean))", nativeQuery = true)
                                         "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND " +
                                         "p.is_adopted = false", nativeQuery = true)
         Page<Pets> findFilteredPets(
@@ -77,6 +94,7 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         @Param("ageMax") Integer ageMax,
                         @Param("fosterable") Boolean fosterable,
                         @Param("atRisk") Boolean atRisk,
+                        @Param("real") Boolean real,
                         Pageable pageable);
 
         // Count for filtered results
@@ -87,14 +105,19 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         "(:ageMax IS NULL OR p.age <= :ageMax) AND " +
                         "(:fosterable IS NULL OR p.fosterable = :fosterable) AND " +
                         "(:atRisk IS NULL OR p.atRisk = :atRisk) AND " +
+                        "(:real IS NULL OR p.real = :real)")
                         "p.isAdopted = false")
         long countFilteredPets(
                         @Param("species") String species,
                         @Param("ageMin") Integer ageMin,
                         @Param("ageMax") Integer ageMax,
                         @Param("fosterable") Boolean fosterable,
-                        @Param("atRisk") Boolean atRisk);
+                        @Param("atRisk") Boolean atRisk,
+                        @Param("real") Boolean real);
 
+        // Find trending pets (ordered by view count, handles NULL, excludes test data and on-hold pets)
+        @Query("SELECT p FROM Pets p WHERE " +
+                        "(p.onHold IS NULL OR p.onHold = false) AND " +
         // Find trending non-adopted pets (ordered by view count, handles NULL, excludes test data)
         @Query("SELECT p FROM Pets p WHERE " +
                         "p.isAdopted = false AND " +
@@ -106,6 +129,7 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
 
         // PERFORMANCE: Database-level exclusion for discovery - avoids loading all pets
         // into memory
+        @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.id NOT IN :excludedIds AND (p.onHold IS NULL OR p.onHold = false)")
         @Query("SELECT DISTINCT p FROM Pets p LEFT JOIN FETCH p.images LEFT JOIN FETCH p.adoptionDetails WHERE p.id NOT IN :excludedIds AND p.isAdopted = false")
         List<Pets> findPetsNotIn(@Param("excludedIds") List<Long> excludedIds);
 

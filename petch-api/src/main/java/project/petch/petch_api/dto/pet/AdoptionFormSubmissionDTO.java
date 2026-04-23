@@ -20,5 +20,6 @@ public class AdoptionFormSubmissionDTO{
     private String adopterEmail;
     private String fileName;
     private String contentType;
+    private Double priceEstimate;
     private LocalDateTime createdAt;
 }

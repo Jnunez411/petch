@@ -49,6 +49,10 @@ public class PetDTO{
     private Boolean fosterable = false;
 
     @Builder.Default
+    private Boolean real = false;
+
+    @Builder.Default
+    private Boolean onHold = false;
     private Boolean isAdopted = false;
 
     private Long userId;

@@ -15,6 +15,7 @@ import project.petch.petch_api.models.AdoptionFormSubmission;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.models.VendorAdoptionPreferences;
+import project.petch.petch_api.repositories.AdoptionDetailsRepository;
 import project.petch.petch_api.repositories.AdoptionFormSubmissionRepository;
 import project.petch.petch_api.repositories.PetsRepository;
 
@@ -24,6 +25,7 @@ import project.petch.petch_api.repositories.PetsRepository;
 public class AdoptionFormSubmissionService{
     private final AdoptionFormSubmissionRepository submissionRepository;
     private final PetsRepository petsRepository;
+    private final AdoptionDetailsRepository adoptionDetailsRepository;
     private final VendorAdoptionPreferencesService vendorAdoptionPreferencesService;
 
     @SuppressWarnings("null")
@@ -222,6 +224,7 @@ public class AdoptionFormSubmissionService{
                 .adopterEmail(submission.getAdopterUser().getEmail())
                 .fileName(submission.getFileName())
                 .contentType(submission.getContentType())
+                .priceEstimate(adoptionDetailsRepository.findByPetId(submission.getPet().getId()).map(d -> d.getPriceEstimate()).orElse(null))
                 .createdAt(submission.getCreatedAt())
                 .build();
     }

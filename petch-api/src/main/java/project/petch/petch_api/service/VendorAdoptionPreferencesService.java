@@ -96,6 +96,18 @@ public class VendorAdoptionPreferencesService{
         return toDTO(repository.save(preferences));
     }
 
+    @Transactional
+    public boolean deleteOnlineFormPdfForUserId(Long userId){
+        Long nonNullUserId = Objects.requireNonNull(userId, "userId must not be null");
+        return repository.findByVendorProfileUserId(nonNullUserId).map(preferences -> {
+            preferences.setOnlineFormPdf(null);
+            preferences.setOnlineFormFileName(null);
+            preferences.setOnlineFormContentType(null);
+            repository.save(preferences);
+            return true;
+        }).orElse(false);
+    }
+
     @Transactional(readOnly = true)
     public VendorAdoptionPreferences getOnlineFormTemplateForPet(Long petId){
         Pets pet = petsRepository.findById(petId).orElseThrow(() -> new ResourceNotFoundException("Pet not found with id: " + petId));

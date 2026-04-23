@@ -68,6 +68,12 @@ public class Pets {
     private Boolean fosterable;
 
     @Builder.Default
+    @Column(name = "real", nullable = false)
+    private Boolean real = false;
+
+    @Builder.Default
+    @Column(name = "on_hold")
+    private Boolean onHold = false;
     @Column(name = "is_adopted", nullable = false, columnDefinition = "boolean default false")
     private Boolean isAdopted = false;
 

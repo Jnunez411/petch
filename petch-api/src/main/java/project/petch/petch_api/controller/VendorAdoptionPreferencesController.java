@@ -64,6 +64,13 @@ public class VendorAdoptionPreferencesController{
         }
     }
 
+    @DeleteMapping("/me/online-form-pdf")
+    public ResponseEntity<Void> deleteMyOnlineFormPdf(Authentication authentication){
+        User user = (User) authentication.getPrincipal();
+        boolean deleted = service.deleteOnlineFormPdfForUserId(user.getId());
+        return deleted ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
     @GetMapping("/pets/{petId}/online-form-template")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> downloadOnlineFormTemplate(@PathVariable Long petId) {

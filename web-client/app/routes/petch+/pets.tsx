@@ -35,6 +35,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const ageRange = url.searchParams.get('ageRange');
   const fosterable = url.searchParams.get('fosterable') === 'true';
   const atRisk = url.searchParams.get('atRisk') === 'true';
+  const real = url.searchParams.get('real') === 'true';
   const search = url.searchParams.get('search') || '';
   const page = parseInt(url.searchParams.get('page') || '1', 10) - 1; // Backend is 0-indexed
 
@@ -78,6 +79,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     queryParams.set('atRisk', 'true');
   }
 
+  if (real) {
+    queryParams.set('real', 'true');
+  }
+
   queryParams.set('page', page.toString());
   queryParams.set('size', PETS_PER_PAGE.toString());
 
@@ -118,7 +123,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         currentPage: 1,
         user,
         favoriteIds,
-        filters: { species, ageRange, fosterable, atRisk, search }
+        filters: { species, ageRange, fosterable, atRisk, real, search }
       };
     }
 
@@ -132,7 +137,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       currentPage: (data.number || 0) + 1, // Convert to 1-indexed for UI
       user,
       favoriteIds,
-      filters: { species, ageRange, fosterable, atRisk, search }
+      filters: { species, ageRange, fosterable, atRisk, real, search }
     };
   } catch (error) {
     logger.error('Failed to fetch pets', { error: error instanceof Error ? error.message : 'Unknown error' });
@@ -143,7 +148,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       currentPage: 1,
       user,
       favoriteIds: [],
-      filters: { species, ageRange, fosterable, atRisk }
+      filters: { species, ageRange, fosterable, atRisk, real }
     };
   }
 }
@@ -250,6 +255,7 @@ export default function PetsPage() {
   const [selectedAgeRange, setSelectedAgeRange] = useState<string>(filters.ageRange || 'all');
   const [filterFosterable, setFilterFosterable] = useState<boolean>(filters.fosterable);
   const [filterAtRisk, setFilterAtRisk] = useState<boolean>(filters.atRisk);
+  const [filterReal, setFilterReal] = useState<boolean>(filters.real);
   const [searchQuery, setSearchQuery] = useState<string>(filters.search || '');
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set(initialFavoriteIds || []));
   const [reportingPet, setReportingPet] = useState<{ id: number; name: string } | null>(null);
@@ -312,6 +318,7 @@ export default function PetsPage() {
     if (selectedAgeRange && selectedAgeRange !== 'all') params.set('ageRange', selectedAgeRange);
     if (filterFosterable) params.set('fosterable', 'true');
     if (filterAtRisk) params.set('atRisk', 'true');
+    if (filterReal) params.set('real', 'true');
     if (currentPage > 1) params.set('page', currentPage.toString());
     const queryString = params.toString();
     return '/pets' + (queryString ? '?' + queryString : '');
@@ -323,6 +330,7 @@ export default function PetsPage() {
     ageRange?: string;
     fosterable?: boolean;
     atRisk?: boolean;
+    real?: boolean;
     search?: string;
     page?: number;
   }) => {
@@ -333,6 +341,7 @@ export default function PetsPage() {
     const ageRange = newFilters.ageRange ?? selectedAgeRange;
     const fosterable = newFilters.fosterable ?? filterFosterable;
     const atRisk = newFilters.atRisk ?? filterAtRisk;
+    const real = newFilters.real ?? filterReal;
     const search = newFilters.search ?? searchQuery;
     const page = newFilters.page ?? 1;
 
@@ -341,6 +350,7 @@ export default function PetsPage() {
     if (ageRange && ageRange !== 'all') params.set('ageRange', ageRange);
     if (fosterable) params.set('fosterable', 'true');
     if (atRisk) params.set('atRisk', 'true');
+    if (real) params.set('real', 'true');
     if (page > 1) params.set('page', page.toString());
 
     setSearchParams(params);
@@ -373,6 +383,7 @@ export default function PetsPage() {
     setSelectedAgeRange('all');
     setFilterFosterable(false);
     setFilterAtRisk(false);
+    setFilterReal(false);
     setSearchQuery('');
     setSearchParams({});
   };
@@ -544,6 +555,21 @@ export default function PetsPage() {
               </Label>
             </div>
 
+            {/* Real Checkbox */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="real-filter"
+                checked={filterReal}
+                onCheckedChange={(checked) => {
+                  setFilterReal(checked as boolean);
+                  applyFilters({ real: checked as boolean, page: 1 });
+                }}
+              />
+              <Label htmlFor="real-filter" className="text-sm font-medium cursor-pointer">
+                Real Only
+              </Label>
+            </div>
+
             {/* Clear Filters Button */}
             <Button
               variant="outline"
@@ -556,13 +582,14 @@ export default function PetsPage() {
           </div>
 
           {/* Active filters summary */}
-          {(selectedSpecies !== 'all' || selectedAgeRange !== 'all' || filterFosterable || filterAtRisk) && (
+          {(selectedSpecies !== 'all' || selectedAgeRange !== 'all' || filterFosterable || filterAtRisk || filterReal) && (
             <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
               Showing {totalPets} {totalPets === 1 ? 'pet' : 'pets'}
               {selectedSpecies !== 'all' && ` • Species: ${selectedSpecies}`}
               {selectedAgeRange !== 'all' && ` • Age: ${selectedAgeRange} years`}
               {filterFosterable && ' • Fosterable'}
               {filterAtRisk && ' • At Risk'}
+              {filterReal && ' • Real'}
             </div>
           )}
         </div>
@@ -679,6 +706,11 @@ export default function PetsPage() {
                       {pet.fosterable && (
                         <span className="px-2.5 py-0.5 bg-green-50 text-green-700 border border-green-100 rounded-md text-xs font-medium">
                           Fosterable
+                        </span>
+                      )}
+                      {pet.real && (
+                        <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-xs font-medium">
+                          Real
                         </span>
                       )}
                     </div>

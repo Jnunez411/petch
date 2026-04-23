@@ -659,6 +659,11 @@ export default function PetsPage() {
                           <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
                           {pet.age} {pet.age === 1 ? 'year' : 'years'} old
                         </p>
+                        {pet.user?.verificationStatus === 'VERIFIED' && (
+                          <span className="mt-2 inline-flex items-center rounded-full bg-teal/10 px-2.5 py-0.5 text-xs font-semibold text-teal">
+                            Verified Vendor
+                          </span>
+                        )}
                       </div>
                     </div>
                   </CardHeader>

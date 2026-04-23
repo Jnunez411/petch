@@ -44,6 +44,7 @@ export default function AdminLayout() {
         { to: "/admin/users", label: "Users" },
         { to: "/admin/pets", label: "Pets" },
         { to: "/admin/listings", label: "Listings" },
+        { to: "/admin/verification", label: "Verification" },
         { to: "/admin/reports", label: "Reports" },
     ];
 

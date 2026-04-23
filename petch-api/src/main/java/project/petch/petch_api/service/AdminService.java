@@ -7,11 +7,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.petch.petch_api.dto.admin.AdminStatsDto;
 import project.petch.petch_api.dto.admin.AdminUserDto;
+import project.petch.petch_api.dto.admin.VendorVerificationRequestDTO;
+import project.petch.petch_api.models.VerificationRequestStatus;
 import project.petch.petch_api.dto.user.UserType;
 import project.petch.petch_api.models.AdminAuditLog;
 import project.petch.petch_api.models.Pets;
-import project.petch.petch_api.models.User;
 import project.petch.petch_api.models.ReportStatus;
+import project.petch.petch_api.models.User;
+import project.petch.petch_api.models.VerificationStatus;
+import project.petch.petch_api.models.VendorProfile;
+import project.petch.petch_api.models.VendorVerificationRequest;
 import project.petch.petch_api.repositories.AdminAuditLogRepository;
 import project.petch.petch_api.repositories.PasswordResetTokenRepository;
 import project.petch.petch_api.repositories.PetInteractionRepository;
@@ -19,9 +24,11 @@ import project.petch.petch_api.repositories.PetsRepository;
 import project.petch.petch_api.repositories.ReportRepository;
 import project.petch.petch_api.repositories.UserPreferenceRepository;
 import project.petch.petch_api.repositories.UserRepository;
-import project.petch.petch_api.service.ImageService;
+import project.petch.petch_api.repositories.VendorProfileRepository;
+import project.petch.petch_api.repositories.VendorVerificationRequestRepository;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +47,8 @@ public class AdminService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final ImageService imageService;
     private final PetDocumentsService petDocumentsService;
+    private final VendorProfileRepository vendorProfileRepository;
+    private final VendorVerificationRequestRepository vendorVerificationRequestRepository;
 
     /**
      * Get admin dashboard statistics using efficient count queries
@@ -160,6 +169,61 @@ public class AdminService {
         return auditLogRepository.findTop100ByOrderByCreatedAtDesc();
     }
 
+    public List<VendorVerificationRequestDTO> getVerificationRequests(VerificationRequestStatus status) {
+        VerificationRequestStatus requestedStatus = status == null ? VerificationRequestStatus.PENDING : status;
+        return vendorVerificationRequestRepository.findByStatusOrderBySubmittedAtAsc(requestedStatus)
+                .stream()
+                .map(this::toVerificationRequestDTO)
+                .toList();
+    }
+
+    @Transactional
+    public VendorVerificationRequestDTO reviewVerificationRequest(Long requestId, VerificationRequestStatus nextStatus, String rejectionReason) {
+        if (nextStatus != VerificationRequestStatus.APPROVED && nextStatus != VerificationRequestStatus.REJECTED) {
+            throw new IllegalArgumentException("status must be APPROVED or REJECTED");
+        }
+
+        String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        User reviewer = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new IllegalStateException("Authenticated admin user not found"));
+
+        VendorVerificationRequest verificationRequest = vendorVerificationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Verification request not found with ID: " + requestId));
+
+        if (verificationRequest.getStatus() != VerificationRequestStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending verification requests can be reviewed");
+        }
+
+        verificationRequest.setStatus(nextStatus);
+        verificationRequest.setReviewedBy(reviewer);
+        verificationRequest.setReviewedAt(LocalDateTime.now());
+        verificationRequest.setRejectionReason(nextStatus == VerificationRequestStatus.REJECTED ? rejectionReason : null);
+
+        VendorVerificationRequest savedRequest = vendorVerificationRequestRepository.save(verificationRequest);
+
+        VendorProfile profile = verificationRequest.getVendorProfile();
+        if (profile == null) {
+            throw new IllegalStateException("Verification request has no associated vendor profile");
+        }
+
+        // Adapter: request APPROVED maps to vendor VERIFIED (badge source of truth)
+        VerificationStatus vendorStatus = nextStatus == VerificationRequestStatus.APPROVED
+                ? VerificationStatus.VERIFIED
+                : VerificationStatus.REJECTED;
+        profile.setVerificationStatus(vendorStatus);
+        VendorProfile savedProfile = vendorProfileRepository.save(profile);
+
+        String targetDetails = String.format("VerificationRequest: %d | VendorProfile: %d (%s) -> %s",
+                savedRequest.getId(),
+                savedProfile.getId(),
+                savedProfile.getOrganizationName(),
+                nextStatus.name());
+
+        auditLog(currentUserEmail, "REVIEW_VENDOR_VERIFICATION", "VENDOR_VERIFICATION_REQUEST", savedRequest.getId(), targetDetails);
+
+        return toVerificationRequestDTO(savedRequest);
+    }
+
     /**
      * Create an audit log entry
      */
@@ -173,5 +237,24 @@ public class AdminService {
                 .build();
 
         auditLogRepository.save(logEntry);
+    }
+
+    private VendorVerificationRequestDTO toVerificationRequestDTO(VendorVerificationRequest request) {
+        VendorProfile profile = request.getVendorProfile();
+        return VendorVerificationRequestDTO.builder()
+                .verificationRequestId(request.getId())
+                .vendorProfileId(profile.getId())
+                .userId(profile.getUser() != null ? profile.getUser().getId() : null)
+                .organizationName(profile.getOrganizationName())
+                .contactEmail(profile.getUser() != null ? profile.getUser().getEmail() : null)
+                .city(profile.getCity())
+                .state(profile.getState())
+                .submittedAt(request.getSubmittedAt())
+                .reviewedBy(request.getReviewedBy() != null ? request.getReviewedBy().getEmail() : null)
+                .reviewedAt(request.getReviewedAt())
+                .rejectionReason(request.getRejectionReason())
+                .supportingMetadata(request.getSupportingMetadata())
+                .requestStatus(request.getStatus())
+                .build();
     }
 }

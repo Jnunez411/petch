@@ -7,6 +7,7 @@ export interface VendorProfile {
   city?: string;
   state?: string;
   description?: string;
+  verificationStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
   createdAt?: string;
   updatedAt?: string;
 }

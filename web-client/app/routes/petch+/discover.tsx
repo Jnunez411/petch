@@ -558,6 +558,11 @@ export default function DiscoverPage() {
                                         <p className="text-sm text-muted-foreground">
                                             {pet.breed} • {pet.age} {pet.age === 1 ? 'year' : 'years'} old
                                         </p>
+                                        {pet.user?.verificationStatus === 'VERIFIED' && (
+                                            <span className="mt-2 inline-flex items-center rounded-full bg-teal/10 px-2.5 py-0.5 text-xs font-semibold text-teal">
+                                                Verified Vendor
+                                            </span>
+                                        )}
                                         <Button asChild className="w-full mt-3" size="sm">
                                             <Link to={`/pets/${pet.id}`}>View Details</Link>
                                         </Button>
@@ -718,6 +723,11 @@ export default function DiscoverPage() {
                                     <p className="text-sm opacity-75">
                                         {currentPet.species} • {currentPet.age} {currentPet.age === 1 ? 'year' : 'years'} old
                                     </p>
+                                    {currentPet.user?.verificationStatus === 'VERIFIED' && (
+                                        <span className="mt-2 inline-flex items-center rounded-full bg-teal/15 px-2.5 py-0.5 text-xs font-semibold text-teal-100">
+                                            Verified Vendor
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="text-right">
                                     <p className="text-2xl font-bold">${getPetAdoptionFee(currentPet)}</p>

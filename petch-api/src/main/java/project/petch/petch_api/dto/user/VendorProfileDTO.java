@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import project.petch.petch_api.models.VerificationStatus;
 
 import java.time.LocalDateTime;
 
@@ -32,6 +33,8 @@ public class VendorProfileDTO {
     private String state;
 
     private String description;
+
+    private VerificationStatus verificationStatus;
 
     private LocalDateTime createdAt;
 

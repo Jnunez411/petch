@@ -1,4 +1,4 @@
-GitHub: Sign out# Petch
+##Petch
 
 A pet adoption web application that connects pets with loving homes. This application allows breeders and shelters to upload pets for adoption, while users can filter pets based on their preferences to find their perfect match. Petch also offers a pet matchmaking quiz to help users discover compatible pets.
 

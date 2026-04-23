@@ -71,6 +71,17 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // Email notification preference
+    @Column(name = "email_notifications_enabled")
+    private Boolean emailNotificationsEnabled = true;
+
+    // Account deletion request
+    @Column(name = "deletion_requested")
+    private Boolean deletionRequested = false;
+
+    @Column(name = "deletion_requested_at")
+    private LocalDateTime deletionRequestedAt;
+
     // Account lockout and status fields
     @Column(name = "is_active", nullable = false, columnDefinition = "boolean default true")
     private boolean isActive = true;

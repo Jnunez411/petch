@@ -8,7 +8,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -59,6 +58,9 @@ public class UserController {
         response.put("lastName", currentUser.getLastName());
         response.put("userType", currentUser.getUserType().name());
         response.put("phoneNumber", currentUser.getPhoneNumber());
+        response.put("emailNotificationsEnabled", currentUser.getEmailNotificationsEnabled());
+        response.put("deletionRequested", currentUser.getDeletionRequested());
+        response.put("deletionRequestedAt", currentUser.getDeletionRequestedAt());
         response.put("createdAt", currentUser.getCreatedAt());
 
         return ResponseEntity.ok(response);
@@ -107,19 +109,56 @@ public class UserController {
     }
 
     /**
-     * Delete current authenticated user's account
-     * DELETE /api/users/me
+     * Toggle email notifications for the current user
+     * PUT /api/users/me/notifications
      */
-    @DeleteMapping("/me")
+    @PutMapping("/me/notifications")
     @Transactional
-    public ResponseEntity<Void> deleteCurrentUser() {
+    public ResponseEntity<Map<String, Object>> updateEmailNotifications(
+            @RequestBody Map<String, Boolean> request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = (User) authentication.getPrincipal();
-        log.info("User account disabling requested: userId={}", currentUser.getId());
 
-        currentUser.setActive(false);
+        Boolean enabled = request.get("emailNotificationsEnabled");
+        if (enabled == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "emailNotificationsEnabled is required."));
+        }
+
+        currentUser.setEmailNotificationsEnabled(enabled);
         userRepository.save(currentUser);
 
-        return ResponseEntity.noContent().build();
+        log.info("Email notifications {} for userId={}", enabled ? "enabled" : "disabled", currentUser.getId());
+        return ResponseEntity.ok(Map.of(
+                "message", "Email notification preferences updated.",
+                "emailNotificationsEnabled", enabled));
+    }
+
+    /**
+     * Request account deletion for the current user.
+     * This flags the account for admin review — it does NOT delete immediately.
+     * PUT /api/users/me/request-deletion
+     */
+    @PutMapping("/me/request-deletion")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> requestDeletion() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) authentication.getPrincipal();
+
+        if (Boolean.TRUE.equals(currentUser.getDeletionRequested())) {
+            return ResponseEntity.ok(Map.of(
+                    "message", "Account deletion has already been requested.",
+                    "deletionRequested", true,
+                    "deletionRequestedAt", currentUser.getDeletionRequestedAt()));
+        }
+
+        currentUser.setDeletionRequested(true);
+        currentUser.setDeletionRequestedAt(java.time.LocalDateTime.now());
+        userRepository.save(currentUser);
+
+        log.info("Account deletion requested by userId={}", currentUser.getId());
+        return ResponseEntity.ok(Map.of(
+                "message", "Account deletion request submitted. An admin will review your request.",
+                "deletionRequested", true,
+                "deletionRequestedAt", currentUser.getDeletionRequestedAt()));
     }
 }

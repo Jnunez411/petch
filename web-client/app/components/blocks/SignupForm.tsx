@@ -29,6 +29,7 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
     phoneNumber: "",
     password: "",
     termsAccepted: false,
+    emailNotificationsEnabled: true,
   });
   const [touched, setTouched] = useState({
     firstName: false,
@@ -333,6 +334,22 @@ export function SignupForm({ error, isSubmitting }: SignupFormProps) {
                 </div>
               )}
             </div>
+
+            {/* Email Notifications Checkbox */}
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="emailNotificationsEnabled"
+                name="emailNotificationsEnabled"
+                checked={formData.emailNotificationsEnabled}
+                onCheckedChange={(checked) => {
+                  handleChange("emailNotificationsEnabled", checked as boolean);
+                }}
+              />
+              <label htmlFor="emailNotificationsEnabled" className="text-sm text-muted-foreground leading-tight">
+                Send me email notifications about new pet matches
+              </label>
+            </div>
+            <input type="hidden" name="emailNotificationsEnabled" value={formData.emailNotificationsEnabled ? "true" : "false"} />
 
             {/* Terms Checkbox */}
             <div className="flex items-start space-x-2">

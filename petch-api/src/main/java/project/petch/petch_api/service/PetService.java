@@ -18,6 +18,7 @@ import project.petch.petch_api.models.PetInteraction;
 import project.petch.petch_api.models.Pets;
 import project.petch.petch_api.models.User;
 import project.petch.petch_api.models.UserPreference;
+import project.petch.petch_api.dto.user.UserType;
 import project.petch.petch_api.repositories.PetInteractionRepository;
 import project.petch.petch_api.repositories.PetsRepository;
 import project.petch.petch_api.repositories.UserPreferenceRepository;
@@ -33,6 +34,7 @@ public class PetService {
     private final PetsRepository petsRepository;
     private final UserPreferenceRepository userPreferenceRepository;
     private final PetInteractionRepository petInteractionRepository;
+    private final EmailService emailService;
 
     public List<Pets> discoverPets(User user) {
         UserPreference prefs = userPreferenceRepository.findByUser(user)
@@ -233,7 +235,44 @@ public class PetService {
     }
 
     public Pets createPet(Pets pet) {
-        return petsRepository.save(pet);
+        Pets savedPet = petsRepository.save(pet);
+        notifyMatchingUsers(savedPet);
+        return savedPet;
+    }
+
+    @Async("asyncExecutor")
+    public void notifyMatchingUsers(Pets pet) {
+        try {
+            List<UserPreference> allPreferences = userPreferenceRepository.findAll();
+            log.info("Checking {} user preferences for pet match notifications (petId={})", allPreferences.size(), pet.getId());
+
+            for (UserPreference prefs : allPreferences) {
+                User user = prefs.getUser();
+
+                // Skip non-adopters, notifications disabled, or user is the pet owner
+                if (user.getUserType() != UserType.ADOPTER) {
+                    log.debug("Skipping userId={} - not an adopter (type={})", user.getId(), user.getUserType());
+                    continue;
+                }
+                if (user.getEmailNotificationsEnabled() == null || !user.getEmailNotificationsEnabled()) {
+                    log.debug("Skipping userId={} - notifications disabled", user.getId());
+                    continue;
+                }
+                if (pet.getUser() != null && pet.getUser().getId().equals(user.getId())) {
+                    log.debug("Skipping userId={} - is the pet owner", user.getId());
+                    continue;
+                }
+
+                double score = calculateMatchScore(pet, prefs);
+                log.info("Match score for userId={} and petId={}: {}", user.getId(), pet.getId(), score);
+                if (score > 1.0) {
+                    emailService.sendPetMatchEmail(user.getEmail(), user.getFirstName(), List.of(pet));
+                    log.info("Pet match notification sent to userId={} for petId={}", user.getId(), pet.getId());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error notifying matching users for petId={}: {}", pet.getId(), e.getMessage());
+        }
     }
 
     public void deletePet(Long id) {

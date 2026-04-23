@@ -1,6 +1,6 @@
 import { useLoaderData, Link, redirect, Form, useActionData, useNavigation, useFetcher } from 'react-router';
 import type { Route } from './+types/profile.vendor';
-import { getUserFromSession, logout } from '~/services/auth';
+import { getUserFromSession } from '~/services/auth';
 import { getSession } from '~/services/session.server';
 import { authenticatedFetch } from '~/utils/api';
 import { getVendorProfile, createVendorProfile, updateVendorProfile } from '~/services/profile.server';
@@ -33,6 +33,9 @@ import {
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { getImageUrl, API_BASE_URL } from '~/config/api-config';
+import { useState, useRef, useEffect } from 'react';
+import { getImageUrl, API_BASE_URL } from '~/config/api-config';
+import { Checkbox } from '~/components/ui/checkbox';
 import { PLACEHOLDER_IMAGES } from '~/config/constants';
 import { createLogger } from '~/utils/logger';
 
@@ -82,11 +85,15 @@ export async function loader({ request }: Route.LoaderArgs) {
   let vendorPets: Pet[] = [];
   let backendUserId: number | null = null;
   let submissionCount = 0;
+  let emailNotificationsEnabled = true;
+  let deletionRequested = false;
   try {
     const userResponse = await authenticatedFetch(request, '/api/users/me');
     if (userResponse.ok) {
       const backendUser = await userResponse.json();
       backendUserId = backendUser.id;
+      emailNotificationsEnabled = backendUser.emailNotificationsEnabled ?? true;
+      deletionRequested = backendUser.deletionRequested ?? false;
 
       const petsResponse = await authenticatedFetch(request, `/api/pets/user/${backendUserId}`);
       if (petsResponse.ok) {
@@ -120,6 +127,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const pendingCount = appointments.filter(a => !a.vendorConfirmed).length;
 
   return { user, vendorProfile, vendorPets, backendUserId, submissionCount, pendingCount, appointments, token };
+  return { user, vendorProfile, vendorPets, backendUserId, submissionCount, emailNotificationsEnabled, deletionRequested, token };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -162,19 +170,19 @@ export async function action({ request }: Route.ActionArgs) {
     }
   }
 
-  if (intent === 'delete-account') {
+  if (intent === 'request-deletion') {
     try {
-      const response = await authenticatedFetch(request, '/api/users/me', {
-        method: 'DELETE',
+      const response = await authenticatedFetch(request, '/api/users/me/request-deletion', {
+        method: 'PUT',
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to delete account: ${response.status}`);
+        throw new Error(`Failed to request account deletion: ${response.status}`);
       }
 
-      return await logout(request);
+      return { success: true, deletionRequested: true };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : 'Failed to delete account' };
+      return { error: error instanceof Error ? error.message : 'Failed to request account deletion' };
     }
   }
 
@@ -281,15 +289,41 @@ export async function action({ request }: Route.ActionArgs) {
 export default function VendorProfilePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { user, vendorProfile, vendorPets, submissionCount, pendingCount, appointments, token } = useLoaderData<typeof loader>();
+  const { user, vendorProfile, vendorPets, submissionCount, emailNotificationsEnabled, deletionRequested, token } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const fetcher = useFetcher();
   const deleteFetcher = useFetcher();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
+  const isRequesting = deleteFetcher.state !== 'idle';
   const [isEditing, setIsEditing] = useState(!vendorProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [showDeleteRequestModal, setShowDeleteRequestModal] = useState(false);
+  const [hasPendingDeletion, setHasPendingDeletion] = useState(deletionRequested);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(emailNotificationsEnabled);
+
+  useEffect(() => {
+    if (actionData?.deletionRequested) {
+      setHasPendingDeletion(true);
+    }
+  }, [actionData]);
+
+  const handleToggleNotifications = async (checked: boolean) => {
+    setNotificationsEnabled(checked);
+    try {
+      await fetch(`${API_BASE_URL}/api/users/me/notifications`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ emailNotificationsEnabled: checked }),
+      });
+    } catch (error) {
+      setNotificationsEnabled(!checked);
+    }
+  };
 
   // ── Appointment state (banner on profile page) ──
   const [localAppointments, setLocalAppointments] = useState(appointments);
@@ -398,18 +432,16 @@ export default function VendorProfilePage() {
     }
   };
 
-  const isDeletingAccount = deleteFetcher.state !== 'idle';
-
-  const handleDeleteAccount = () => {
-    setShowDeleteAccountModal(true);
+  const handleRequestDeletion = () => {
+    setShowDeleteRequestModal(true);
   };
 
-  const confirmDeleteAccount = () => {
+  const confirmRequestDeletion = () => {
     deleteFetcher.submit(
-      { intent: 'delete-account' },
+      { intent: 'request-deletion' },
       { method: 'POST' }
     );
-    setShowDeleteAccountModal(false);
+    setShowDeleteRequestModal(false);
   };
 
   const adoptFetcher = useFetcher();
@@ -806,6 +838,21 @@ export default function VendorProfilePage() {
                   )}
                 </Link>
               </Button>
+              {hasPendingDeletion ? (
+                <span className="inline-flex items-center px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
+                  Deletion Requested
+                </span>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
+                  onClick={handleRequestDeletion}
+                  disabled={isRequesting}
+                >
+                  <Trash2 className="size-4 mr-2" />
+                  {isRequesting ? 'Submitting...' : 'Request Deletion'}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="rounded-xl"
@@ -952,6 +999,21 @@ export default function VendorProfilePage() {
                     {isSubmitting ? 'Saving...' : vendorProfile ? 'Save Changes' : 'Create Profile'}
                   </Button>
                 </Form>
+
+                {/* Email Notifications */}
+                <div className="pt-5 mt-5 border-t border-zinc-200 dark:border-zinc-700">
+                  <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Notifications</p>
+                  <div className="flex items-start space-x-2">
+                    <Checkbox
+                      id="emailNotifications"
+                      checked={notificationsEnabled}
+                      onCheckedChange={(checked) => handleToggleNotifications(checked as boolean)}
+                    />
+                    <label htmlFor="emailNotifications" className="text-sm text-zinc-600 dark:text-zinc-400 leading-tight cursor-pointer">
+                      Email me about new pet matches and updates
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -959,28 +1021,34 @@ export default function VendorProfilePage() {
             <div className="mt-6 space-y-6">
               <ChangePasswordSection />
               
-              {/* Dangerous Area */}
+              {/* Account Status */}
               <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-red-100 dark:border-red-900/30 overflow-hidden">
                 <div className="bg-red-50/50 dark:bg-red-950/10 px-6 py-4 border-b border-red-100 dark:border-red-900/30">
                   <h3 className="text-sm font-semibold text-red-800 dark:text-red-300">Account Status</h3>
                 </div>
                 <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Disable Account</h4>
+                    <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Request Account Deletion</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Taking a break? Disable your account temporarily. You can reactivate it anytime.
+                      Request account removal. An admin will review and process your request.
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-400 dark:hover:border-red-600 hover:text-red-700 dark:hover:text-red-300"
-                    onClick={handleDeleteAccount}
-                    disabled={isDeletingAccount}
-                  >
-                    <Trash2 className="size-4 mr-2" />
-                    {isDeletingAccount ? 'Disabling...' : 'Disable Account'}
-                  </Button>
+                  {hasPendingDeletion ? (
+                    <span className="inline-flex items-center px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
+                      Deletion Requested
+                    </span>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-400 dark:hover:border-red-600 hover:text-red-700 dark:hover:text-red-300"
+                      onClick={handleRequestDeletion}
+                      disabled={isRequesting}
+                    >
+                      <Trash2 className="size-4 mr-2" />
+                      {isRequesting ? 'Submitting...' : 'Request Deletion'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1130,23 +1198,20 @@ export default function VendorProfilePage() {
             </div>
             <p className="text-muted-foreground mb-6">
               Are you sure you want to disable your vendor account? Your pet listings will be hidden from public view until you reactivate your account.
+      {/* Request Deletion Modal */}
+      {showDeleteRequestModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-xl p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold mb-2">Request Account Deletion</h3>
+            <p className="text-muted-foreground mb-4">
+              Are you sure you want to request account deletion? An admin will review your request and permanently remove your account, including all pet listings and associated data.
             </p>
             <div className="flex gap-3 justify-end">
-              <Button 
-                variant="outline" 
-                className="rounded-xl flex-1 h-11"
-                onClick={() => setShowDeleteAccountModal(false)}
-                disabled={isDeletingAccount}
-              >
+              <Button variant="outline" onClick={() => setShowDeleteRequestModal(false)}>
                 Cancel
               </Button>
-              <Button 
-                variant="destructive" 
-                className="rounded-xl flex-1 h-11 bg-red-600 hover:bg-red-700"
-                onClick={confirmDeleteAccount}
-                disabled={isDeletingAccount}
-              >
-                {isDeletingAccount ? 'Disabling...' : 'Disable Account'}
+              <Button variant="destructive" onClick={confirmRequestDeletion}>
+                Request Deletion
               </Button>
             </div>
           </div>

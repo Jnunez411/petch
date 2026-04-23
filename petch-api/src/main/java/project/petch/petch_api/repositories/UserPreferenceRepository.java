@@ -11,4 +11,6 @@ import project.petch.petch_api.models.UserPreference;
 @Repository
 public interface UserPreferenceRepository extends JpaRepository<UserPreference, Long> {
     Optional<UserPreference> findByUser(User user);
+
+    void deleteByUser_Id(Long userId);
 }

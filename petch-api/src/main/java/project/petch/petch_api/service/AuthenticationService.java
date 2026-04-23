@@ -29,6 +29,7 @@ public class AuthenticationService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final SecurityEventLogger securityEventLogger;
+    private final EmailService emailService;
 
     /**
      * Register a new user
@@ -50,9 +51,14 @@ public class AuthenticationService {
         user.setLastName(request.lastName());
         user.setPhoneNumber(request.phoneNumber());
         user.setUserType(request.userType());
+        user.setEmailNotificationsEnabled(
+                request.emailNotificationsEnabled() != null ? request.emailNotificationsEnabled() : true);
 
         // Save user to database
         userRepository.save(user);
+
+        // Send welcome email (non-blocking, won't fail registration)
+        emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName());
 
         // Generate JWT token
         var jwtToken = jwtService.generateToken(user);

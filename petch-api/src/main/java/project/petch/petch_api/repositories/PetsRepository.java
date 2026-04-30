@@ -25,9 +25,7 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
 
         List<Pets> findByFosterableFalseAndIsAdoptedFalse();
 
-        List<Pets> findByRealTrue();
 
-        List<Pets> findByRealFalse();
 
         List<Pets> findByAgeBetween(Integer minAge, Integer maxAge);
         List<Pets> findByAgeBetweenAndIsAdoptedFalse(Integer minAge, Integer maxAge);
@@ -41,7 +39,7 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
 
         long countByAtRiskTrue();
 
-        long countByRealTrue();
+
         long countByIsAdoptedTrue();
 
         long countBySpeciesIgnoreCase(String species);
@@ -66,9 +64,8 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         "(CAST(:ageMin AS integer) IS NULL OR p.age >= CAST(:ageMin AS integer)) AND " +
                         "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
                         "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND " +
-                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND " +
-                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean)) ORDER BY p.id DESC", 
-               countQuery = "SELECT COUNT(*) FROM pets p WHERE " +
+                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) ORDER BY p.id DESC", 
+                countQuery = "SELECT COUNT(*) FROM pets p WHERE " +
                         "(p.on_hold IS NULL OR p.on_hold = false) AND " +
                         "p.is_adopted = false AND " +
                         "(CAST(:search AS text) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.species) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.breed) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%'))) AND " +
@@ -76,8 +73,7 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         "(CAST(:ageMin AS integer) IS NULL OR p.age >= CAST(:ageMin AS integer)) AND " +
                         "(CAST(:ageMax AS integer) IS NULL OR p.age <= CAST(:ageMax AS integer)) AND " +
                         "(CAST(:fosterable AS boolean) IS NULL OR p.fosterable = CAST(:fosterable AS boolean)) AND " +
-                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean)) AND " +
-                        "(CAST(:real AS boolean) IS NULL OR p.real = CAST(:real AS boolean))", nativeQuery = true)
+                        "(CAST(:atRisk AS boolean) IS NULL OR p.at_risk = CAST(:atRisk AS boolean))", nativeQuery = true)
         Page<Pets> findFilteredPets(
                         @Param("search") String search,
                         @Param("species") String species,
@@ -85,7 +81,6 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         @Param("ageMax") Integer ageMax,
                         @Param("fosterable") Boolean fosterable,
                         @Param("atRisk") Boolean atRisk,
-                        @Param("real") Boolean real,
                         Pageable pageable);
 
         // Count for filtered results
@@ -95,15 +90,13 @@ public interface PetsRepository extends JpaRepository<Pets, Long> {
                         "(:ageMin IS NULL OR p.age >= :ageMin) AND " +
                         "(:ageMax IS NULL OR p.age <= :ageMax) AND " +
                         "(:fosterable IS NULL OR p.fosterable = :fosterable) AND " +
-                        "(:atRisk IS NULL OR p.atRisk = :atRisk) AND " +
-                        "(:real IS NULL OR p.real = :real)")
+                        "(:atRisk IS NULL OR p.atRisk = :atRisk)")
         long countFilteredPets(
                         @Param("species") String species,
                         @Param("ageMin") Integer ageMin,
                         @Param("ageMax") Integer ageMax,
                         @Param("fosterable") Boolean fosterable,
-                        @Param("atRisk") Boolean atRisk,
-                        @Param("real") Boolean real);
+                        @Param("atRisk") Boolean atRisk);
 
         // Find trending pets (ordered by view count, handles NULL, excludes test data and on-hold pets)
         @Query("SELECT p FROM Pets p WHERE " +

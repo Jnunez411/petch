@@ -105,6 +105,49 @@ public class DemoDataSeeder {
 
                         String[] speciesList = { "Dog", "Cat", "Bird", "Rabbit", "Other" };
 
+                        String[] dogImages = {
+                                "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/1805164/pexels-photo-1805164.jpeg?auto=compress&w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/2253275/pexels-photo-2253275.jpeg?auto=compress&w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/1108099/pexels-photo-1108099.jpeg?auto=compress&w=800&h=800&fit=crop"
+                        };
+
+                        String[] catImages = {
+                                "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/45201/kitty-cat-kitten-pet-45201.jpeg?auto=compress&w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/1170986/pexels-photo-1170986.jpeg?auto=compress&w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/2558605/pexels-photo-2558605.jpeg?auto=compress&w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1561948955-570b270e7c36?w=800&h=800&fit=crop"
+                        };
+
+                        String[] birdImages = {
+                                "https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/1661179/pexels-photo-1661179.jpeg?auto=compress&w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/56733/pexels-photo-56733.jpeg?auto=compress&w=800&h=800&fit=crop"
+                        };
+
+                        String[] rabbitImages = {
+                                "https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/4588065/pexels-photo-4588065.jpeg?auto=compress&w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1452857297128-d9c29adba80b?w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/4001296/pexels-photo-4001296.jpeg?auto=compress&w=800&h=800&fit=crop"
+                        };
+
+                        String[] otherImages = {
+                                "https://images.pexels.com/photos/1108341/pexels-photo-1108341.jpeg?auto=compress&w=800&h=800&fit=crop",
+                                "https://images.pexels.com/photos/5169056/pexels-photo-5169056.jpeg?auto=compress&w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1597633425046-08f5110420b5?w=800&h=800&fit=crop",
+                                "https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=800&h=800&fit=crop"
+                        };
+
                         java.util.Random random = new java.util.Random();
                         List<Pets> petsToSave = new java.util.ArrayList<>();
 
@@ -117,28 +160,23 @@ public class DemoDataSeeder {
                                 switch (species) {
                                         case "Dog":
                                                 breed = dogBreeds[random.nextInt(dogBreeds.length)];
-                                                imageUrl = "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&sig="
-                                                                + i;
+                                                imageUrl = dogImages[random.nextInt(dogImages.length)];
                                                 break;
                                         case "Cat":
                                                 breed = catBreeds[random.nextInt(catBreeds.length)];
-                                                imageUrl = "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&sig="
-                                                                + i;
+                                                imageUrl = catImages[random.nextInt(catImages.length)];
                                                 break;
                                         case "Bird":
                                                 breed = birdBreeds[random.nextInt(birdBreeds.length)];
-                                                imageUrl = "https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=800&sig="
-                                                                + i;
+                                                imageUrl = birdImages[random.nextInt(birdImages.length)];
                                                 break;
                                         case "Rabbit":
                                                 breed = rabbitBreeds[random.nextInt(rabbitBreeds.length)];
-                                                imageUrl = "https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=800&sig="
-                                                                + i;
+                                                imageUrl = rabbitImages[random.nextInt(rabbitImages.length)];
                                                 break;
                                         default:
                                                 breed = "Mixed";
-                                                imageUrl = "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800&sig="
-                                                                + i;
+                                                imageUrl = otherImages[random.nextInt(otherImages.length)];
                                                 break;
                                 }
 

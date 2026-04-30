@@ -48,8 +48,8 @@ public class PetDTO{
     @Builder.Default
     private Boolean fosterable = false;
 
-    @Builder.Default
-    private Boolean real = false;
+
+
 
     @Builder.Default
     private Boolean onHold = false;

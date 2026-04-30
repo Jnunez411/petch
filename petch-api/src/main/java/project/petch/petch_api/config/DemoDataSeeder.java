@@ -106,47 +106,113 @@ public class DemoDataSeeder {
                         String[] speciesList = { "Dog", "Cat", "Bird", "Rabbit", "Other" };
 
                         String[] dogImages = {
-                                "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/1805164/pexels-photo-1805164.jpeg?auto=compress&w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/2253275/pexels-photo-2253275.jpeg?auto=compress&w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/1108099/pexels-photo-1108099.jpeg?auto=compress&w=800&h=800&fit=crop"
-                        };
+				// Golden retriever puppy
+				"https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&h=800&fit=crop",
+				// Corgi
+				"https://images.unsplash.com/photo-1612774412771-005ed8e861d2?w=800&h=800&fit=crop",
+				// Pug face
+				"https://images.unsplash.com/photo-1517849845537-4d257902454a?w=800&h=800&fit=crop",
+				// Happy golden retriever
+				"https://images.unsplash.com/photo-1552053831-71594a27632d?w=800&h=800&fit=crop",
+				// White fluffy dog
+				"https://images.unsplash.com/photo-1587402092301-725e37c70fd8?w=800&h=800&fit=crop",
+				// Brown lab puppy
+				"https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&h=800&fit=crop",
+				// Husky
+				"https://images.unsplash.com/photo-1605568427561-40dd23c2acea?w=800&h=800&fit=crop",
+				// Beagle
+				"https://images.unsplash.com/photo-1505628346881-b72b27e84530?w=800&h=800&fit=crop",
+				// German shepherd
+				"https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=800&h=800&fit=crop",
+				// Dachshund
+				"https://images.unsplash.com/photo-1612195583950-b8fd34c87093?w=800&h=800&fit=crop",
+				// dog
+				"https://images.unsplash.com/photo-1583511666407-5f06533f2113?w=800&h=800&fit=crop",
+				// White Wolf
+				"https://images.unsplash.com/photo-1547407139-3c921a66005c?w=800&h=800&fit=crop"
+			};
 
                         String[] catImages = {
-                                "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/45201/kitty-cat-kitten-pet-45201.jpeg?auto=compress&w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/1170986/pexels-photo-1170986.jpeg?auto=compress&w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/2558605/pexels-photo-2558605.jpeg?auto=compress&w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1561948955-570b270e7c36?w=800&h=800&fit=crop"
-                        };
+				// Orange tabby cat
+				"https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&h=800&fit=crop",
+				// Gray cat looking up
+				"https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=800&h=800&fit=crop",
+				// Kitten
+				"https://images.unsplash.com/photo-1574158622682-e40e69881006?w=800&h=800&fit=crop",
+				// White cat
+				"https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?w=800&h=800&fit=crop",
+				// Black cat
+				"https://images.unsplash.com/photo-1559235038-1b0fadf76f78?w=800&h=800&fit=crop",
+				// Siamese cat
+				"https://images.unsplash.com/photo-1596854407944-bf87f6fdd49e?w=800&h=800&fit=crop",
+				// Calico cat
+				"https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=800&h=800&fit=crop",
+				// Persian cat
+				"https://images.unsplash.com/photo-1606214174585-fe31582dc6ee?w=800&h=800&fit=crop",
+				// Tabby cat sleeping
+				"https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=800&h=800&fit=crop",
+				// Maine coon
+				"https://images.unsplash.com/photo-1615497001839-b0a0eac3274c?w=800&h=800&fit=crop",
+				// Ginger kitten
+				"https://images.unsplash.com/photo-1570824104453-508955ab713e?w=800&h=800&fit=crop"
+			};
 
                         String[] birdImages = {
-                                "https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/1661179/pexels-photo-1661179.jpeg?auto=compress&w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/56733/pexels-photo-56733.jpeg?auto=compress&w=800&h=800&fit=crop"
-                        };
+				// Colorful parrot
+				"https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=800&h=800&fit=crop",
+				// Canary yellow bird
+				"https://images.unsplash.com/photo-1522926193341-e9ffd686c60f?w=800&h=800&fit=crop",
+				// Macaw parrot
+				"https://images.unsplash.com/photo-1544923408-75c5cef46f14?w=800&h=800&fit=crop",
+				// Lovebirds
+				"https://images.unsplash.com/photo-1501720804996-ae418d1ba820?w=800&h=800&fit=crop",
+				// Green parrot
+				"https://images.unsplash.com/photo-1504618223053-559bdef9dd5a?w=800&h=800&fit=crop",
+				// Burd
+				"https://images.unsplash.com/photo-1518992028580-6d57bd80f2dd?w=800&h=800&fit=crop",
+				// King Penguin
+				"https://images.unsplash.com/photo-1598439210625-5067c578f3f6?w=800&h=800&fit=crop"
+			};
 
                         String[] rabbitImages = {
-                                "https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/4588065/pexels-photo-4588065.jpeg?auto=compress&w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1452857297128-d9c29adba80b?w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/4001296/pexels-photo-4001296.jpeg?auto=compress&w=800&h=800&fit=crop"
-                        };
+				// White rabbit
+				"https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=800&h=800&fit=crop",
+				// Brown bunny
+				"https://images.unsplash.com/photo-1535241749838-299277b6305f?w=800&h=800&fit=crop",
+				// Baby bunny
+				"https://images.unsplash.com/photo-1452857297128-d9c29adba80b?w=800&h=800&fit=crop"
+			};
 
                         String[] otherImages = {
-                                "https://images.pexels.com/photos/1108341/pexels-photo-1108341.jpeg?auto=compress&w=800&h=800&fit=crop",
-                                "https://images.pexels.com/photos/5169056/pexels-photo-5169056.jpeg?auto=compress&w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1597633425046-08f5110420b5?w=800&h=800&fit=crop",
-                                "https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=800&h=800&fit=crop"
-                        };
+				// Budgerigar / parakeet
+				"https://images.unsplash.com/photo-1606567595334-d39972c85dbe?w=800&h=800&fit=crop",
+				// Hamster
+				"https://images.unsplash.com/photo-1425082661705-1834bfd09dca?w=800&h=800&fit=crop",
+				// Guinea pig
+				"https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=800&h=800&fit=crop",
+				// Turtle
+				"https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?w=800&h=800&fit=crop",
+				// Hedgehog
+				"https://images.unsplash.com/photo-1497752531616-c3afd9760a11?w=800&h=800&fit=crop",
+				// Chinchilla
+				"https://images.unsplash.com/photo-1590691566903-692bf5ca7493?w=800&h=800&fit=crop",
+				// Goldfish
+				"https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=800&h=800&fit=crop",
+				// African Elephant
+				"https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=800&h=800&fit=crop",
+				// Lion
+				"https://images.unsplash.com/photo-1546182990-dffeafbe841d?w=800&h=800&fit=crop",
+				// Polar Bear
+				"https://images.unsplash.com/photo-1589656966895-2f33e7653819?w=800&h=800&fit=crop",
+				// Brown Bear
+				"https://images.unsplash.com/photo-1530595467537-0b5996c41f2d?w=800&h=800&fit=crop",
+				// Tiger
+				"https://images.unsplash.com/photo-1501705388883-4ed8a543392c?w=800&h=800&fit=crop",
+				// Turtle
+				"https://images.unsplash.com/photo-1518467166778-b88f373ffec7?w=800&h=800&fit=crop",
+				// Giraffe
+				"https://images.unsplash.com/photo-1534567153574-2b12153a87f0?w=800&h=800&fit=crop"
+			};
 
                         java.util.Random random = new java.util.Random();
                         List<Pets> petsToSave = new java.util.ArrayList<>();

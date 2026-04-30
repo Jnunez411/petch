@@ -283,7 +283,7 @@ export default function VendorAppointmentsPage() {
                                 variant="outline"
                                 disabled={cancelLoading[appt.id]}
                                 onClick={() => handleCancel(appt.id)}
-                                className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                                className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300"
                               >
                                 {cancelLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
                                 Cancel
@@ -308,24 +308,26 @@ export default function VendorAppointmentsPage() {
                             </Button>
                           </div>
                         ) : (
-                          <div className="space-y-2">
-                            <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                              <Clock className="size-4" />
-                              {appt.appointmentType === 'MEETUP' ? 'Pick a time for the adopter' : 'Choose a pick-up time for the adopter'}
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {times.map((t) => (
-                                <button
-                                  key={t}
-                                  type="button"
-                                  disabled={timeSelectLoading[appt.id]}
-                                  onClick={() => handleVendorSelectTime(appt.id, t)}
-                                  className="px-3 py-1.5 rounded-xl border-2 border-teal/30 text-sm font-medium text-teal hover:bg-teal/10 hover:border-teal transition-colors disabled:opacity-50"
-                                >
-                                  {timeSelectLoading[appt.id] ? <Loader2 className="size-3 animate-spin inline" /> : t}
-                                </button>
-                              ))}
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 dark:bg-amber-950/20 dark:border-amber-800">
+                              <Clock className="size-4 text-amber-600 shrink-0" />
+                              <div>
+                                <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Waiting for adopter to pick a time</p>
+                                <p className="text-xs text-amber-600/80 dark:text-amber-500 mt-0.5">
+                                  The adopter will choose from the available time slots. You'll be able to confirm once they select.
+                                </p>
+                              </div>
                             </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={cancelLoading[appt.id]}
+                              onClick={() => handleCancel(appt.id)}
+                              className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300"
+                            >
+                              {cancelLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
+                              Cancel Request
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -394,17 +396,14 @@ export default function VendorAppointmentsPage() {
                         </div>
 
                         {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
-                          <div className="pt-1 space-y-2">
-                            <Link 
-                              to={`/checkout?pet_id=${appt.petId}&pet_name=${encodeURIComponent(appt.petName || `Pet #${appt.petId}`)}&price=${Math.round((appt.priceEstimate || 0) * 100)}`}
-                              className="inline-block"
-                            >
-                              <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
-                                <CreditCard className="size-4 mr-2" />
-                                Pay Online
-                              </Button>
-                            </Link>
-                            <p className="text-xs text-zinc-400">Adopt for ${appt.priceEstimate?.toFixed(2) || '0.00'} online.</p>
+                          <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 dark:bg-amber-950/20 dark:border-amber-800">
+                            <CreditCard className="size-4 text-amber-600 shrink-0" />
+                            <div>
+                              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Awaiting adopter payment</p>
+                              <p className="text-xs text-amber-600/80 dark:text-amber-500 mt-0.5">
+                                Adoption fee: ${appt.priceEstimate?.toFixed(2) || '0.00'} · The adopter will complete payment from their profile.
+                              </p>
+                            </div>
                           </div>
                         )}
 
@@ -413,7 +412,7 @@ export default function VendorAppointmentsPage() {
                             type="button"
                             variant="outline"
                             onClick={() => setDismissingId(appt.id)}
-                            className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                            className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300 w-full sm:w-auto"
                           >
                             <X className="size-4 mr-2" />
                             Dismiss

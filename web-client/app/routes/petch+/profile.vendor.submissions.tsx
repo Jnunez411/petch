@@ -385,7 +385,7 @@ export default function VendorSubmissionsPage() {
                           variant="outline"
                           disabled={cancelLoading[appt.id]}
                           onClick={() => handleCancelPending(appt.id)}
-                          className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                          className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300 w-full sm:w-auto"
                         >
                           {cancelLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
                           Cancel Appointment

@@ -215,14 +215,14 @@ export default function AdminReports() {
                                 <div className="flex gap-3">
                                     <button
                                         onClick={() => setResolveStatus('PARDONED')}
-                                        className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-all ${resolveStatus === 'PARDONED' ? 'border-green-500 bg-green-100 text-green-700' : 'border-border hover:bg-green-50 hover:text-green-700'}`}
+                                        className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-all ${resolveStatus === 'PARDONED' ? 'border-green-500 dark:border-green-600 bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400' : 'border-border hover:bg-green-50 dark:hover:bg-green-950/20 hover:text-green-700 dark:hover:text-green-400 dark:border-zinc-700'}`}
                                     >
                                         <XCircle className="w-4 h-4 inline mr-1.5" />
                                         Pardon
                                     </button>
                                     <button
                                         onClick={() => setResolveStatus('BANNED')}
-                                        className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-all ${resolveStatus === 'BANNED' ? 'border-red-500 bg-red-100 text-red-700' : 'border-border hover:bg-red-50 hover:text-red-700'}`}
+                                        className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-all ${resolveStatus === 'BANNED' ? 'border-red-500 dark:border-red-600 bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400' : 'border-border hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-700 dark:hover:text-red-400 dark:border-zinc-700'}`}
                                     >
                                         <AlertTriangle className="w-4 h-4 inline mr-1.5" />
                                         Ban

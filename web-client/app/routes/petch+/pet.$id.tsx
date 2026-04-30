@@ -609,11 +609,7 @@ export default function PetDetail() {
                     Fosterable
                   </span>
                 )}
-                {pet.real && (
-                  <span className="inline-block bg-blue-100 text-blue-800 px-4 py-2 rounded-full font-semibold">
-                    Real
-                  </span>
-                )}
+
               </div>
             </div>
 
@@ -667,12 +663,7 @@ export default function PetDetail() {
                     {pet.fosterable ? "Yes" : "No"}
                   </dd>
                 </div>
-                <div className="flex justify-between items-center border-b border-border pb-3">
-                  <dt className="text-muted-foreground font-medium">Real</dt>
-                  <dd className="text-foreground font-semibold">
-                    {pet.real ? "Yes" : "No"}
-                  </dd>
-                </div>
+
                 {pet.user && (
                   <div className="flex justify-between items-center">
                     <dt className="text-muted-foreground font-medium">Uploaded by</dt>
@@ -725,8 +716,8 @@ export default function PetDetail() {
                 onClick={handleToggleFavorite}
                 variant="outline"
                 className={`py-3 px-5 text-lg font-semibold transition-all duration-200 ${isFavorited
-                    ? 'border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100'
-                    : 'border-border hover:border-rose-300 hover:text-rose-500'
+                    ? 'border-rose-300 dark:border-rose-800/30 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300'
+                    : 'border-border hover:border-rose-300 dark:hover:border-rose-700 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20'
                   }`}
               >
                 <Heart className={`w-5 h-5 mr-2 transition-all duration-200 ${isFavorited ? 'fill-rose-500 text-rose-500' : ''
@@ -736,7 +727,7 @@ export default function PetDetail() {
               <Button
                 onClick={() => setShowReportModal(true)}
                 variant="outline"
-                className="py-3 px-5 text-lg font-semibold border-amber-300 text-amber-600 hover:bg-amber-50 hover:border-amber-400 transition-all duration-200"
+                className="py-3 px-5 text-lg font-semibold border-amber-300 dark:border-amber-700/50 text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-400 dark:hover:border-amber-600 hover:text-amber-700 dark:hover:text-amber-400 transition-all duration-200"
               >
                 <Flag className="w-5 h-5 mr-2" />
                 Report
@@ -753,15 +744,6 @@ export default function PetDetail() {
                   <div className="border-b border-border pb-4">
                     <p className="text-muted-foreground text-sm font-medium">Estimated Adoption Cost</p>
                     <p className="text-2xl font-bold text-coral">${pet.adoptionDetails.priceEstimate?.toFixed(2) || '0.00'}</p>
-                    <Link 
-                      to={`/checkout?pet_id=${pet.id}&pet_name=${encodeURIComponent(pet.name)}&price=${Math.round((pet.adoptionDetails.priceEstimate || 0) * 100)}`}
-                      className="inline-block mt-3"
-                    >
-                      <Button className="bg-coral hover:bg-coral-dark text-white">
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        Pay Adoption Fee
-                      </Button>
-                    </Link>
                   </div>
 
                   {/* Steps Description */}
@@ -798,7 +780,7 @@ export default function PetDetail() {
                         type="button"
                         onClick={handleDownloadTemplate}
                         variant="outline"
-                        className="border-blue-300 text-blue-800 hover:bg-blue-100"
+                        className="border-blue-300 dark:border-blue-700/50 text-blue-800 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/40 hover:text-blue-900 dark:hover:text-blue-300"
                       >
                         Download Form PDF
                       </Button>

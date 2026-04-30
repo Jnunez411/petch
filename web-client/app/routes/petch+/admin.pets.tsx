@@ -278,22 +278,14 @@ export default function AdminPets() {
                                             </td>
                                             <td className="py-3 px-4">
                                                 <div className="flex gap-2">
-                                                    <Button variant="outline" size="sm" asChild>
-                                                        <Link to={`/pets/${pet.id}?origin=admin`}>
-                                                            View
-                                                        </Link>
-                                                    </Button>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        className={pet.isAdopted ? 'text-purple-600 border-purple-300 hover:bg-purple-50' : ''}
-                                                        onClick={() => adoptFetcher.submit(
-                                                            { petId: String(pet.id), _action: 'toggle-adopted', isAdopted: String(!pet.isAdopted) },
-                                                            { method: 'POST' }
-                                                        )}
-                                                        disabled={adoptFetcher.state !== 'idle' && adoptFetcher.formData?.get('petId') === String(pet.id)}
+                                                        asChild
                                                     >
-                                                        {pet.isAdopted ? 'Unmark' : 'Adopted'}
+                                                        <Link to={`/pets/${pet.id}?origin=admin`}>
+                                                            View
+                                                        </Link>
                                                     </Button>
                                                     <Button
                                                         variant="destructive"

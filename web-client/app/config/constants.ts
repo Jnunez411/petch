@@ -49,9 +49,10 @@ export const CARD_TRANSITION_DURATION = 600;
 // ============================================
 
 export const PLACEHOLDER_IMAGES: Record<string, string> = {
-    Dog: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&h=600&fit=crop',
+    Dog: 'https://images.pexels.com/photos/1805164/pexels-photo-1805164.jpeg?auto=compress&w=600&h=600&fit=crop',
     Cat: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&h=600&fit=crop',
-    Bird: 'https://images.unsplash.com/photo-1522926193341-e9ffd6a399b6?w=600&h=600&fit=crop',
-    Other: 'https://images.unsplash.com/photo-1425082661705-1834bfd09dca?w=600&h=600&fit=crop',
+    Bird: 'https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=600&h=600&fit=crop',
+    Rabbit: 'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=600&h=600&fit=crop',
+    Other: 'https://images.pexels.com/photos/5169056/pexels-photo-5169056.jpeg?auto=compress&w=600&h=600&fit=crop',
     default: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&h=600&fit=crop',
 };

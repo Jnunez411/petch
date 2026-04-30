@@ -143,7 +143,7 @@ public class PetController {
     }
 
     // get all pets with optional filtering and search
-    // GET /api/pets?search=Max&species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&real=true&page=0&size=12
+    // GET /api/pets?search=Max&species=Dog&ageMin=1&ageMax=5&fosterable=true&atRisk=true&page=0&size=12
     @GetMapping
     public ResponseEntity<Page<PetDTO>> getFilteredPets(
             @RequestParam(required = false) String search,
@@ -152,12 +152,11 @@ public class PetController {
             @RequestParam(required = false) Integer ageMax,
             @RequestParam(required = false) Boolean fosterable,
             @RequestParam(required = false) Boolean atRisk,
-            @RequestParam(required = false) Boolean real,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size) {
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<PetDTO> pets = petService.getFilteredPetDTOs(search, species, ageMin, ageMax, fosterable, atRisk, real, pageable);
+        Page<PetDTO> pets = petService.getFilteredPetDTOs(search, species, ageMin, ageMax, fosterable, atRisk, pageable);
         return ResponseEntity.ok(pets);
     }
 
@@ -209,7 +208,6 @@ public class PetController {
                     .description(dto.getDescription())
                     .atRisk(dto.getAtRisk() != null ? dto.getAtRisk() : false)
                     .fosterable(dto.getFosterable() != null ? dto.getFosterable() : false)
-                    .real(dto.getReal() != null ? dto.getReal() : false)
                     .user(user)
                     .build();
             Pets createdPet = petService.createPet(pet);

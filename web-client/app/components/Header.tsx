@@ -191,7 +191,7 @@ export function Header(props: HeaderProps) {
                 <Form method="post" action="/logout">
                   <button
                     type="submit"
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-700 dark:hover:text-red-300 transition-colors"
                   >
                     <LogOut className="size-5" />
                     <span>Logout</span>

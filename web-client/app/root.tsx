@@ -45,8 +45,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               (function() {
                 try {
                   var theme = localStorage.getItem('petch-theme');
-                  var isDark = theme === 'dark' || 
-                    (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  var isDark = theme === 'dark';
                   if (isDark) {
                     document.documentElement.classList.add('dark');
                   }

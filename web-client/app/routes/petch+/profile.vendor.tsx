@@ -610,17 +610,14 @@ export default function VendorProfilePage() {
                             <p className="text-sm font-medium text-teal">Appointment is set · {chosenTime}</p>
                           </div>
                           {(appt.paymentOption === 'ONLINE' || appt.paymentOption === 'BOTH') && (
-                            <div className="pt-1 space-y-2">
-                              <Link 
-                                to={`/checkout?pet_id=${appt.petId}&pet_name=${encodeURIComponent(appt.petName || `Pet #${appt.petId}`)}&price=${Math.round((appt.priceEstimate || 0) * 100)}`}
-                                className="inline-block"
-                              >
-                                <Button className="rounded-xl bg-teal text-white hover:bg-teal/90 w-full sm:w-auto">
-                                  <CreditCard className="size-4 mr-2" />
-                                  Pay Online
-                                </Button>
-                              </Link>
-                              <p className="text-xs text-zinc-400">Adopt for ${appt.priceEstimate?.toFixed(2) || '0.00'} online.</p>
+                            <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 dark:bg-amber-950/20 dark:border-amber-800">
+                              <CreditCard className="size-4 text-amber-600 shrink-0" />
+                              <div>
+                                <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Awaiting adopter payment</p>
+                                <p className="text-xs text-amber-600/80 dark:text-amber-500 mt-0.5">
+                                  Adoption fee: ${appt.priceEstimate?.toFixed(2) || '0.00'} · The adopter will complete payment from their profile.
+                                </p>
+                              </div>
                             </div>
                           )}
                           <div className="pt-1 border-t border-zinc-100 dark:border-zinc-800">
@@ -628,7 +625,7 @@ export default function VendorProfilePage() {
                               type="button"
                               variant="outline"
                               onClick={() => setDismissingId(appt.id)}
-                              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                              className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300 w-full sm:w-auto"
                             >
                               <X className="size-4 mr-2" />
                               Dismiss
@@ -656,7 +653,7 @@ export default function VendorProfilePage() {
                               variant="outline"
                               disabled={cancelLoading[appt.id]}
                               onClick={() => handleCancel(appt.id)}
-                              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                              className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300"
                             >
                               {cancelLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
                               Cancel
@@ -681,24 +678,26 @@ export default function VendorProfilePage() {
                           </Button>
                         </div>
                       ) : (
-                        <div className="space-y-2">
-                          <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                            <Clock className="size-4" />
-                            {appt.appointmentType === 'MEETUP' ? 'Pick a time for the adopter' : 'Choose a pick-up time for the adopter'}
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {times.map((t) => (
-                              <button
-                                key={t}
-                                type="button"
-                                disabled={timeSelectLoading[appt.id]}
-                                onClick={() => handleVendorSelectTime(appt.id, t)}
-                                className="px-3 py-1.5 rounded-xl border-2 border-teal/30 text-sm font-medium text-teal hover:bg-teal/10 hover:border-teal transition-colors disabled:opacity-50"
-                              >
-                                {timeSelectLoading[appt.id] ? <Loader2 className="size-3 animate-spin inline" /> : t}
-                              </button>
-                            ))}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 dark:bg-amber-950/20 dark:border-amber-800">
+                            <Clock className="size-4 text-amber-600 shrink-0" />
+                            <div>
+                              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Waiting for adopter to pick a time</p>
+                              <p className="text-xs text-amber-600/80 dark:text-amber-500 mt-0.5">
+                                The adopter will choose from the available time slots. You'll be able to confirm once they select.
+                              </p>
+                            </div>
                           </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={cancelLoading[appt.id]}
+                            onClick={() => handleCancel(appt.id)}
+                            className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300"
+                          >
+                            {cancelLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
+                            Cancel Request
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -879,7 +878,7 @@ export default function VendorProfilePage() {
               {(verificationStatus === 'UNVERIFIED' || verificationStatus === 'REJECTED') && (
                 <Form method="post">
                   <input type="hidden" name="intent" value="request-verification" />
-                  <Button type="submit" variant="outline" className="rounded-xl border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+                  <Button type="submit" variant="outline" className="rounded-xl border-emerald-300 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-400 dark:hover:border-emerald-600 hover:text-emerald-800 dark:hover:text-emerald-300">
                     Request Verification
                   </Button>
                 </Form>
@@ -891,7 +890,7 @@ export default function VendorProfilePage() {
               ) : (
                 <Button
                   variant="outline"
-                  className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
+                  className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300"
                   onClick={handleRequestDeletion}
                   disabled={isRequesting}
                 >
@@ -1087,7 +1086,7 @@ export default function VendorProfilePage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-400 dark:hover:border-red-600 hover:text-red-700 dark:hover:text-red-300"
+                      className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300"
                       onClick={handleRequestDeletion}
                       disabled={isRequesting}
                     >
@@ -1155,11 +1154,7 @@ export default function VendorProfilePage() {
                             Fosterable
                           </span>
                         )}
-                        {pet.real && (
-                          <span className="px-2 py-1 rounded-full bg-blue-500 text-white text-xs font-semibold">
-                            Real
-                          </span>
-                        )}
+
                         {pet.isAdopted && (
                           <span className="px-2 py-1 rounded-full bg-purple-500 text-white text-xs font-semibold">
                             Adopted

@@ -493,7 +493,7 @@ export default function AdopterProfilePage() {
                               type="button"
                               variant="outline"
                               onClick={() => setDismissingId(appt.id)}
-                              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                              className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300 w-full sm:w-auto"
                             >
                               <X className="size-4 mr-2" />
                               Dismiss
@@ -515,7 +515,7 @@ export default function AdopterProfilePage() {
                               variant="outline"
                               disabled={rejectLoading[appt.id]}
                               onClick={() => handleRejectAppointment(appt.id)}
-                              className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                              className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300 w-full sm:w-auto"
                             >
                               {rejectLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
                               Decline Appointment
@@ -665,7 +665,7 @@ export default function AdopterProfilePage() {
                   ) : (
                     <Button
                       variant="outline"
-                      className="w-full rounded-xl border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700"
+                      className="w-full rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300"
                       onClick={handleRequestDeletion}
                       disabled={isRequesting}
                     >
@@ -1035,7 +1035,7 @@ export default function AdopterProfilePage() {
                                       variant="outline"
                                       disabled={rejectLoading[appt.id]}
                                       onClick={() => handleRejectAppointment(appt.id)}
-                                      className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                                      className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300 w-full sm:w-auto"
                                     >
                                       {rejectLoading[appt.id] ? <Loader2 className="size-4 mr-2 animate-spin" /> : <X className="size-4 mr-2" />}
                                       Decline Appointment
@@ -1134,7 +1134,7 @@ export default function AdopterProfilePage() {
                                       type="button"
                                       variant="outline"
                                       onClick={() => setDismissingId(appt.id)}
-                                      className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 w-full sm:w-auto"
+                                      className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300 w-full sm:w-auto"
                                     >
                                       <X className="size-4 mr-2" />
                                       Dismiss

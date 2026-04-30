@@ -170,7 +170,6 @@ export default function CreatePetPage() {
     description: '',
     atRisk: false,
     fosterable: false,
-    real: false,
   });
 
   const [adoptionDetails, setAdoptionDetails] = useState(
@@ -535,7 +534,6 @@ export default function CreatePetPage() {
         description: formData.description,
         atRisk: formData.atRisk,
         fosterable: formData.fosterable,
-        real: formData.real,
         userId: fullUser.id,
       };
 
@@ -898,27 +896,7 @@ export default function CreatePetPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="real"
-                      name="real"
-                      checked={formData.real}
-                      onCheckedChange={(checked) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          real: checked as boolean,
-                        }))
-                      }
-                    />
-                    <div>
-                      <Label htmlFor="real" className="cursor-pointer font-medium">
-                        Real
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        For innovation Day and Presentating real data
-                      </p>
-                    </div>
-                  </div>
+
                 </div>
               </div>
 

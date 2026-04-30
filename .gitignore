@@ -27,3 +27,7 @@ node_modules/
 
 # GitHub folder 
 .github/
+
+images_temp.md
+frontend.pid
+verified_images.md

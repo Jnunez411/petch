@@ -12,6 +12,7 @@ import jakarta.mail.internet.MimeMessage;
 
 import project.petch.petch_api.models.Pets;
 import java.util.List;
+import org.springframework.scheduling.annotation.Async;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +27,7 @@ public class EmailService {
     @Value("${app.password-reset.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
+    @Async
     public void sendPasswordResetEmail(String toEmail, String resetLink) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -44,6 +46,7 @@ public class EmailService {
         }
     }
 
+    @Async
     public void sendWelcomeEmail(String toEmail, String firstName) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -62,6 +65,7 @@ public class EmailService {
         }
     }
 
+    @Async
     public void sendPetMatchEmail(String toEmail, String firstName, List<Pets> matchingPets) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();

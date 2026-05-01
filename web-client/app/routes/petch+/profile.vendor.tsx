@@ -848,7 +848,21 @@ export default function VendorProfilePage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="flex gap-3">
+            <div className="flex flex-wrap justify-center md:justify-start gap-3">
+              <Button asChild className="rounded-xl bg-coral hover:bg-coral-dark">
+                <Link to="/pets/create">
+                  <Plus className="size-4 mr-2" />
+                  New Listing
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() => setIsEditing(!isEditing)}
+              >
+                <Edit3 className="size-4 mr-2" />
+                {isEditing ? 'Cancel' : 'Edit Profile'}
+              </Button>
               <Button asChild variant="outline" className="rounded-xl border-coral/30 text-coral hover:bg-coral/10 hover:text-coral-dark">
                 <Link to="/profile/vendor/adoption-preferences">
                   <SlidersHorizontal className="size-4 mr-2" />
@@ -898,20 +912,6 @@ export default function VendorProfilePage() {
                   {isRequesting ? 'Submitting...' : 'Request Deletion'}
                 </Button>
               )}
-              <Button
-                variant="outline"
-                className="rounded-xl"
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                <Edit3 className="size-4 mr-2" />
-                {isEditing ? 'Cancel' : 'Edit Profile'}
-              </Button>
-              <Button asChild className="rounded-xl bg-coral hover:bg-coral-dark">
-                <Link to="/pets/create">
-                  <Plus className="size-4 mr-2" />
-                  New Listing
-                </Link>
-              </Button>
             </div>
           </div>
         </div>

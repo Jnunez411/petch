@@ -1354,6 +1354,7 @@ export default function CreatePetPage() {
                 
                 {currentStep < totalSteps ? (
                   <Button
+                    key="next"
                     type="button"
                     onClick={nextStep}
                     className="flex-1"
@@ -1362,6 +1363,7 @@ export default function CreatePetPage() {
                   </Button>
                 ) : (
                   <Button
+                    key="submit"
                     type="submit"
                     disabled={loading}
                     className="flex-1"

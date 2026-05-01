@@ -3,7 +3,9 @@
  * All API base URLs and image URL helpers should be imported from here
  */
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+export const API_BASE_URL = typeof document === 'undefined' 
+    ? (import.meta.env.VITE_API_URL || 'http://localhost:8080')
+    : ''; // On the client, use relative URL so Vite proxy or reverse proxy handles it
 
 /**
  * Constructs a full URL for images stored on the backend

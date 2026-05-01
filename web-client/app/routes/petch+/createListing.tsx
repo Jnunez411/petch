@@ -764,7 +764,7 @@ export default function CreatePetPage() {
                   Pet Details
                 </h3>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Name *</Label>
                     <div className="relative">
@@ -801,7 +801,7 @@ export default function CreatePetPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="breed">Breed *</Label>
                     <div className="relative">

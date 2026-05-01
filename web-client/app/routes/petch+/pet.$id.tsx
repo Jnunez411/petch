@@ -115,7 +115,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       description: fakePet.description,
       atRisk: fakePet.atRisk,
       fosterable: fakePet.fosterable,
-      real: fakePet.real ?? false,
+      real: false,
       images: [
         {
           id: -1,
@@ -535,43 +535,43 @@ export default function PetDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
+    <div className="min-h-screen bg-background py-4 sm:py-8 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Back Button */}
-        <div className="mb-6">
-          <Link to={backLink} className="text-coral hover:text-coral-dark font-medium">
+        <div className="mb-4 sm:mb-6">
+          <Link to={backLink} className="text-coral hover:text-coral-dark font-medium text-sm sm:text-base">
             {backText}
           </Link>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 gap-6 sm:gap-8">
           {/* Image Gallery */}
-          <div>
+          <div className="space-y-4">
             {/* Main Image */}
-            <Card className="overflow-hidden bg-card shadow-lg">
+            <Card className="overflow-hidden bg-card shadow-md sm:shadow-lg rounded-xl">
               {mainImage ? (
                 <img
                   src={getImageUrl(mainImage.filePath)}
                   alt={mainImage.altText || pet.name}
-                  className="w-full h-96 object-cover"
+                  className="w-full h-64 sm:h-80 md:h-96 object-cover"
                 />
               ) : (
                 <img
                   src={PLACEHOLDER_IMAGES[pet.species] || PLACEHOLDER_IMAGES.default}
                   alt={pet.name}
-                  className="w-full h-96 object-cover"
+                  className="w-full h-64 sm:h-80 md:h-96 object-cover"
                 />
               )}
             </Card>
 
             {/* Thumbnail Gallery */}
             {pet.images && pet.images.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto pb-2">
+              <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide">
                 {pet.images.map((img: Image, idx: number) => (
                   <button
                     key={img.id}
                     onClick={() => setSelectedImageIndex(idx)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${idx === selectedImageIndex
+                    className={`flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border-2 transition-all ${idx === selectedImageIndex
                       ? "border-coral shadow-md"
                       : "border-muted hover:border-coral/50"
                       }`}
@@ -588,90 +588,89 @@ export default function PetDetail() {
           </div>
 
           {/* Pet Information */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Header */}
-            <div>
-              <h1 className="text-4xl font-bold text-foreground mb-2">{pet.name}</h1>
-              <div className="flex gap-3 flex-wrap">
-                <span className="inline-block bg-coral/10 text-coral px-4 py-2 rounded-full font-semibold">
+            <div className="space-y-3">
+              <h1 className="text-3xl sm:text-4xl font-bold text-foreground truncate">{pet.name}</h1>
+              <div className="flex gap-2 flex-wrap">
+                <span className="inline-block bg-coral/10 text-coral px-3 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">
                   {pet.species}
                 </span>
-                <span className="inline-block bg-teal/10 text-teal px-4 py-2 rounded-full">
+                <span className="inline-block bg-teal/10 text-teal px-3 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm">
                   {pet.breed}
                 </span>
                 {pet.atRisk && (
-                  <span className="inline-block bg-destructive/10 text-destructive px-4 py-2 rounded-full font-semibold">
+                  <span className="inline-block bg-destructive/10 text-destructive px-3 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">
                     At Risk
                   </span>
                 )}
                 {pet.fosterable && (
-                  <span className="inline-block bg-green-100 text-green-800 px-4 py-2 rounded-full">
+                  <span className="inline-block bg-green-100 text-green-800 px-3 py-1 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm">
                     Fosterable
                   </span>
                 )}
-
               </div>
             </div>
 
             {/* Big Details Card */}
-            <Card className="bg-card p-6 shadow-md">
-              <div className="grid grid-cols-2 gap-6">
+            <Card className="bg-card p-4 sm:p-6 shadow-md">
+              <div className="grid grid-cols-2 gap-4 sm:gap-6">
                 <div>
-                  <p className="text-muted-foreground text-sm font-medium">Age</p>
-                  <p className="text-2xl font-bold text-foreground">{pet.age} years old</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm font-medium uppercase tracking-wider">Age</p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{pet.age} {pet.age === 1 ? 'year' : 'years'} old</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground text-sm font-medium">Status</p>
-                  <p className="text-2xl font-bold text-green-600">Available</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm font-medium uppercase tracking-wider">Status</p>
+                  <p className="text-xl sm:text-2xl font-bold text-green-600">Available</p>
                 </div>
               </div>
             </Card>
 
             {/* Description */}
-            <Card className="bg-card p-6 shadow-md">
-              <h2 className="text-xl font-bold text-foreground mb-3">About {pet.name}</h2>
-              <p className="text-muted-foreground leading-relaxed text-lg">
+            <Card className="bg-card p-4 sm:p-6 shadow-md">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground mb-2 sm:mb-3">About {pet.name}</h2>
+              <p className="text-muted-foreground leading-relaxed text-base sm:text-lg">
                 {pet.description || "No description available for this pet."}
               </p>
             </Card>
 
             {/* Additional Info */}
-            <Card className="bg-card p-6 shadow-md">
-              <h2 className="text-xl font-bold text-foreground mb-4">Pet Information</h2>
-              <dl className="space-y-4">
-                <div className="flex justify-between items-center border-b border-border pb-3">
-                  <dt className="text-muted-foreground font-medium">Species</dt>
-                  <dd className="text-foreground font-semibold">{pet.species}</dd>
+            <Card className="bg-card p-4 sm:p-6 shadow-md">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground mb-3 sm:mb-4">Pet Information</h2>
+              <dl className="space-y-3 sm:space-y-4">
+                <div className="flex justify-between items-center border-b border-border pb-2 sm:pb-3">
+                  <dt className="text-muted-foreground text-sm font-medium">Species</dt>
+                  <dd className="text-foreground text-sm sm:text-base font-semibold">{pet.species}</dd>
                 </div>
-                <div className="flex justify-between items-center border-b border-border pb-3">
-                  <dt className="text-muted-foreground font-medium">Breed</dt>
-                  <dd className="text-foreground font-semibold">{pet.breed}</dd>
+                <div className="flex justify-between items-center border-b border-border pb-2 sm:pb-3">
+                  <dt className="text-muted-foreground text-sm font-medium">Breed</dt>
+                  <dd className="text-foreground text-sm sm:text-base font-semibold">{pet.breed}</dd>
                 </div>
-                <div className="flex justify-between items-center border-b border-border pb-3">
-                  <dt className="text-muted-foreground font-medium">Age</dt>
-                  <dd className="text-foreground font-semibold">{pet.age} years</dd>
+                <div className="flex justify-between items-center border-b border-border pb-2 sm:pb-3">
+                  <dt className="text-muted-foreground text-sm font-medium">Age</dt>
+                  <dd className="text-foreground text-sm sm:text-base font-semibold">{pet.age} years</dd>
                 </div>
-                <div className="flex justify-between items-center border-b border-border pb-3">
-                  <dt className="text-muted-foreground font-medium">At Risk</dt>
-                  <dd className="text-foreground font-semibold">
+                <div className="flex justify-between items-center border-b border-border pb-2 sm:pb-3">
+                  <dt className="text-muted-foreground text-sm font-medium">At Risk</dt>
+                  <dd className="text-foreground text-sm sm:text-base font-semibold">
                     {pet.atRisk ? "Yes" : "No"}
                   </dd>
                 </div>
-                <div className="flex justify-between items-center border-b border-border pb-3">
-                  <dt className="text-muted-foreground font-medium">Fosterable</dt>
-                  <dd className="text-foreground font-semibold">
+                <div className="flex justify-between items-center border-b border-border pb-2 sm:pb-3">
+                  <dt className="text-muted-foreground text-sm font-medium">Fosterable</dt>
+                  <dd className="text-foreground text-sm sm:text-base font-semibold">
                     {pet.fosterable ? "Yes" : "No"}
                   </dd>
                 </div>
 
                 {pet.user && (
-                  <div className="flex justify-between items-center">
-                    <dt className="text-muted-foreground font-medium">Uploaded by</dt>
-                    <dd className="text-foreground font-semibold flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">
+                    <dt className="text-muted-foreground text-sm font-medium">Uploaded by</dt>
+                    <dd className="text-foreground text-sm sm:text-base font-semibold flex items-center gap-2">
                       <span>{pet.user.firstName} {pet.user.lastName}</span>
                       {pet.user.verificationStatus === 'VERIFIED' && (
-                        <span className="inline-flex items-center rounded-full bg-teal/10 px-2 py-0.5 text-xs font-semibold text-teal">
-                          Verified Vendor
+                        <span className="inline-flex items-center rounded-full bg-teal/10 px-2 py-0.5 text-[10px] sm:text-xs font-semibold text-teal">
+                          Verified
                         </span>
                       )}
                     </dd>
@@ -681,22 +680,22 @@ export default function PetDetail() {
             </Card>
 
             {petDocuments.length > 0 && (
-              <Card className="bg-card p-6 shadow-md">
-                <h2 className="text-xl font-bold text-foreground mb-4">Pet Documents</h2>
+              <Card className="bg-card p-4 sm:p-6 shadow-md">
+                <h2 className="text-lg sm:text-xl font-bold text-foreground mb-3 sm:mb-4">Pet Documents</h2>
                 <div className="space-y-3">
                   {petDocuments.map((document) => (
                     <div
                       key={document.id}
-                      className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4 md:flex-row md:items-center md:justify-between"
+                      className="flex flex-col gap-2 rounded-lg border border-border bg-muted/10 p-3 sm:p-4 md:flex-row md:items-center md:justify-between"
                     >
-                      <div>
-                        <p className="font-semibold text-foreground">{document.fileName}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(document.fileSize / 1024 / 1024).toFixed(2)} MB • Uploaded {new Date(document.createdAt).toLocaleString()}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground truncate text-sm sm:text-base">{document.fileName}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">
+                          {(document.fileSize / 1024 / 1024).toFixed(2)} MB • {new Date(document.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <Button type="button" variant="outline" onClick={() => handleDownloadPetDocument(document)}>
-                        Download Document
+                      <Button type="button" variant="outline" size="sm" onClick={() => handleDownloadPetDocument(document)} className="shrink-0 text-xs sm:text-sm h-8 sm:h-9">
+                        Download
                       </Button>
                     </div>
                   ))}
@@ -705,33 +704,35 @@ export default function PetDetail() {
             )}
 
             {/* Action Buttons */}
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={() => setShowAdoptionDetails(!showAdoptionDetails)}
-                className="flex-1 bg-coral hover:bg-coral-dark text-white py-3 text-lg font-semibold"
+                className="flex-1 bg-coral hover:bg-coral-dark text-white py-4 sm:py-6 text-base sm:text-lg font-semibold"
               >
                 {showAdoptionDetails ? 'Hide Adoption Details' : 'View Adoption Details'}
               </Button>
-              <Button
-                onClick={handleToggleFavorite}
-                variant="outline"
-                className={`py-3 px-5 text-lg font-semibold transition-all duration-200 ${isFavorited
-                    ? 'border-rose-300 dark:border-rose-800/30 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300'
-                    : 'border-border hover:border-rose-300 dark:hover:border-rose-700 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20'
-                  }`}
-              >
-                <Heart className={`w-5 h-5 mr-2 transition-all duration-200 ${isFavorited ? 'fill-rose-500 text-rose-500' : ''
-                  }`} />
-                {isFavorited ? 'Favorited' : 'Favorite'}
-              </Button>
-              <Button
-                onClick={() => setShowReportModal(true)}
-                variant="outline"
-                className="py-3 px-5 text-lg font-semibold border-amber-300 dark:border-amber-700/50 text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-400 dark:hover:border-amber-600 hover:text-amber-700 dark:hover:text-amber-400 transition-all duration-200"
-              >
-                <Flag className="w-5 h-5 mr-2" />
-                Report
-              </Button>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  onClick={handleToggleFavorite}
+                  variant="outline"
+                  className={`flex-1 sm:flex-none py-4 sm:py-6 px-4 sm:px-5 text-sm sm:text-base font-semibold transition-all duration-200 ${isFavorited
+                      ? 'border-rose-300 dark:border-rose-800/30 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 hover:text-rose-700 dark:hover:text-rose-300'
+                      : 'border-border hover:border-rose-300 dark:hover:border-rose-700 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20'
+                    }`}
+                >
+                  <Heart className={`w-4 h-4 sm:w-5 sm:h-5 mr-2 transition-all duration-200 ${isFavorited ? 'fill-rose-500 text-rose-500' : ''
+                    }`} />
+                  {isFavorited ? 'Liked' : 'Like'}
+                </Button>
+                <Button
+                  onClick={() => setShowReportModal(true)}
+                  variant="outline"
+                  className="flex-1 sm:flex-none py-4 sm:py-6 px-4 sm:px-5 text-sm sm:text-base font-semibold border-amber-300 dark:border-amber-700/50 text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-400 dark:hover:border-amber-600 hover:text-amber-700 dark:hover:text-amber-400 transition-all duration-200"
+                >
+                  <Flag className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
+                  <span className="hidden sm:inline">Report</span>
+                </Button>
+              </div>
             </div>
 
             {/* Adoption Details */}

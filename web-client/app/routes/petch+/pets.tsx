@@ -435,21 +435,21 @@ export default function PetsPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="pt-8 pb-6 text-center border-b sticky top-16 bg-background z-40 shadow-sm">
-        <h1 className="text-5xl font-bold primary-text tracking-tight center-text mb-2">
+      <div className="pt-6 pb-4 sm:pt-8 sm:pb-6 text-center border-b sticky top-16 bg-background z-40 shadow-sm px-4">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold primary-text tracking-tight center-text mb-1 sm:mb-2">
           <span className="text-coral"> Pet Listings </span>
         </h1>
-        <p className="text-xl text-muted-foreground ">
+        <p className="text-base sm:text-lg md:text-xl text-muted-foreground ">
           Find your perfect companion • {totalPets} pets available
         </p>
       </div>
 
       {/* Filters */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="w-full bg-white dark:bg-zinc-900 rounded-lg border dark:border-zinc-800 shadow-sm p-4">
-          <div className="flex flex-wrap items-center gap-6">
+      <div className="container mx-auto px-4 py-4 sm:py-6">
+        <div className="w-full bg-white dark:bg-zinc-900 rounded-lg border dark:border-zinc-800 shadow-sm p-3 sm:p-4">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 sm:gap-6">
             {/* Search Input */}
-            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+            <div className="flex items-center gap-2 w-full lg:flex-1 lg:min-w-[200px]">
               <input
                 type="text"
                 placeholder="Search by name, breed..."
@@ -460,104 +460,111 @@ export default function PetsPage() {
                     applyFilters({ search: searchQuery, page: 1 });
                   }
                 }}
-                className="px-4 py-2 border rounded-lg bg-background text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="px-4 py-2 border rounded-lg bg-background text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm sm:text-base"
               />
               <Button
                 size="sm"
                 onClick={() => applyFilters({ search: searchQuery, page: 1 })}
+                className="shrink-0"
               >
                 Search
               </Button>
             </div>
 
-            {/* Species Filter */}
-            <div className="flex items-center gap-2">
-              <Label htmlFor="species-filter" className="text-sm font-medium whitespace-nowrap">
-                Species:
-              </Label>
-              <Select value={selectedSpecies} onValueChange={(value) => {
-                setSelectedSpecies(value);
-                applyFilters({ species: value, page: 1 });
-              }}>
-                <SelectTrigger id="species-filter" className="w-[140px]">
-                  <SelectValue placeholder="All Species" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Species</SelectItem>
-                  <SelectItem value="Dog">Dog</SelectItem>
-                  <SelectItem value="Cat">Cat</SelectItem>
-                  <SelectItem value="Bird">Bird</SelectItem>
-                  <SelectItem value="Rabbit">Rabbit</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Other Filters Group */}
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+              {/* Species Filter */}
+              <div className="flex items-center gap-2">
+                <Label htmlFor="species-filter" className="text-xs sm:text-sm font-medium whitespace-nowrap">
+                  Species:
+                </Label>
+                <Select value={selectedSpecies} onValueChange={(value) => {
+                  setSelectedSpecies(value);
+                  applyFilters({ species: value, page: 1 });
+                }}>
+                  <SelectTrigger id="species-filter" className="w-[110px] sm:w-[140px] h-9 sm:h-10">
+                    <SelectValue placeholder="All Species" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Species</SelectItem>
+                    <SelectItem value="Dog">Dog</SelectItem>
+                    <SelectItem value="Cat">Cat</SelectItem>
+                    <SelectItem value="Bird">Bird</SelectItem>
+                    <SelectItem value="Rabbit">Rabbit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Age Range Filter */}
-            <div className="flex items-center gap-2">
-              <Label htmlFor="age-filter" className="text-sm font-medium whitespace-nowrap">
-                Age:
-              </Label>
-              <Select value={selectedAgeRange} onValueChange={(value) => {
-                setSelectedAgeRange(value);
-                applyFilters({ ageRange: value, page: 1 });
-              }}>
-                <SelectTrigger id="age-filter" className="w-[140px]">
-                  <SelectValue placeholder="All Ages" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Ages</SelectItem>
-                  <SelectItem value="0-2">0-2 years (Young)</SelectItem>
-                  <SelectItem value="3-5">3-5 years (Adult)</SelectItem>
-                  <SelectItem value="6-10">6-10 years (Mature)</SelectItem>
-                  <SelectItem value="10+">10+ years (Senior)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Age Range Filter */}
+              <div className="flex items-center gap-2">
+                <Label htmlFor="age-filter" className="text-xs sm:text-sm font-medium whitespace-nowrap">
+                  Age:
+                </Label>
+                <Select value={selectedAgeRange} onValueChange={(value) => {
+                  setSelectedAgeRange(value);
+                  applyFilters({ ageRange: value, page: 1 });
+                }}>
+                  <SelectTrigger id="age-filter" className="w-[110px] sm:w-[140px] h-9 sm:h-10">
+                    <SelectValue placeholder="All Ages" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Ages</SelectItem>
+                    <SelectItem value="0-2">0-2 years (Young)</SelectItem>
+                    <SelectItem value="3-5">3-5 years (Adult)</SelectItem>
+                    <SelectItem value="6-10">6-10 years (Mature)</SelectItem>
+                    <SelectItem value="10+">10+ years (Senior)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Fosterable Checkbox */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="fosterable-filter"
-                checked={filterFosterable}
-                onCheckedChange={(checked) => {
-                  setFilterFosterable(checked as boolean);
-                  applyFilters({ fosterable: checked as boolean, page: 1 });
-                }}
-              />
-              <Label htmlFor="fosterable-filter" className="text-sm font-medium cursor-pointer">
-                Fosterable Only
-              </Label>
-            </div>
+              {/* Checkboxes Group */}
+              <div className="flex items-center gap-4">
+                {/* Fosterable Checkbox */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="fosterable-filter"
+                    checked={filterFosterable}
+                    onCheckedChange={(checked) => {
+                      setFilterFosterable(checked as boolean);
+                      applyFilters({ fosterable: checked as boolean, page: 1 });
+                    }}
+                  />
+                  <Label htmlFor="fosterable-filter" className="text-xs sm:text-sm font-medium cursor-pointer whitespace-nowrap">
+                    Fosterable
+                  </Label>
+                </div>
 
-            {/* At Risk Checkbox */}
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="atrisk-filter"
-                checked={filterAtRisk}
-                onCheckedChange={(checked) => {
-                  setFilterAtRisk(checked as boolean);
-                  applyFilters({ atRisk: checked as boolean, page: 1 });
-                }}
-              />
-              <Label htmlFor="atrisk-filter" className="text-sm font-medium cursor-pointer">
-                At Risk Only
-              </Label>
-            </div>
+                {/* At Risk Checkbox */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="atrisk-filter"
+                    checked={filterAtRisk}
+                    onCheckedChange={(checked) => {
+                      setFilterAtRisk(checked as boolean);
+                      applyFilters({ atRisk: checked as boolean, page: 1 });
+                    }}
+                  />
+                  <Label htmlFor="atrisk-filter" className="text-xs sm:text-sm font-medium cursor-pointer whitespace-nowrap">
+                    At Risk
+                  </Label>
+                </div>
+              </div>
 
-            {/* Clear Filters Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearFilters}
-              className="ml-auto"
-            >
-              Clear Filters
-            </Button>
+              {/* Clear Filters Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearFilters}
+                className="h-8 sm:h-9 text-xs sm:text-sm"
+              >
+                Clear
+              </Button>
+            </div>
           </div>
 
           {/* Active filters summary */}
           {(selectedSpecies !== 'all' || selectedAgeRange !== 'all' || filterFosterable || filterAtRisk) && (
-            <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
+            <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
               Showing {totalPets} {totalPets === 1 ? 'pet' : 'pets'}
               {selectedSpecies !== 'all' && ` • Species: ${selectedSpecies}`}
               {selectedAgeRange !== 'all' && ` • Age: ${selectedAgeRange} years`}
@@ -720,21 +727,21 @@ export default function PetsPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-8 pb-8">
+              <div className="flex flex-wrap justify-center items-center gap-2 mt-8 pb-8 px-4">
                 {/* Previous Button */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 h-9 sm:h-10"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Previous
+                  <span className="hidden sm:inline">Previous</span>
                 </Button>
 
                 {/* Page Numbers */}
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center justify-center gap-1">
                   {getPageNumbers().map((page, index) => (
                     typeof page === 'number' ? (
                       <Button
@@ -742,7 +749,7 @@ export default function PetsPage() {
                         variant={currentPage === page ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => goToPage(page)}
-                        className="w-10 h-10"
+                        className="w-9 h-9 sm:w-10 sm:h-10 text-xs sm:text-sm"
                       >
                         {page}
                       </Button>
@@ -767,18 +774,18 @@ export default function PetsPage() {
                               max={totalPages}
                               value={pageInputValue}
                               onChange={(e) => setPageInputValue(e.target.value)}
-                              className="w-16 h-10 text-center border rounded-md text-sm"
+                              className="w-12 h-9 sm:w-16 sm:h-10 text-center border rounded-md text-xs sm:text-sm"
                               autoFocus
                               placeholder={`1-${totalPages}`}
                             />
-                            <Button type="submit" size="sm" variant="outline" className="h-10">
+                            <Button type="submit" size="sm" variant="outline" className="h-9 sm:h-10 px-2">
                               Go
                             </Button>
                           </form>
                         ) : (
                           <button
                             onClick={() => setShowPageInput(true)}
-                            className="px-2 text-muted-foreground hover:text-coral cursor-pointer"
+                            className="px-1 sm:px-2 text-muted-foreground hover:text-coral cursor-pointer text-sm"
                           >
                             ...
                           </button>
@@ -794,9 +801,9 @@ export default function PetsPage() {
                   size="sm"
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 h-9 sm:h-10"
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>

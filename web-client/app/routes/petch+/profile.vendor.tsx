@@ -847,9 +847,9 @@ export default function VendorProfilePage() {
               )}
             </div>
 
-            {/* Quick Actions - Scrollable on mobile, wrapped on desktop */}
-            <div className="w-full overflow-x-auto pb-2 -mb-2 md:overflow-visible md:pb-0 md:mb-0">
-              <div className="flex flex-nowrap md:flex-wrap items-center gap-2 sm:gap-3 min-w-max md:min-w-0">
+            {/* Quick Actions - Scrollable on small mobile, wrapped on larger screens */}
+            <div className="w-full overflow-x-auto sm:overflow-visible pb-2 -mb-2 sm:pb-0 sm:mb-0 scrollbar-hide">
+              <div className="flex flex-nowrap sm:flex-wrap items-center gap-2 sm:gap-3 min-w-max sm:min-w-0">
                 {/* 1. Adoption Preferences */}
                 <Button asChild variant="outline" className="rounded-xl border-coral/30 text-coral hover:bg-coral/10 hover:text-coral-dark shrink-0">
                   <Link to="/profile/vendor/adoption-preferences">

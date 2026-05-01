@@ -847,71 +847,95 @@ export default function VendorProfilePage() {
               )}
             </div>
 
-            {/* Quick Actions */}
-            <div className="flex flex-wrap justify-center md:justify-start gap-3">
-              <Button asChild className="rounded-xl bg-coral hover:bg-coral-dark">
-                <Link to="/pets/create">
-                  <Plus className="size-4 mr-2" />
-                  New Listing
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-xl"
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                <Edit3 className="size-4 mr-2" />
-                {isEditing ? 'Cancel' : 'Edit Profile'}
-              </Button>
-              <Button asChild variant="outline" className="rounded-xl border-coral/30 text-coral hover:bg-coral/10 hover:text-coral-dark">
-                <Link to="/profile/vendor/adoption-preferences">
-                  <SlidersHorizontal className="size-4 mr-2" />
-                  Adoption Preferences
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="rounded-xl border-teal/30 text-teal hover:bg-teal/10 hover:text-teal">
-                <Link to="/profile/vendor/submissions" className="inline-flex items-center gap-2">
-                  <FileText className="size-4" />
-                  Submission Forms
-                  <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-teal px-2 py-0.5 text-xs font-semibold text-white">
-                    {submissionCount}
-                  </span>
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="rounded-xl border-teal/30 text-teal hover:bg-teal/10 hover:text-teal">
-                <Link to="/profile/vendor/appointments" className="inline-flex items-center gap-2">
-                  <CalendarCheck className="size-4" />
-                  Appointments
-                  {pendingCount > 0 && (
-                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">
-                      {pendingCount}
+            {/* Quick Actions - Scrollable on mobile, wrapped on desktop */}
+            <div className="w-full overflow-x-auto pb-2 -mb-2 md:overflow-visible md:pb-0 md:mb-0">
+              <div className="flex flex-nowrap md:flex-wrap items-center gap-2 sm:gap-3 min-w-max md:min-w-0">
+                {/* 1. Adoption Preferences */}
+                <Button asChild variant="outline" className="rounded-xl border-coral/30 text-coral hover:bg-coral/10 hover:text-coral-dark shrink-0">
+                  <Link to="/profile/vendor/adoption-preferences">
+                    <SlidersHorizontal className="size-4 mr-2" />
+                    Adoption Preferences
+                  </Link>
+                </Button>
+
+                {/* 2. Submission Forms */}
+                <Button asChild variant="outline" className="rounded-xl border-teal/30 text-teal hover:bg-teal/10 hover:text-teal shrink-0">
+                  <Link to="/profile/vendor/submissions" className="inline-flex items-center gap-2">
+                    <FileText className="size-4" />
+                    Submission Forms
+                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-teal px-2 py-0.5 text-xs font-semibold text-white">
+                      {submissionCount}
                     </span>
-                  )}
-                </Link>
-              </Button>
-              {(verificationStatus === 'UNVERIFIED' || verificationStatus === 'REJECTED') && (
-                <Form method="post">
-                  <input type="hidden" name="intent" value="request-verification" />
-                  <Button type="submit" variant="outline" className="rounded-xl border-emerald-300 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-400 dark:hover:border-emerald-600 hover:text-emerald-800 dark:hover:text-emerald-300">
-                    Request Verification
+                  </Link>
+                </Button>
+
+                {/* 3. Appointments */}
+                <Button asChild variant="outline" className="rounded-xl border-teal/30 text-teal hover:bg-teal/10 hover:text-teal shrink-0">
+                  <Link to="/profile/vendor/appointments" className="inline-flex items-center gap-2">
+                    <CalendarCheck className="size-4" />
+                    Appointments
+                    {pendingCount > 0 && (
+                      <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </Link>
+                </Button>
+
+                {/* 4. Request Verification */}
+                {(verificationStatus === 'UNVERIFIED' || verificationStatus === 'REJECTED') && (
+                  <Form method="post" className="shrink-0">
+                    <input type="hidden" name="intent" value="request-verification" />
+                    <Button type="submit" variant="outline" className="rounded-xl border-emerald-300 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-400 dark:hover:border-emerald-600 hover:text-emerald-800 dark:hover:text-emerald-300">
+                      Request Verification
+                    </Button>
+                  </Form>
+                )}
+
+                {/* 5. Request Deletion */}
+                {hasPendingDeletion ? (
+                  <span className="inline-flex items-center px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400 shrink-0">
+                    Deletion Requested
+                  </span>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300 shrink-0"
+                    onClick={handleRequestDeletion}
+                    disabled={isRequesting}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    {isRequesting ? 'Submitting...' : 'Request Deletion'}
                   </Button>
-                </Form>
-              )}
-              {hasPendingDeletion ? (
-                <span className="inline-flex items-center px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
-                  Deletion Requested
-                </span>
-              ) : (
+                )}
+
+                {/* 6. Edit Profile / Cancel */}
                 <Button
                   variant="outline"
-                  className="rounded-xl border-red-200 dark:border-red-800/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 dark:hover:border-red-700/50 hover:text-red-700 dark:hover:text-red-300"
-                  onClick={handleRequestDeletion}
-                  disabled={isRequesting}
+                  className="rounded-xl shrink-0"
+                  onClick={() => setIsEditing(!isEditing)}
                 >
-                  <Trash2 className="size-4 mr-2" />
-                  {isRequesting ? 'Submitting...' : 'Request Deletion'}
+                  {isEditing ? (
+                    <>
+                      <X className="size-4 mr-2" />
+                      Cancel
+                    </>
+                  ) : (
+                    <>
+                      <Edit3 className="size-4 mr-2" />
+                      Edit Profile
+                    </>
+                  )}
                 </Button>
-              )}
+
+                {/* 7. New Listing */}
+                <Button asChild className="rounded-xl bg-coral hover:bg-coral-dark shrink-0">
+                  <Link to="/pets/create">
+                    <Plus className="size-4 mr-2" />
+                    New Listing
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -919,24 +943,27 @@ export default function VendorProfilePage() {
 
       {/* Stats Cards */}
       <div className="container mx-auto px-4 py-8">
+      {/* Stats Cards */}
+      <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
-            <p className="text-3xl font-bold text-foreground">{vendorPets.length}</p>
-            <p className="text-sm text-muted-foreground mt-1">Total Listings</p>
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
+            <p className="text-2xl sm:text-3xl font-bold text-foreground">{vendorPets.length}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Total Listings</p>
           </div>
-          <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
-            <p className="text-3xl font-bold text-foreground">{vendorPets.filter(p => p.fosterable).length}</p>
-            <p className="text-sm text-muted-foreground mt-1">Fosterable</p>
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
+            <p className="text-2xl sm:text-3xl font-bold text-foreground">{vendorPets.filter(p => p.fosterable).length}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Fosterable</p>
           </div>
-          <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
-            <p className="text-3xl font-bold text-foreground">{vendorPets.filter(p => p.atRisk).length}</p>
-            <p className="text-sm text-muted-foreground mt-1">At Risk</p>
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
+            <p className="text-2xl sm:text-3xl font-bold text-foreground">{vendorPets.filter(p => p.atRisk).length}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">At Risk</p>
           </div>
-          <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
-            <p className="text-3xl font-bold text-foreground">{vendorPets.reduce((sum, p) => sum + (p.viewCount || 0), 0)}</p>
-            <p className="text-sm text-muted-foreground mt-1">Total Views</p>
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm border border-zinc-200 dark:border-zinc-700">
+            <p className="text-2xl sm:text-3xl font-bold text-foreground">{vendorPets.reduce((sum, p) => sum + (p.viewCount || 0), 0)}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Total Views</p>
           </div>
         </div>
+      </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">

@@ -617,15 +617,15 @@ export default function DiscoverPage() {
 
     // Main swipe UI
     return (
-        <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex flex-col">
+        <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
             {/* Header */}
-            <div className="container mx-auto px-4 py-2 sm:py-4 shrink-0">
+            <div className="container mx-auto px-4 py-4">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 sm:gap-4">
-                        <Button variant="ghost" size="sm" asChild className="h-8 sm:h-9">
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" size="sm" asChild>
                             <Link to="/">
                                 <HomeIcon className="w-4 h-4 mr-1" />
-                                <span className="hidden sm:inline">Home</span>
+                                Home
                             </Link>
                         </Button>
                     </div>
@@ -634,7 +634,7 @@ export default function DiscoverPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => setShowFavorites(true)}
-                            className="flex items-center gap-1 h-8 sm:h-9"
+                            className="flex items-center gap-1"
                         >
                             <Heart className="w-4 h-4" />
                             <span>{preferences.likedPetIds.length}</span>
@@ -643,9 +643,11 @@ export default function DiscoverPage() {
                 </div>
             </div>
 
-            {/* Card Stack Container */}
-            <div className="flex-1 flex flex-col justify-center px-4 overflow-hidden min-h-0">
-                <div className="relative w-full max-w-[340px] sm:max-w-md aspect-[3/4.2] sm:aspect-[3/4] mx-auto">
+
+
+            {/* Card Stack */}
+            <div className="container mx-auto px-4 flex justify-center">
+                <div className="relative w-full max-w-md aspect-[3/4]">
                     {/* Current card */}
                     <Card
                         className={`absolute inset-0 overflow-hidden shadow-xl
@@ -672,68 +674,69 @@ export default function DiscoverPage() {
                                 className="w-full h-full object-cover"
                             />
                             {/* Gradient overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                         </div>
 
                         {/* Badges */}
-                        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-col gap-2">
+                        <div className="absolute top-4 left-4 flex gap-2">
                             {currentPet.atRisk && (
-                                <span className="bg-red-500 text-white px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-medium shadow-lg whitespace-nowrap">
+                                <span className="bg-red-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-lg">
                                     Needs Home Urgently
                                 </span>
                             )}
                             {currentPet.fosterable && (
-                                <span className="bg-green-500 text-white px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-medium shadow-lg whitespace-nowrap">
+                                <span className="bg-green-500 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-lg">
                                     Foster Available
                                 </span>
                             )}
+
                         </div>
 
                         {/* Report Button */}
                         <button
                             onClick={() => setReportingPet({ id: currentPet.id, name: currentPet.name })}
-                            className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 size-8 sm:size-9 rounded-full bg-black/40 hover:bg-amber-500 backdrop-blur-sm shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200"
+                            className="absolute top-4 right-4 z-10 size-9 rounded-full bg-black/40 hover:bg-amber-500 backdrop-blur-sm shadow-md flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200"
                             title="Report this listing"
                         >
-                            <Flag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                            <Flag className="w-4 h-4 text-white" />
                         </button>
 
                         {/* Swipe indicators */}
-                        <div className={`absolute top-1/4 left-6 transform -rotate-12 transition-opacity duration-200 ${swipeDirection === 'left' ? 'opacity-100' : 'opacity-0'
+                        <div className={`absolute top-1/3 left-8 transform -rotate-12 transition-opacity duration-200 ${swipeDirection === 'left' ? 'opacity-100' : 'opacity-0'
                             }`}>
-                            <div className="border-4 border-red-500 text-red-500 px-4 py-1 sm:px-6 sm:py-2 rounded-lg font-bold text-xl sm:text-2xl">
+                            <div className="border-4 border-red-500 text-red-500 px-6 py-2 rounded-lg font-bold text-2xl">
                                 NOPE
                             </div>
                         </div>
-                        <div className={`absolute top-1/4 right-6 transform rotate-12 transition-opacity duration-200 ${swipeDirection === 'right' ? 'opacity-100' : 'opacity-0'
+                        <div className={`absolute top-1/3 right-8 transform rotate-12 transition-opacity duration-200 ${swipeDirection === 'right' ? 'opacity-100' : 'opacity-0'
                             }`}>
-                            <div className="border-4 border-green-500 text-green-500 px-4 py-1 sm:px-6 sm:py-2 rounded-lg font-bold text-xl sm:text-2xl">
+                            <div className="border-4 border-green-500 text-green-500 px-6 py-2 rounded-lg font-bold text-2xl">
                                 LIKE
                             </div>
                         </div>
 
                         {/* Pet info */}
-                        <CardContent className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
-                            <div className="flex items-end justify-between gap-2">
-                                <div className="min-w-0 flex-1">
-                                    <h2 className="text-2xl sm:text-3xl font-bold mb-0.5 sm:mb-1 truncate">{currentPet.name}</h2>
-                                    <p className="text-base sm:text-lg opacity-90 truncate">{currentPet.breed}</p>
-                                    <p className="text-xs sm:text-sm opacity-75">
+                        <CardContent className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                            <div className="flex items-end justify-between">
+                                <div>
+                                    <h2 className="text-3xl font-bold mb-1">{currentPet.name}</h2>
+                                    <p className="text-lg opacity-90">{currentPet.breed}</p>
+                                    <p className="text-sm opacity-75">
                                         {currentPet.species} • {currentPet.age} {currentPet.age === 1 ? 'year' : 'years'} old
                                     </p>
                                     {currentPet.user?.verificationStatus === 'VERIFIED' && (
-                                        <span className="mt-1 sm:mt-2 inline-flex items-center rounded-full bg-teal/15 px-2 py-0.5 text-[10px] sm:text-xs font-semibold text-teal-100">
+                                        <span className="mt-2 inline-flex items-center rounded-full bg-teal/15 px-2.5 py-0.5 text-xs font-semibold text-teal-100">
                                             Verified Vendor
                                         </span>
                                     )}
                                 </div>
-                                <div className="text-right shrink-0">
-                                    <p className="text-xl sm:text-2xl font-bold">${getPetAdoptionFee(currentPet)}</p>
-                                    <p className="text-[10px] sm:text-xs opacity-75">adoption fee</p>
+                                <div className="text-right">
+                                    <p className="text-2xl font-bold">${getPetAdoptionFee(currentPet)}</p>
+                                    <p className="text-xs opacity-75">adoption fee</p>
                                 </div>
                             </div>
 
-                            <p className="mt-2 sm:mt-4 text-xs sm:text-sm opacity-90 line-clamp-2">
+                            <p className="mt-4 text-sm opacity-90 line-clamp-2">
                                 {currentPet.description}
                             </p>
                         </CardContent>
@@ -753,18 +756,18 @@ export default function DiscoverPage() {
             </div>
 
             {/* Action buttons */}
-            <div className="container mx-auto px-4 py-4 sm:py-8 shrink-0">
-                <div className="flex items-center justify-center gap-3 sm:gap-4">
+            <div className="container mx-auto px-4 py-8">
+                <div className="flex items-center justify-center gap-4">
                     {/* Undo button */}
                     <Button
                         variant="outline"
                         size="icon"
                         onClick={handleUndo}
                         disabled={!canUndo}
-                        className="h-10 w-10 sm:h-12 sm:w-12 rounded-full"
+                        className="h-12 w-12 rounded-full"
                         title="Undo (Ctrl+Z)"
                     >
-                        <Undo2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <Undo2 className="h-5 w-5" />
                     </Button>
 
                     {/* Pass button */}
@@ -773,10 +776,10 @@ export default function DiscoverPage() {
                         size="icon"
                         onClick={handlePass}
                         disabled={isAnimating}
-                        className="h-14 w-14 sm:h-16 sm:w-16 rounded-full border-2 border-red-400 hover:bg-red-50 hover:border-red-500 transition-all"
+                        className="h-16 w-16 rounded-full border-2 border-red-400 hover:bg-red-50 hover:border-red-500 transition-all"
                         title="Pass (← Arrow)"
                     >
-                        <X className="h-6 w-6 sm:h-8 sm:w-8 text-red-500" />
+                        <X className="h-8 w-8 text-red-500" />
                     </Button>
 
                     {/* Like button */}
@@ -785,28 +788,28 @@ export default function DiscoverPage() {
                         size="icon"
                         onClick={handleLike}
                         disabled={isAnimating}
-                        className="h-16 w-16 sm:h-20 sm:w-20 rounded-full border-2 border-green-400 hover:bg-green-50 hover:border-green-500 transition-all group"
+                        className="h-20 w-20 rounded-full border-2 border-green-400 hover:bg-green-50 hover:border-green-500 transition-all group"
                         title="Like (→ Arrow)"
                     >
-                        <Heart className="h-8 w-8 sm:h-10 sm:w-10 text-green-500 group-hover:fill-green-500 transition-all" />
+                        <Heart className="h-10 w-10 text-green-500 group-hover:fill-green-500 transition-all" />
                     </Button>
 
                     {/* View details button */}
                     <Button
-                        asChild
                         variant="outline"
                         size="icon"
-                        className="h-10 w-10 sm:h-12 sm:w-12 rounded-full"
-                        title="View Details"
+                        asChild
+                        className="h-12 w-12 rounded-full"
+                        title="View full profile"
                     >
-                        <Link to={`/pets/${currentPet.id}`}>
-                            <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <Link to={`/pets/${currentPet.id}?origin=discover`}>
+                            <Eye className="h-5 w-5" />
                         </Link>
                     </Button>
                 </div>
 
                 {/* Keyboard hints */}
-                <p className="text-center text-xs text-muted-foreground mt-4 hidden sm:block">
+                <p className="text-center text-xs text-muted-foreground mt-4">
                     Use <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">←</kbd> to pass,
                     <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono ml-1">→</kbd> to like
                 </p>

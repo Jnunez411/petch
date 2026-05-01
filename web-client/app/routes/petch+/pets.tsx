@@ -447,9 +447,9 @@ export default function PetsPage() {
       {/* Filters */}
       <div className="container mx-auto px-4 py-4 sm:py-6">
         <div className="w-full bg-white dark:bg-zinc-900 rounded-lg border dark:border-zinc-800 shadow-sm p-3 sm:p-4">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4 sm:gap-6">
-            {/* Search Input */}
-            <div className="flex items-center gap-2 w-full lg:flex-1 lg:min-w-[200px]">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6">
+            {/* Search Input & Button */}
+            <div className="flex flex-1 items-center gap-2 w-full lg:max-w-2xl">
               <input
                 type="text"
                 placeholder="Search by name, breed..."
@@ -460,105 +460,107 @@ export default function PetsPage() {
                     applyFilters({ search: searchQuery, page: 1 });
                   }
                 }}
-                className="px-4 py-2 border rounded-lg bg-background text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm sm:text-base"
+                className="px-4 py-2.5 border rounded-lg bg-zinc-50/50 dark:bg-zinc-800/50 text-foreground w-full focus:outline-none focus:ring-2 focus:ring-coral/30 text-sm sm:text-base border-zinc-200 dark:border-zinc-700"
               />
               <Button
-                size="sm"
+                size="default"
                 onClick={() => applyFilters({ search: searchQuery, page: 1 })}
-                className="shrink-0"
+                className="shrink-0 bg-coral hover:bg-coral-dark text-white px-6 font-semibold"
               >
                 Search
               </Button>
             </div>
 
-            {/* Other Filters Group */}
-            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-              {/* Species Filter */}
-              <div className="flex items-center gap-2">
-                <Label htmlFor="species-filter" className="text-xs sm:text-sm font-medium whitespace-nowrap">
-                  Species:
-                </Label>
-                <Select value={selectedSpecies} onValueChange={(value) => {
-                  setSelectedSpecies(value);
-                  applyFilters({ species: value, page: 1 });
-                }}>
-                  <SelectTrigger id="species-filter" className="w-[110px] sm:w-[140px] h-9 sm:h-10">
-                    <SelectValue placeholder="All Species" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Species</SelectItem>
-                    <SelectItem value="Dog">Dog</SelectItem>
-                    <SelectItem value="Cat">Cat</SelectItem>
-                    <SelectItem value="Bird">Bird</SelectItem>
-                    <SelectItem value="Rabbit">Rabbit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Age Range Filter */}
-              <div className="flex items-center gap-2">
-                <Label htmlFor="age-filter" className="text-xs sm:text-sm font-medium whitespace-nowrap">
-                  Age:
-                </Label>
-                <Select value={selectedAgeRange} onValueChange={(value) => {
-                  setSelectedAgeRange(value);
-                  applyFilters({ ageRange: value, page: 1 });
-                }}>
-                  <SelectTrigger id="age-filter" className="w-[110px] sm:w-[140px] h-9 sm:h-10">
-                    <SelectValue placeholder="All Ages" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Ages</SelectItem>
-                    <SelectItem value="0-2">0-2 years (Young)</SelectItem>
-                    <SelectItem value="3-5">3-5 years (Adult)</SelectItem>
-                    <SelectItem value="6-10">6-10 years (Mature)</SelectItem>
-                    <SelectItem value="10+">10+ years (Senior)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Checkboxes Group */}
-              <div className="flex items-center gap-4">
-                {/* Fosterable Checkbox */}
+            {/* Filter Controls Group */}
+            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 lg:gap-6 w-full lg:w-auto">
+              <div className="flex items-center gap-4 flex-wrap">
+                {/* Species Filter */}
                 <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="fosterable-filter"
-                    checked={filterFosterable}
-                    onCheckedChange={(checked) => {
-                      setFilterFosterable(checked as boolean);
-                      applyFilters({ fosterable: checked as boolean, page: 1 });
-                    }}
-                  />
-                  <Label htmlFor="fosterable-filter" className="text-xs sm:text-sm font-medium cursor-pointer whitespace-nowrap">
-                    Fosterable
+                  <Label htmlFor="species-filter" className="text-xs sm:text-sm font-medium whitespace-nowrap text-muted-foreground">
+                    Species:
                   </Label>
+                  <Select value={selectedSpecies} onValueChange={(value) => {
+                    setSelectedSpecies(value);
+                    applyFilters({ species: value, page: 1 });
+                  }}>
+                    <SelectTrigger id="species-filter" className="w-[120px] sm:w-[140px] h-10 border-zinc-200 dark:border-zinc-700">
+                      <SelectValue placeholder="All Species" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Species</SelectItem>
+                      <SelectItem value="Dog">Dog</SelectItem>
+                      <SelectItem value="Cat">Cat</SelectItem>
+                      <SelectItem value="Bird">Bird</SelectItem>
+                      <SelectItem value="Rabbit">Rabbit</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* At Risk Checkbox */}
+                {/* Age Range Filter */}
                 <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="atrisk-filter"
-                    checked={filterAtRisk}
-                    onCheckedChange={(checked) => {
-                      setFilterAtRisk(checked as boolean);
-                      applyFilters({ atRisk: checked as boolean, page: 1 });
-                    }}
-                  />
-                  <Label htmlFor="atrisk-filter" className="text-xs sm:text-sm font-medium cursor-pointer whitespace-nowrap">
-                    At Risk
+                  <Label htmlFor="age-filter" className="text-xs sm:text-sm font-medium whitespace-nowrap text-muted-foreground">
+                    Age:
                   </Label>
+                  <Select value={selectedAgeRange} onValueChange={(value) => {
+                    setSelectedAgeRange(value);
+                    applyFilters({ ageRange: value, page: 1 });
+                  }}>
+                    <SelectTrigger id="age-filter" className="w-[120px] sm:w-[140px] h-10 border-zinc-200 dark:border-zinc-700">
+                      <SelectValue placeholder="All Ages" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Ages</SelectItem>
+                      <SelectItem value="0-2">0-2 years</SelectItem>
+                      <SelectItem value="3-5">3-5 years</SelectItem>
+                      <SelectItem value="6-10">6-10 years</SelectItem>
+                      <SelectItem value="10+">10+ years</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              {/* Clear Filters Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearFilters}
-                className="h-8 sm:h-9 text-xs sm:text-sm"
-              >
-                Clear
-              </Button>
+              <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-start">
+                {/* Checkboxes Group */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="fosterable-filter"
+                      checked={filterFosterable}
+                      onCheckedChange={(checked) => {
+                        setFilterFosterable(checked as boolean);
+                        applyFilters({ fosterable: checked as boolean, page: 1 });
+                      }}
+                    />
+                    <Label htmlFor="fosterable-filter" className="text-xs sm:text-sm font-medium cursor-pointer whitespace-nowrap">
+                      Fosterable
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="atrisk-filter"
+                      checked={filterAtRisk}
+                      onCheckedChange={(checked) => {
+                        setFilterAtRisk(checked as boolean);
+                        applyFilters({ atRisk: checked as boolean, page: 1 });
+                      }}
+                    />
+                    <Label htmlFor="atrisk-filter" className="text-xs sm:text-sm font-medium cursor-pointer whitespace-nowrap">
+                      At Risk
+                    </Label>
+                  </div>
+                </div>
+
+                {/* Clear Filters Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearFilters}
+                  className="h-10 text-xs sm:text-sm border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50"
+                >
+                  Clear
+                </Button>
+              </div>
             </div>
           </div>
 

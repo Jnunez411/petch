@@ -10,7 +10,7 @@ import project.petch.petch_api.dto.user.UserType;
 public record RegisterRequest(
         @NotBlank(message = "Email is required") @Email(message = "Email must be valid") @Size(max = 255, message = "Email must not exceed 255 characters") String email,
 
-        @NotBlank(message = "Password is required") @Size(min = 8, max = 128, message = "Password must be 8-128 characters") @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$", message = "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)") String password,
+        @NotBlank(message = "Password is required") @Size(min = 8, max = 128, message = "Password must be 8-128 characters") @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#^_-])[A-Za-z\\d@$!%*?&#^_-]+$", message = "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#^_-)") String password,
 
         @NotBlank(message = "First name is required") @Size(min = 1, max = 100, message = "First name must be 1-100 characters") @Pattern(regexp = "^[a-zA-Z\\s\\-']+$", message = "First name can only contain letters, spaces, hyphens, and apostrophes") String firstName,
 

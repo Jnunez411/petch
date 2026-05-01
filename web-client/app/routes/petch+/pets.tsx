@@ -449,7 +449,7 @@ export default function PetsPage() {
         <div className="w-full bg-white dark:bg-zinc-900 rounded-lg border dark:border-zinc-800 shadow-sm p-3 sm:p-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6">
             {/* Search Input & Button */}
-            <div className="flex flex-1 items-center gap-2 w-full lg:max-w-2xl">
+            <div className="flex flex-1 items-center gap-2 w-full lg:max-w-2xl min-w-0">
               <input
                 type="text"
                 placeholder="Search by name, breed..."
